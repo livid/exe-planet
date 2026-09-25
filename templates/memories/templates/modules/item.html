@@ -1,0 +1,46 @@
+<div class="item"
+     data-item-link="{{ assets_prefix }}{{ article.id }}/"
+     data-article-id="{{ article.id }}"
+     data-article-slug="{{ article.slug }}"
+     data-article-created="{{ article.created.timeIntervalSince1970 }}"
+     data-attachments="[{% for attachment in article.attachments %}&#34;{{ attachment }}&#34;,{% endfor %}]"
+     data-video-filename="{{ article.videoFilename }}"
+     data-audio-filename="{{ article.audioFilename }}"
+     data-hero-image-filename="{{ article.heroImageFilename }}"
+     data-title-length="{{ article.title.count }}"
+     data-content-length="{{ article.content.count }}"
+     data-page-type="{{ current_item_type }}"
+     data-pinned="{{ article.pinned }}"
+>
+  <div class="time-box">
+    <div class="dot"></div>
+    <div class="time">&nbsp;</div>
+  </div>
+  <!-- box for HTML content -->
+  {% if article.title.count > 0 %}
+  <div class="title-box"{% if article.content.count == 0, article.tags.count > 0 %} style="padding-bottom: 20px"{% endif %}>
+    {{ article.title|escape }}
+  </div>
+  {% endif %}
+  {% if article.content.count > 0 %}
+  <div class="text-box content"{% if current_item_type == "blog" %} id="main-content"{% endif %}>
+    {% if current_item_type == "blog" %}
+    {{ content_html }}
+    {% else %}
+      {% if article.contentRendered.count > 0 %}
+        {{ article.contentRendered }}
+      {% else %}
+        {{ article.content }}
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if article.tags.count > 0 %}
+  <div class="tag-box"{% if article.content.count == 0 %} style="padding-top: 30px;"{% endif %}>
+    <div class="tag-icon"></div>
+    {% for tag in article.tags %}
+    <a href="{{ assets_prefix }}{{ tag }}.html" class="tag">{{ article.tags[tag]|escape }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

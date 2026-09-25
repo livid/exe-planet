@@ -1,0 +1,1 @@
+A new template forked from [Sepia](https://github.com/Planetable/SiteTemplateSepia), focusing on photos and serif font. Still a work in progress, I plan to release it in Planet 0.22.

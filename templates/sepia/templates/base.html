@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>{% block title %}{{ page_title|escape }}{% endblock %}</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  {% if has_avatar %}
+  <link rel="apple-touch-icon" href="{{ assets_prefix }}avatar.png?t={{ build_timestamp }}" />
+  <link rel="shortcut icon" href="{{ assets_prefix }}favicon.ico?t={{ build_timestamp }}" />
+  {% endif %}
+
+  <link rel="stylesheet" href="{{ assets_prefix }}assets/normalize.css">
+  <link rel="stylesheet" href="{{ assets_prefix }}assets/style.css?sha256={{ style_css_sha256 }}">
+
+  {% if user_settings['backgroundColor'] %}
+  <meta name="theme-color" content="{{ user_settings['backgroundColor'] }}">
+  {% else %}
+  <meta name="theme-color" content="#f4f1ec">
+  {% endif %}
+  <script src="{{ assets_prefix }}assets/sepia.js?t={{ build_timestamp }}" type="text/javascript"></script>
+  <script type="text/javascript">
+    let userAgentRegex = /Planet\/\S*/;
+    window.PLANET = {
+      visitedFromPlanetClient: !!navigator.userAgent.match(userAgentRegex),
+      assetsPrefix: '{{ assets_prefix }}',
+    };
+
+    {% if planet.acceptsDonation and planet.acceptsDonationETHAddress.count > 0 %}
+    var showDonate = true;
+    var address = "{{ planet.acceptsDonationETHAddress }}";
+    {% else %}
+    var showDonate = false;
+    var address = null;
+    {% endif %}
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (showDonate) {
+        document.getElementById('donate-nav-item').style.display = 'block';
+        initDonateModal(address);
+      } else {
+        document.getElementById('donate-nav-item').style.display = 'none';
+      }
+    {% block dom_ready %}
+    {% endblock %}
+    });
+  </script>
+  <style>
+  :root {
+    {% if user_settings['backgroundColor'] %}
+    --background-color: {{ user_settings['backgroundColor'] }};
+    {% endif %}
+
+    {% if user_settings['foregroundColor'] %}
+    --foreground-color: {{ user_settings['foregroundColor'] }};
+    {% endif %}
+
+    {% if user_settings['highlightColor'] %}
+    --highlight-color: {{ user_settings['highlightColor'] }};
+    {% endif %}
+
+    {% if user_settings['highlightColorFilter'] %}
+    --icon-hover-filter: {{ user_settings['highlightColorFilter'] }};
+    {% endif %}
+
+    {% if user_settings['foregroundSecondaryColorFilter'] %}
+    --icon-secondary-filter: {{ user_settings['foregroundSecondaryColorFilter'] }};
+    {% endif %}
+
+    {% if user_settings['linkColor'] %}
+    --link-color: {{ user_settings['linkColor'] }};
+    {% endif %}
+
+    {% if user_settings['linkHoverColor'] %}
+    --link-hover-color: {{ user_settings['linkHoverColor'] }};
+    {% endif %}
+
+    {% if user_settings['siteTitleColor'] %}
+    --site-title-color: {{ user_settings['siteTitleColor'] }};
+    {% endif %}
+
+    {% if user_settings['siteTitleHoverColor'] %}
+    --site-title-hover-color: {{ user_settings['siteTitleHoverColor'] }};
+    {% endif %}
+
+    {% if user_settings['borderColor'] %}
+    --border-color: {{ user_settings['borderColor'] }};
+    {% endif %}
+
+    {% if user_settings['foregroundSecondaryColor'] %}
+    --secondary-color: {{ user_settings['foregroundSecondaryColor'] }};
+    {% endif %}
+
+    {% if user_settings['navigationLinkColor'] %}
+    --nav-color: {{ user_settings['navigationLinkColor'] }};
+    {% endif %}
+
+    {% if user_settings['navigationActiveItemColor'] %}
+    --nav-active-color: {{ user_settings['navigationActiveItemColor'] }};
+    {% endif %}
+  }
+  </style>
+  {% block head %}{% endblock %}
+  {% if planet.plausibleEnabled %}
+  <script defer data-domain="{{ planet.plausibleDomain }}" src="https://{{ planet.plausibleAPIServer }}/js/plausible.local.js"></script>
+  {% endif %}
+  {% if custom_code_head.count > 0 %}{{ custom_code_head }}{% endif %}
+</head>
+
+<body>
+  <div id="wrapper">
+  <div id="modal" onclick="dismissModal()">
+    <img id="modal-img" />
+  </div>
+  {% include "modules/donate_modal.html" %}
+  <div id="container">
+    <div id="main-container">
+      {% block main %}
+      {% endblock %}
+    </div>
+    <div id="aside-container">
+      {% block aside %}
+      <div class="nav">
+        <div class="nav-item">
+          <a href="{{ assets_prefix }}" class="nav-link{% if current_item_type == "index" %} current{% endif %}">Home</a>
+        </div>
+        {% for item in site_navigation %}
+        <div class="nav-item">
+          <a href="{% if item.externalLink.count > 0 %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{% if item.slug.count > 0 %}{{ item.slug }}{% else %}{{ item.id }}{% endif %}/{% endif %}" class="nav-link{% if item.id == article_id %} current{% endif %}"{% if item.externalLink.count > 0 %} target="_blank"{% endif %}>{{ item.title|escape }}</a>
+        </div>
+        {% endfor %}
+        {% if planet.tags.count > 0 %}
+        <div class="nav-item">
+          <a href="{{ assets_prefix }}tags.html" class="nav-link{% if current_item_type == "tags" %} current{% endif %}">Tags</a>
+        </div>
+        {% endif %}
+        <div class="nav-item">
+          <a href="{{ assets_prefix }}archive.html" class="nav-link{% if current_item_type == "archive" %} current{% endif %}">Archive</a>
+        </div>
+        <div class="nav-item" id="donate-nav-item">
+          <a href="javascript:showDonateModal()" class="nav-link">
+          <span>Donate <img style="width: calc(1em - 2px); height: calc(1em - 2px); vertical-align: baseline;" src="{{ assets_prefix }}assets/eth.svg" />
+          </span>
+          </a>
+        </div>
+      </div>
+      {% endblock %}
+    </div>
+  </div>
+  </div>
+</body>
+</html>

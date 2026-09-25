@@ -1,0 +1,80 @@
+{
+  "name": "Memories",
+  "description": "For photos, notes, and memories. Serif font, gray background, and a clean layout.",
+  "author": "Planetable Team",
+  "authorWebsite": "https://planetable.xyz",
+  "version": "0.0.1",
+  "idealItemsPerPage": 2,
+  "generateIndexPagination": true,
+  "generateTagPages": true,
+  "generateArchive": true,
+  "buildNumber": 91,
+  "settings": {
+    "highlightColor": {
+      "name": "Highlight Color",
+      "type": "string",
+      "defaultValue": "#005392",
+      "description": "Highlight color, default value: #005392 (ocean blue)"
+    },
+    "linkColor": {
+      "name": "Link Color",
+      "type": "string",
+      "defaultValue": "#778087",
+      "description": "Link color, default value: #778087 (blueish gray)"
+    },
+    "linkHoverColor": {
+      "name": "Link Hover Color",
+      "type": "string",
+      "defaultValue": "#4D5256",
+      "description": "Link hover color, default value: #4D5256 (darker blueish gray)"
+    },
+    "siteTitleColor": {
+      "name": "Site Title Color",
+      "type": "string",
+      "defaultValue": "#333333",
+      "description": "Site title color, default value: #333333 (dark gray)"
+    },
+    "siteTitleHoverColor": {
+      "name": "Site Title Hover Color",
+      "type": "string",
+      "defaultValue": "#000000",
+      "description": "Site title hover color, default value: #000000 (black)"
+    },
+    "backgroundColor": {
+      "name": "Background Color",
+      "type": "string",
+      "defaultValue": "#D5D5D5",
+      "description": "Background color, default value: #D5D5D5 (light gray)"
+    },
+    "foregroundColor": {
+      "name": "Foreground Color",
+      "type": "string",
+      "defaultValue": "#111122",
+      "description": "Foreground color, default value: #111122 (black)"
+    },
+    "foregroundSecondaryColor": {
+      "name": "Foreground Secondary Color",
+      "type": "string",
+      "defaultValue": "#9999aa",
+      "description": "Foreground secondary color, default value: #9999aa (gray)"
+    },
+    "borderColor": {
+      "name": "Border Color",
+      "type": "string",
+      "defaultValue": "#E7E5DF",
+      "description": "Border color, default value: #E7E5DF (a bit darker than background color)"
+    },
+    "navigationLinkColor": {
+      "name": "Navigation Link Color",
+      "type": "string",
+      "defaultValue": "#333333",
+      "description": "Navigation link color, default value: #333333 (dark gray)"
+    },
+    "navigationActiveItemColor": {
+      "name": "Navigation Active Item Color",
+      "type": "string",
+      "defaultValue": "#FCFCFA",
+      "description": "Navigation active item color, default value: #FCFCFA (brighter than background color)"
+    }
+  }
+}

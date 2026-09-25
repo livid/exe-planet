@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% endblock %}
+{% block dom_ready %}
+const items = document.querySelectorAll('.item');
+for (let i = 0; i < items.length; i++) {
+  const item = items[i];
+
+  decorateItem(item);
+}
+
+{% include 'modules/video.js' %}
+{% endblock %}
+{% block main %}
+{% include "modules/site_header.html" %}
+{% if tag_key %}
+<div class="section-title">{{ tag_value }}</div>
+{% endif %}
+<div class="items">
+  {% for article in articles %}
+  {% include "modules/item.html" %}
+  {% endfor %}
+</div>
+{% if total_pages > 1 %}
+<div class="pages-container">
+  {% if previous_page %}
+  <a href="./{{ previous_page }}" class="page">Prev</a>
+  {% else %}
+  <span class="page-placeholder">&nbsp;</span>
+  {% endif %}
+  <div class="pages-info">{% if total_pages > 1 %}Page {{ current_page }} of {{ total_pages }}{% else %}&nbsp;{% endif %}</div>
+  {% if next_page %}
+  <a href="./{{ next_page }}" class="page">Next</a>
+  {% else %}
+  <span class="page-placeholder">&nbsp;</span>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

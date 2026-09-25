@@ -1,0 +1,24 @@
+<div id="nav">
+  <div class="nav-inner">
+    <span><a href="{{ assets_prefix }}index.html"><img src="{{ assets_prefix }}assets/home.png" class="nav-icon" /></a><a href="{{ assets_prefix }}index.html" class="{% if current_item_type == "index" %}nav-current{% else %}nav-item{% endif %}">Home</a></span>
+    <span><a href="{{ assets_prefix }}tags.html"><img src="{{ assets_prefix }}assets/tags.png" class="nav-icon" /></a><a href="{{ assets_prefix }}tags.html" class="{% if current_item_type == "tags" %}nav-current{% else %}nav-item{% endif %}">Tags</a></span>
+    <span><a href="{{ assets_prefix }}archive.html"><img src="{{ assets_prefix }}assets/archive.png" class="nav-icon" /></a><a href="{{ assets_prefix }}archive.html" class="{% if current_item_type == "archive" %}nav-current{% else %}nav-item{% endif %}">Archive</a></span>
+    <span class="dot">·</span>
+    <a href="{{ assets_prefix }}rss.xml" target="_blank"><img src="{{ assets_prefix }}assets/rss.png" width="24" alt="RSS" class="social-icon" /></a>
+    {% if planet.twitterUsername.count > 0 %}
+    <a href="https://twitter.com/{{ planet.twitterUsername|escapejs }}" target="_blank"><img src="{{ assets_prefix }}assets/twitter.png" width="24" alt="Twitter" class="social-icon" /></a>
+    {% endif %}
+    {% if planet.githubUsername.count > 0 %}
+    <a href="https://github.com/{{ planet.githubUsername|escapejs }}" target="_blank"><img src="{{ assets_prefix }}assets/github.png" alt="github.com/{{ planet.githubUsername|escapejs }}" class="social-icon" width="24"></a>
+    {% endif %}
+    {% if planet.telegramUsername.count > 0 %}
+    <a href="https://t.me/{{ planet.telegramUsername|escapejs }}" target="_blank"><img src="{{ assets_prefix }}assets/telegram.png" width="24" alt="Telegram" class="social-icon" /></a>
+    {% endif %}
+    {% if site_navigation.count > 0 %}
+    <span class="dot">·</span>
+    {% endif %}
+    {% for item in site_navigation %}
+    <a href="{% if item.externalLink.count > 0 %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{% if item.slug.count > 0 %}{{ item.slug }}{% else %}{{ item.id }}{% endif %}/{% endif %}" class="{% if item.id == article_id %}nav-current{% else %}nav-item{% endif %}"{% if item.externalLink.count > 0 %} target="_blank"{% endif %}>{{ item.title }}</a>
+    {% endfor %}
+  </div>
+</div>

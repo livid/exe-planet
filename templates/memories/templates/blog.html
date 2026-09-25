@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block head %}
+{% include 'modules/post_seo.html' %}
+{% endblock %}
+{% block dom_ready %}
+if (window.PLANET.visitedFromPlanetClient) {
+  let aside = document.getElementById("aside-container");
+  if (aside) {
+    aside.style.display = "none";
+  }
+  let main = document.getElementById("main-container");
+  if (main) {
+    main.style.borderRight = "none";
+    main.style.borderBottom = "none";
+    main.style.marginRight = "0";
+  }
+}
+
+const todos = document.querySelectorAll('li:has(input[type="checkbox"])');
+let i = 1;
+todos.forEach(item => {
+  item.id = "todo-item-" + i;
+  i++;
+});
+
+const items = document.querySelectorAll('.item');
+const item = items[0];
+if (item) {
+  decorateItem(item);
+  // set time every 60 seconds
+  setInterval(() => {
+    setTime(item);
+  }, 60000);
+}
+
+{% include 'modules/video.js' %}
+{% endblock %}
+{% block main %}
+<div id="breadcrumb">
+    <img src="{% if has_avatar %}{{ assets_prefix }}avatar.png?t={{ build_timestamp }}{% else %}{{ assets_prefix }}assets/void.png{% endif %}" class="breadcrumb-avatar" />
+    <div class="breadcrumb-title"><a href="{{ assets_prefix }}" class="site-title">{{ planet.name|escape }}</a></div>
+</div>
+{% include "modules/item.html" %}
+<style type="text/css">
+.item {
+  margin-left: 7px;
+}
+</style>
+{% endblock %}

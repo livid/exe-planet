@@ -1,0 +1,12 @@
+{
+  "name": "Sparkle",
+  "description": "A special minimalism template for building a site for hosting release notes for Sparkle Framework",
+  "author": "Planetable Team",
+  "authorWebsite": "https://planetable.xyz",
+  "version": "0.0.1",
+  "idealItemsPerPage": 4,
+  "generateIndexPagination": false,
+  "generateTagPages": false,
+  "generateArchive": false,
+  "buildNumber": 1
+}
