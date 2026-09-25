@@ -7,7 +7,7 @@ RSS that Planet itself emits. Each site can, per node and off by default,
 be exposed through exe's proxy under a hostname and published to IPFS
 through the host's Kubo. The editor is an exe desktop app kept in this repo.
 
-Status: planned 2026-09-25, nothing built.
+Status: phase 0 done 2026-09-25 (exe commit 0454005: service relay, route API, config applied); the daemon itself is not started.
 
 **This file is the single source of truth for the project design.** Update
 it whenever a decision changes; code follows the plan, not the other way
@@ -285,6 +285,20 @@ Config: `services: {"planet": "http://127.0.0.1:7799"}` and `apps_dirs`
 gains `/www/exe-planet/apps`, so the `Planet` app folder is served live
 from this checkout with no daemon code.
 
+Built and applied on 2026-09-25 (exe commit 0454005). As shipped:
+
+- `/v1/svc/{name}` and `/v1/svc/{name}/{path...}` for GET, POST, PUT,
+  PATCH and DELETE; the app calls `/v1/svc/planet/v1/sites`. The token
+  and cookies stop at exe; the service's `Set-Cookie` and CORS headers are
+  stripped; nothing is sandboxed. Unknown service is 404, unreachable is
+  502 with the dial error.
+- `POST /v1/routes {"host", "backend"}` where backend is an http(s) origin
+  with no path; answers the same `host, backend, url, dns, ingress,
+  warnings` as a VM expose. `DELETE /v1/routes/{host}` removes it. CLI:
+  `exe expose <host> -backend http://127.0.0.1:7799`.
+- The live daemon runs with an empty `api_token`, so its `/v1` routes,
+  the relay included, are open to whoever reaches its Tailscale address.
+
 ## The app
 
 `apps/Planet/` with `app.json` and one `index.html`, Mac OS 9 Platinum
@@ -339,7 +353,7 @@ keeps its `ipns` value only when the key is imported too, which needs a
 ## Phases
 
 0. exe: service relay, route registration, config. Build and restart exe
-   once.
+   once. Done 2026-09-25.
 1. Daemon skeleton: scan, slug validation, sites and posts API on files,
    watcher, systemd unit, tests.
 2. Template engine and builder to golden parity, template by template.
