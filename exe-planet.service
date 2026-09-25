@@ -1,0 +1,13 @@
+[Unit]
+Description=exe-planet daemon
+After=network.target
+
+[Service]
+WorkingDirectory=/www/exe-planet
+ExecStart=/www/exe-planet/exe-planet
+Restart=always
+RestartSec=1
+UMask=0027
+
+[Install]
+WantedBy=default.target

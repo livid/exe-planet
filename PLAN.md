@@ -7,7 +7,7 @@ RSS that Planet itself emits. Each site can, per node and off by default,
 be exposed through exe's proxy under a hostname and published to IPFS
 through the host's Kubo. The editor is an exe desktop app kept in this repo.
 
-Status: phase 0 done 2026-09-25 (exe commit 0454005: service relay, route API, config applied); the daemon itself is not started.
+Status: phases 0 and 1 done 2026-09-25. exe carries the relay and route API (exe 0454005); the daemon runs as the user unit `exe-planet` on 127.0.0.1:7799 with the file store, sites and posts API, poll watcher and tests. No builder, templates, app or publishing yet.
 
 **This file is the single source of truth for the project design.** Update
 it whenever a decision changes; code follows the plan, not the other way
@@ -244,9 +244,21 @@ hundreds of golden pairs for free.
   read from `~/.exe/config.json` for route registration. Every test passes
   its own scratch directories; nothing derives a test path from `EXE_HOME`
   or `HOME`, and nothing under `~/.exe` is touched by a test.
-- Scans the Workspace at start and watches it with a short debounce, so a
-  post edited in the desk text editor, by an agent after a Terminal drop,
-  or on a synced peer rebuilds the site without the editor being involved.
+- Watches the Workspace by polling, not inotify (`internal/watch`): a
+  stat walk every second, a change reported once two polls agree, hidden
+  paths skipped. No watch limits, no dependency, and a tree of a few
+  thousand files costs milliseconds. A post edited in the desk text
+  editor, by an agent after a Terminal drop, or on a synced peer is seen
+  the same way. Phase 1 logs changes and counts them in `/v1/status`;
+  phase 2 hooks the builder to the same callback.
+- Every API call reads the folder afresh; there is no cache to go stale.
+  A folder whose `site.json` or `index.md` cannot be read is listed with
+  an `error` field, never dropped. A body is stored as a text file and
+  comes back ending in one newline. `DELETE` on a site or post removes the
+  folder; archiving is `POST …/archive` and `…/unarchive`, a move into and
+  out of `Archived/`. Attachments are multipart parts named `file`, kept
+  under their base name; names starting with `.` or `_` are refused
+  because `_grid.png` and friends are build output.
 - API, JSON, loopback only, authenticated by exe's relay in front:
   - `GET /v1/sites`, `POST /v1/sites` (title, slug, template),
     `GET|PUT|DELETE /v1/sites/{slug}`
@@ -355,7 +367,8 @@ keeps its `ipns` value only when the key is imported too, which needs a
 0. exe: service relay, route registration, config. Build and restart exe
    once. Done 2026-09-25.
 1. Daemon skeleton: scan, slug validation, sites and posts API on files,
-   watcher, systemd unit, tests.
+   watcher, systemd unit, tests. Done 2026-09-25: `make install` put the
+   unit in place, `make restart` is the loop.
 2. Template engine and builder to golden parity, template by template.
 3. Importer, used first by the golden tests.
 4. The app.
