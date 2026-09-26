@@ -62,7 +62,7 @@ def rect(d, x0, y0, x1, y1, fill=None, outline=None, width=S):
 
 def window(d, x, y, w, h, title):
     """A Platinum window at scale S: edge, bevel, striped bar with the
-    title on a field, the seam, and a white frame below. Answers the
+    title on a field and no close box, the seam, and a white frame below. Answers the
     content box (x0, y0, x1, y1)."""
     # the window face and its edge
     rect(d, x, y, x + w, y + h, fill=G400, outline=BLACK)
@@ -78,12 +78,7 @@ def window(d, x, y, w, h, title):
     for yy in range(bar_y0 + S, bar_y1 - S, 2 * S):
         d.rectangle([bx0, yy, bx1 - 1, yy + S - 1], fill=WHITE)
         d.rectangle([bx0, yy + S, bx1 - 1, yy + 2 * S - 1], fill=G700)
-    # the close box at the left, 13 units square
-    cx, cy = bx0 + S * 2, bar_y0
-    d.rectangle([cx, cy, cx + 13 * S - 1, cy + 13 * S - 1], fill=G400)
-    d.rectangle([cx + S, cy + S, cx + 12 * S - 1, cy + 12 * S - 1], outline=BLACK, width=S)
-    d.rectangle([cx + 3 * S, cy + 3 * S, cx + 10 * S - 1, cy + 10 * S - 1], fill=WHITE)
-    d.rectangle([cx + 3 * S, cy + 3 * S, cx + 9 * S - 1, cy + 9 * S - 1], outline=G700, width=S)
+    # no close box: a card is not a window anyone closes
     tw = d.textlength(title, font=title_font) + 2 * HEAVY
     tx = x + (w - tw) / 2
     d.rectangle([tx - 8, bar_y0, tx + tw + 8, bar_y1 - 1], fill=G400)
