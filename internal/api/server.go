@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/livid/exe-planet/internal/importer"
 	"github.com/livid/exe-planet/internal/service"
 	"github.com/livid/exe-planet/internal/site"
 )
@@ -31,8 +32,10 @@ type Builder interface {
 
 // Server serves the API for one store.
 type Server struct {
-	Store      *site.Store
-	Builder    Builder
+	Store   *site.Store
+	Builder Builder
+	// Templates is where a Planet template name is resolved on import.
+	Templates  string
 	Version    string
 	Started    time.Time
 	Generation func() uint64
@@ -59,6 +62,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/attachments/{name}", s.getAttachment)
 	mux.HandleFunc("DELETE /v1/sites/{site}/posts/{post}/attachments/{name}", s.deleteAttachment)
 	mux.HandleFunc("GET /v1/templates", s.listTemplates)
+	mux.HandleFunc("GET /v1/import", s.listImport)
+	mux.HandleFunc("POST /v1/import", s.runImport)
 	mux.HandleFunc("POST /v1/sites/{site}/build", s.buildSite)
 	mux.HandleFunc("GET /v1/sites/{site}/status", s.siteStatus)
 	mux.HandleFunc("POST /v1/sites/{site}/preview", s.previewPost)
@@ -484,4 +489,71 @@ func (s *Server) serveSite(w http.ResponseWriter, r *http.Request) {
 	}
 	prefix := "/sites/" + r.PathValue("site") + "/"
 	http.StripPrefix(prefix, http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
+}
+
+// listImport lists the planets in a Planet library folder on this
+// machine: GET /v1/import?library=<path>. The path may also be a
+// My/<uuid> folder, in which case that one planet is listed.
+func (s *Server) listImport(w http.ResponseWriter, r *http.Request) {
+	library, id, err := importer.LibraryRoot(r.URL.Query().Get("library"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	entries, err := importer.List(library)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if id != "" {
+		var one []importer.Entry
+		for _, e := range entries {
+			if e.ID == id {
+				one = append(one, e)
+			}
+		}
+		entries = one
+	}
+	if entries == nil {
+		entries = []importer.Entry{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"library": library, "planets": entries})
+}
+
+// runImport imports one planet: POST /v1/import {library, id, slug}. The
+// library may be a My/<uuid> folder, and then id may be left out. The
+// site is built right after, when a builder is there.
+func (s *Server) runImport(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Library string `json:"library"`
+		ID      string `json:"id"`
+		Slug    string `json:"slug"`
+	}
+	if err := decode(r, &req); err != nil {
+		fail(w, err)
+		return
+	}
+	library, id, err := importer.LibraryRoot(req.Library)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if req.ID != "" {
+		id = req.ID
+	}
+	if id == "" {
+		writeErr(w, http.StatusBadRequest, errors.New("id is required with a library folder"))
+		return
+	}
+	res, err := importer.Import(s.Store, s.Templates, library, id, strings.TrimSpace(req.Slug))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if s.Builder != nil {
+		if st, err := s.Builder.Build(res.Site); err != nil {
+			res.Warnings = append(res.Warnings, "build: "+st.Error)
+		}
+	}
+	writeJSON(w, http.StatusCreated, res)
 }

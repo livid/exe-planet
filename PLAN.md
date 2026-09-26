@@ -7,7 +7,7 @@ RSS that Planet itself emits. Each site can, per node and off by default,
 be exposed through exe's proxy under a hostname and published to IPFS
 through the host's Kubo. The editor is an exe desktop app kept in this repo.
 
-Status: phases 0 to 2 done 2026-09-25. The template engine and the builder reproduce Planet 0.22.4 byte for byte on the Sparkle and Memories goldens (four planets, every page, feed and JSON); the Plain and Sepia goldens on the Mac were rendered with template versions the Mac no longer holds and wait for a rebuild there. The daemon builds a site when its files change, on request, and at start, serves each build under `/sites/<slug>/`, and renders previews. No importer, app or publishing yet.
+Status: phases 0 to 3 done 2026-09-25. The template engine and the builder reproduce Planet 0.22.4 byte for byte on the Sparkle and Memories goldens (four planets, every page, feed and JSON); the Plain and Sepia goldens on the Mac were rendered with template versions the Mac no longer holds and wait for a rebuild there. The daemon builds a site when its files change, on request, and at start, serves each build under `/sites/<slug>/`, renders previews, and imports a planet from a Planet library folder on this machine. No app or publishing yet.
 
 **This file is the single source of truth for the project design.** Update
 it whenever a decision changes; code follows the plan, not the other way
@@ -309,7 +309,9 @@ hundreds of golden pairs for free.
     last build, whether one is running and whether another is queued;
     `POST /v1/sites/{slug}/publish` is phase 5
   - `GET /v1/templates`, `GET /v1/templates/{name}`
-  - `POST /v1/import` from a Planet library folder
+  - `GET /v1/import?library=<path>` lists the planets in a Planet library
+    folder on this machine (or the one planet of a `My/<uuid>` folder);
+    `POST /v1/import {library, id, slug}` brings one in and builds it
   - `GET /sites/{slug}/…` serves `public/` for the preview frame; a request
     whose `Host` matches an exposed hostname is served from that site's
     `public/` at the root, so exe's route backend is plain
@@ -379,15 +381,27 @@ change is screenshotted at device pixel ratios 1, 1.5 and 2.
 
 ## Import
 
-Reads a copied Planet library planet: `My/<uuid>/planet.json` and
-`Articles/*.json` for the text and metadata, `Public/<uuid>/<article>/`
-for the attachments, since Planet keeps attachments only in the built site.
-Writes the Workspace layout: `site.json` without the token fields,
-`posts/<slug or uuid>/index.md` with the article's id, title, created,
-modified, tags, hero, link and type, and the attachments alongside. Dates
-convert from seconds since 2001 to RFC 3339. Drafts are skipped. The site
-keeps its `ipns` value only when the key is imported too, which needs a
-`.planet` backup and is a follow-up.
+Done 2026-09-25 (`internal/importer`). Reads a copied Planet library:
+`My/<uuid>/planet.json` and `Articles/*.json` for the text and metadata,
+`Public/<uuid>/<article>/` for the attachments, since Planet keeps
+attachments only in the built site. The library is any folder on this
+machine; the Mac's is copied with
+`rsync -a livid@<mac>:~/Library/Containers/xyz.planetable.Planet/Data/Documents/Planet/ <somewhere>/`.
+Writes the Workspace layout: `site.json` with Planet's own id, name,
+about, template (resolved to the installed folder, so "8-bit" becomes
+`gamedb`), settings, author, tags, social, Plausible and noindex, without
+the token fields or the `ipns`; `avatar.png`, `favicon.ico`, and the
+custom code as `head.html`, `body-start.html`, `body-end.html` when
+enabled; `posts/<slug>/index.md` (a page under `pages/`, with its weight)
+carrying the article's id, title, created and modified to the
+microsecond, tags by display name, hero when it is an attachment, and
+external link; the listed attachments beside it. A slug is the article's
+own when valid, else from its title, else the id lower-cased, with a
+counter on a clash. A title may be empty, as Planet allows. A failure
+part way removes the half-made site. The site keeps its `ipns` only when
+the key is imported too, which needs a `.planet` backup and is a
+follow-up. Measured: planet.local, 121 posts and 39 attachments, imports
+in 0.2 s and builds in 0.2 s.
 
 ## Testing
 
@@ -420,7 +434,8 @@ keeps its `ipns` value only when the key is imported too, which needs a
    every site), every live site built at start, and the shipped
    templates installed into `Workspace/Planet/Templates` by buildNumber
    unless the folder holds a `.git`.
-3. Importer, used first by the golden tests.
+3. Importer, used first by the golden tests. Done 2026-09-25; the goldens
+   are laid out as libraries, so each imports as is.
 4. The app.
 5. Publishing: expose, keys, IPFS.
 6. Markdown without a dependency, gated on the corpus.

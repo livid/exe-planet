@@ -23,7 +23,7 @@ import (
 	"github.com/livid/exe-planet/internal/watch"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 func main() {
 	home, _ := os.UserHomeDir()
@@ -66,7 +66,7 @@ func run(listen, workspace, state, templates string) error {
 
 	srv := &http.Server{
 		Addr:              listen,
-		Handler:           (&api.Server{Store: store, Builder: svc, Version: version, Started: time.Now(), Generation: poller.Generation}).Handler(),
+		Handler:           (&api.Server{Store: store, Builder: svc, Templates: svc.Templates, Version: version, Started: time.Now(), Generation: poller.Generation}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errc := make(chan error, 1)

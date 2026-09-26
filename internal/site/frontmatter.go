@@ -111,10 +111,10 @@ func FormatDoc(m Meta, body string) []byte {
 	line("id", m.ID)
 	line("title", m.Title)
 	if !m.Created.IsZero() {
-		line("created", m.Created.Format(time.RFC3339))
+		line("created", formatDate(m.Created))
 	}
 	if !m.Modified.IsZero() {
-		line("modified", m.Modified.Format(time.RFC3339))
+		line("modified", formatDate(m.Modified))
 	}
 	line("tags", strings.Join(m.Tags, ", "))
 	line("hero", m.Hero)
@@ -137,6 +137,15 @@ func FormatDoc(m Meta, body string) []byte {
 		}
 	}
 	return b.Bytes()
+}
+
+// formatDate writes RFC 3339, keeping fractional seconds only when there
+// are any: an imported Planet date has microseconds a follower compares.
+func formatDate(t time.Time) string {
+	if t.Nanosecond() == 0 {
+		return t.Format(time.RFC3339)
+	}
+	return t.Format("2006-01-02T15:04:05.999999Z07:00")
 }
 
 func splitTags(s string) []string {

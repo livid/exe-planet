@@ -62,8 +62,14 @@ func TestGoldens(t *testing.T) {
 		}
 		name := e.Name()
 		t.Run(name, func(t *testing.T) {
-			my := filepath.Join(root, name, "My")
-			pub := filepath.Join(root, name, "Public")
+			// A golden is laid out as a Planet library: My/<uuid> and
+			// Public/<uuid>, one planet each.
+			ids, err := os.ReadDir(filepath.Join(root, name, "My"))
+			if err != nil || len(ids) != 1 {
+				t.Fatalf("%s: expected one planet under My, found %d", name, len(ids))
+			}
+			my := filepath.Join(root, name, "My", ids[0].Name())
+			pub := filepath.Join(root, name, "Public", ids[0].Name())
 			// A stale.txt in the golden says its pages were rendered with a
 			// template the Mac no longer has; it is skipped until the planet
 			// is rebuilt there and fetched again.

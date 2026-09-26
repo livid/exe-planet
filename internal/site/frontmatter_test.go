@@ -64,6 +64,18 @@ func TestParseDocForms(t *testing.T) {
 	}
 }
 
+func TestFractionalSeconds(t *testing.T) {
+	when := time.Date(2026, 9, 25, 10, 0, 0, 386509000, time.UTC)
+	out := string(FormatDoc(Meta{ID: "X", Created: when}, ""))
+	if !strings.Contains(out, "created: 2026-09-25T10:00:00.386509Z\n") {
+		t.Fatalf("%q", out)
+	}
+	m, _, err := ParseDoc([]byte(out))
+	if err != nil || !m.Created.Equal(when) {
+		t.Fatalf("%v %v", err, m.Created)
+	}
+}
+
 func TestFormatDocOmitsEmpty(t *testing.T) {
 	out := string(FormatDoc(Meta{ID: "X", Title: "T"}, ""))
 	if out != "---\nid: X\ntitle: T\n---\n" {

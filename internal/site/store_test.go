@@ -140,8 +140,8 @@ func TestPostLifecycle(t *testing.T) {
 			t.Errorf("slug reused as %s: %v", kind, err)
 		}
 	}
-	if _, err := s.CreatePost("charts", KindPost, "untitled", Meta{}, ""); !errors.Is(err, ErrInvalid) {
-		t.Errorf("no title: %v", err)
+	if p, err := s.CreatePost("charts", KindPost, "untitled", Meta{}, "body only\n"); err != nil || p.Title != "" {
+		t.Errorf("a post without a title: %v %+v", err, p)
 	}
 	if _, err := s.CreatePost("charts", "blog", "x", Meta{Title: "X"}, ""); !errors.Is(err, ErrInvalid) {
 		t.Errorf("bad kind: %v", err)
@@ -170,8 +170,9 @@ func TestPostLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	all, _ := s.Posts("charts", "")
-	if len(all) != 2 || all[0].Slug != "hello-world" || all[1].Slug != "about" || all[0].Body != "" {
-		t.Fatalf("listing %+v", all)
+	// Newest first: the untitled post was made last, the page in 2020.
+	if len(all) != 3 || all[0].Slug != "untitled" || all[1].Slug != "hello-world" || all[2].Slug != "about" || all[1].Body != "" {
+		t.Fatalf("listing %s %s %s", all[0].Slug, all[1].Slug, all[2].Slug)
 	}
 	pages, _ := s.Posts("charts", KindPage)
 	if len(pages) != 1 || pages[0].Kind != KindPage {
@@ -181,7 +182,7 @@ func TestPostLifecycle(t *testing.T) {
 		t.Fatalf("bad kind listing: %v", err)
 	}
 	st, _ := s.Site("charts")
-	if st.Posts != 1 || st.Pages != 1 || st.Drafts != 0 {
+	if st.Posts != 2 || st.Pages != 1 || st.Drafts != 0 {
 		t.Fatalf("counts %+v", st)
 	}
 

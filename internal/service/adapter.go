@@ -62,6 +62,9 @@ func FromSite(st *site.Site, posts []*site.Post) (*planet.MyPlanet, []*planet.My
 	if st.Author != "" {
 		p.AuthorName = ptr(st.Author)
 	}
+	if st.NoIndex {
+		p.DoNotIndex = ptr(true)
+	}
 	if st.Plausible.Domain != "" {
 		p.PlausibleDomain = ptr(st.Plausible.Domain)
 	}
@@ -113,6 +116,19 @@ func FromSite(st *site.Site, posts []*site.Post) (*planet.MyPlanet, []*planet.My
 		}
 		if post.Hero != "" {
 			a.HeroImage = ptr(post.Hero)
+		}
+		// Planet marks the first video and the first audio attachment.
+		for _, name := range post.Attachments {
+			switch strings.ToLower(filepath.Ext(name)) {
+			case ".mp4", ".mov", ".m4v", ".webm":
+				if a.VideoFilename == nil {
+					a.VideoFilename = ptr(name)
+				}
+			case ".mp3", ".m4a", ".wav", ".aac", ".ogg":
+				if a.AudioFilename == nil {
+					a.AudioFilename = ptr(name)
+				}
+			}
 		}
 		if post.Link != "" {
 			a.ExternalLink = ptr(post.Link)

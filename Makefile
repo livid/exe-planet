@@ -20,7 +20,8 @@ restart: build
 .PHONY: build test install restart
 
 # Goldens: real Planet builds on Livid's Mac, one planet per template,
-# fetched into testdata/goldens/<name>/{My,Public} (gitignored). My/
+# fetched into testdata/goldens/<name>/{My,Public}/<uuid> (gitignored), the
+# layout of a Planet library, so a golden also imports as one. My/
 # holds planet.json with API tokens: read here, never committed. Only a
 # planet rebuilt by the current Planet is a golden: its planet.json is
 # pretty-printed and carries articleNumber; older builds are stale.
@@ -35,9 +36,9 @@ GOLDENS = sparkle-release:7AB9F0C5-BCAE-4952-A670-18A416D1C968 \
 goldens:
 	@for g in $(GOLDENS); do \
 	  name=$${g%%:*}; id=$${g#*:}; \
-	  mkdir -p testdata/goldens/$$name; \
-	  rsync -a -q -e "ssh -o BatchMode=yes" "$(GOLDEN_HOST):$(GOLDEN_ROOT)/Public/$$id/" testdata/goldens/$$name/Public/ && \
-	  rsync -a -q -e "ssh -o BatchMode=yes" "$(GOLDEN_HOST):$(GOLDEN_ROOT)/My/$$id/" testdata/goldens/$$name/My/ && \
+	  mkdir -p testdata/goldens/$$name/My/$$id testdata/goldens/$$name/Public/$$id; \
+	  rsync -a -q -e "ssh -o BatchMode=yes" "$(GOLDEN_HOST):$(GOLDEN_ROOT)/Public/$$id/" testdata/goldens/$$name/Public/$$id/ && \
+	  rsync -a -q -e "ssh -o BatchMode=yes" "$(GOLDEN_HOST):$(GOLDEN_ROOT)/My/$$id/" testdata/goldens/$$name/My/$$id/ && \
 	  echo "fetched $$name"; \
 	done
 

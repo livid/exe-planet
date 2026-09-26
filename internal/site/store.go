@@ -76,6 +76,8 @@ type SiteFile struct {
 	Tags             map[string]string `json:"tags,omitempty"`
 	Social           Social            `json:"social"`
 	Plausible        Plausible         `json:"plausible"`
+	// NoIndex asks search engines away: robots.txt disallows everything.
+	NoIndex bool `json:"noindex,omitempty"`
 }
 
 // Site is a site as the API sees it: its file plus what the folder says.
@@ -104,6 +106,7 @@ type SiteUpdate struct {
 	Tags             *map[string]string `json:"tags"`
 	Social           *Social            `json:"social"`
 	Plausible        *Plausible         `json:"plausible"`
+	NoIndex          *bool              `json:"noindex"`
 }
 
 // Post is a post, page or draft: its folder's index.md and attachments.
@@ -355,6 +358,9 @@ func (s *Store) UpdateSite(slug string, u SiteUpdate) (*Site, error) {
 	if u.Plausible != nil {
 		f.Plausible = *u.Plausible
 	}
+	if u.NoIndex != nil {
+		f.NoIndex = *u.NoIndex
+	}
 	if err := writeSite(st.Dir, f); err != nil {
 		return nil, err
 	}
@@ -403,6 +409,10 @@ func (s *Store) moveSite(slug string, fromArchived, toArchived bool) error {
 	}
 	return os.Rename(from, to)
 }
+
+// WriteSiteFile writes a site.json into a site folder; the importer uses
+// it to fill in what Planet knew.
+func WriteSiteFile(dir string, f *SiteFile) error { return writeSite(dir, f) }
 
 // writeSite writes site.json for people as much as for the daemon: two
 // space indent, and no \u0026 for an ampersand in a site's name.
@@ -565,9 +575,9 @@ func (s *Store) CreatePost(site, kind, slug string, m Meta, body string) (*Post,
 	} else if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
-	if strings.TrimSpace(m.Title) == "" {
-		return nil, fmt.Errorf("%w: title is required", ErrInvalid)
-	}
+	// A title may be empty: Planet allows it, and the Memories template
+	// lays out a post without one.
+	m.Title = strings.TrimSpace(m.Title)
 	if m.ID == "" {
 		m.ID = newID()
 	}
@@ -593,9 +603,6 @@ func (s *Store) UpdatePost(site, slug, kind string, u PostUpdate) (*Post, error)
 		return nil, err
 	}
 	if u.Title != nil {
-		if strings.TrimSpace(*u.Title) == "" {
-			return nil, fmt.Errorf("%w: title is required", ErrInvalid)
-		}
 		p.Title = strings.TrimSpace(*u.Title)
 	}
 	if u.Body != nil {

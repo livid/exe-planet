@@ -166,8 +166,11 @@ func TestPostsAPI(t *testing.T) {
 	if code, _ := c.do("PUT", "/v1/sites/charts/posts/hello-world?kind=post", map[string]any{"body": "x"}); code != 404 {
 		t.Fatalf("update in the wrong kind: %d", code)
 	}
-	if code, _ := c.do("PUT", "/v1/sites/charts/posts/hello-world", map[string]any{"title": " "}); code != 400 {
-		t.Fatalf("empty title: %d", code)
+	if code, res := c.do("PUT", "/v1/sites/charts/posts/hello-world", map[string]any{"title": " "}); code != 200 || res["title"] != "" {
+		t.Fatalf("a title may be emptied: %d %v", code, res)
+	}
+	if code, _ := c.do("PUT", "/v1/sites/charts/posts/hello-world", map[string]any{"title": "Hello, World"}); code != 200 {
+		t.Fatalf("title back: %d", code)
 	}
 	code, res = c.do("POST", "/v1/sites/charts/posts/hello-world/move", map[string]any{"kind": "post"})
 	if code != 200 || res["kind"] != "post" {
@@ -253,5 +256,46 @@ func TestTemplatesAPI(t *testing.T) {
 	code, res = c.do("GET", "/v1/templates", nil)
 	if code != 200 || res["list"].([]any)[0].(map[string]any)["name"] != "Plain" {
 		t.Fatalf("listed %d %v", code, res)
+	}
+}
+
+// Import lists a library and brings a planet in under a slug of ours,
+// keeping Planet's id; the site is built when a builder is present.
+func TestImportAPI(t *testing.T) {
+	c, _ := newClient(t)
+	lib := t.TempDir()
+	id := "7AB9F0C5-BCAE-4952-A670-18A416D1C968"
+	my := filepath.Join(lib, "My", id)
+	os.MkdirAll(filepath.Join(my, "Articles"), 0o755)
+	os.WriteFile(filepath.Join(my, "planet.json"), []byte(`{"id":"`+id+`","name":"Notes","about":"","ipns":"k51x","created":796032373,"updated":796032373,"templateName":"Sparkle"}`), 0o644)
+	os.WriteFile(filepath.Join(my, "Articles", "A.json"), []byte(`{"id":"006662F5-AB90-4795-BB62-08C440DA45EE","title":"Hello","content":"hi","created":675853734,"attachments":[]}`), 0o644)
+
+	code, res := c.do("GET", "/v1/import?library="+lib, nil)
+	if code != 200 || len(res["planets"].([]any)) != 1 || res["planets"].([]any)[0].(map[string]any)["name"] != "Notes" {
+		t.Fatalf("list %d %v", code, res)
+	}
+	code, res = c.do("GET", "/v1/import?library="+my, nil)
+	if code != 200 || len(res["planets"].([]any)) != 1 {
+		t.Fatalf("list by planet folder %d %v", code, res)
+	}
+	if code, _ := c.do("GET", "/v1/import?library="+t.TempDir(), nil); code != 400 {
+		t.Fatalf("random folder listed: %d", code)
+	}
+	code, res = c.do("POST", "/v1/import", map[string]any{"library": lib, "id": id, "slug": "notes"})
+	if code != 201 || res["site"] != "notes" || res["id"] != id || res["posts"].(float64) != 1 {
+		t.Fatalf("import %d %v", code, res)
+	}
+	code, res = c.do("GET", "/v1/sites/notes", nil)
+	if code != 200 || res["id"] != id || res["name"] != "Notes" {
+		t.Fatalf("imported site %d %v", code, res)
+	}
+	if code, _ := c.do("POST", "/v1/import", map[string]any{"library": my, "slug": "again"}); code != 201 {
+		t.Fatalf("import by planet folder: %d", code)
+	}
+	if code, _ := c.do("POST", "/v1/import", map[string]any{"library": lib, "slug": "third"}); code != 400 {
+		t.Fatalf("import without id: %d", code)
+	}
+	if code, _ := c.do("POST", "/v1/import", map[string]any{"library": lib, "id": id, "slug": "notes"}); code != 409 {
+		t.Fatalf("import over an existing site: %d", code)
 	}
 }
