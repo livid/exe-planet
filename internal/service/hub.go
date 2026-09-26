@@ -22,6 +22,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"golang.org/x/net/html"
+
+	"github.com/livid/exe-planet/internal/markdown"
 	"github.com/livid/exe-planet/internal/site"
 )
 
@@ -625,25 +628,81 @@ func (s *Service) announcePost(ctx context.Context, hc hubClient, priv ed25519.P
 }
 
 // announcement is the hub post for a blog post: its title in bold, its
-// summary, and its address last-but-only, the first link, so the hub
-// unfurls the page's own card.
+// opening paragraphs, and its address last and only, the first link, so
+// the hub unfurls the page's own card.
 func (s *Service) announcement(st *site.Site, n Node, listed *site.Post) (string, error) {
 	p, err := s.Store.Post(st.Slug, listed.Slug, "post")
 	if err != nil {
 		return "", err
 	}
-	_, arts := FromSite(st, []*site.Post{p})
 	var b strings.Builder
 	if t := strings.TrimSpace(p.Title); t != "" {
 		b.WriteString("**" + strings.ReplaceAll(t, "*", "") + "**\n\n")
 	}
-	if len(arts) == 1 && arts[0].Summary != nil {
-		if sum := strings.TrimSpace(*arts[0].Summary); sum != "" {
-			b.WriteString(cutWords(sum, 280) + "\n\n")
-		}
+	if lead := leadText(markdown.Render(p.Body), 280); lead != "" {
+		b.WriteString(lead + "\n\n")
 	}
 	b.WriteString("https://" + n.Hostname + "/" + p.Slug + "/")
 	return b.String(), nil
+}
+
+// leadText is how a post opens: the text of its first paragraphs, up to
+// the first heading, list, picture-only line or code, whole paragraphs
+// only while they fit in about max characters (the first one is cut at a
+// word if it alone does not). Planet's summary is the whole page's text
+// cut at 280, which runs a heading into the sentence before it.
+func leadText(rendered string, max int) string {
+	void := map[string]bool{"img": true, "br": true, "hr": true, "input": true, "wbr": true, "source": true}
+	z := html.NewTokenizer(strings.NewReader(rendered))
+	var paras []string
+	var cur strings.Builder
+	depth, inP := 0, false
+scan:
+	for {
+		switch z.Next() {
+		case html.ErrorToken:
+			break scan
+		case html.StartTagToken:
+			name, _ := z.TagName()
+			tag := string(name)
+			if depth == 0 {
+				if tag != "p" && len(paras) > 0 {
+					break scan
+				}
+				inP = tag == "p"
+			}
+			if !void[tag] {
+				depth++
+			}
+		case html.EndTagToken:
+			depth--
+			if depth == 0 && inP {
+				inP = false
+				t := strings.Join(strings.Fields(cur.String()), " ")
+				cur.Reset()
+				if t == "" {
+					continue // a picture alone on its line says nothing here
+				}
+				paras = append(paras, t)
+			}
+		case html.TextToken:
+			if inP {
+				cur.Write(z.Text())
+			}
+		}
+	}
+	out := ""
+	for i, p := range paras {
+		if i == 0 {
+			out = cutWords(p, max)
+			continue
+		}
+		if len([]rune(out))+2+len([]rune(p)) > max {
+			break
+		}
+		out += "\n\n" + p
+	}
+	return out
 }
 
 // hubProfile sends the site's profile when what it says moved: its name,

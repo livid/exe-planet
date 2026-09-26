@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/livid/exe-planet/internal/markdown"
 	"github.com/livid/exe-planet/internal/site"
 )
 
@@ -315,6 +316,22 @@ func TestAnnounce(t *testing.T) {
 	fe.mu.Unlock()
 	if last.Type != "invite.lift" || last.Body["target"] != base64.StdEncoding.EncodeToString(pub) {
 		t.Errorf("lift: %+v", last)
+	}
+}
+
+// TestLeadText: an announcement opens with the post's first paragraphs,
+// never a heading run into the sentence before it.
+func TestLeadText(t *testing.T) {
+	for _, c := range []struct{ md, want string }{
+		{"One.\n\nTwo.\n\n## A heading\n\nThree.\n", "One.\n\nTwo."},
+		{"![shot](a.png)\n\nAfter the picture &amp; more.\n\n- a list\n", "After the picture & more."},
+		{"## Starts with a heading\n\nThen words.\n", "Then words."},
+		{"First.\n\n" + strings.Repeat("long ", 80) + "\n", "First."},
+		{strings.Repeat("word ", 100), strings.TrimSpace(strings.Repeat("word ", 56)) + "…"},
+	} {
+		if got := leadText(markdown.Render(c.md), 280); got != c.want {
+			t.Errorf("leadText(%q) = %q, want %q", c.md, got, c.want)
+		}
 	}
 }
 

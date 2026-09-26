@@ -591,8 +591,11 @@ window on the same page, signing with their wallet.
   pass per site runs (`startAnnounce`, publishing's running/again
   pattern): the profile if it moved, then every post under `posts/` with
   no thread, oldest first. The announcement is the title in bold, the
-  post's summary cut at a word near 280 characters, and its address on
-  the exposed hostname last, the first link, so the hub's link card
+  post's opening paragraphs (`leadText`: whole paragraphs up to the first
+  heading, list, code or picture-only line, while they fit in about 280
+  characters; Planet's summary, the whole page's text cut at 280, ran the
+  first post's heading into its sentence), and its address on the
+  exposed hostname last, the first link, so the hub's link card
   comes from the live page's Open Graph tags. The hub's cooldown (60 s,
   which an invited key keeps) answers 429 with Retry-After: the pass
   stops and a timer brings it back after that, so a queue drains one post
