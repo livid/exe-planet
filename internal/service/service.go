@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,6 +49,9 @@ type Service struct {
 	Exe     *Exe
 	Kubo    *kubo.Client
 	Backend string
+	// HubHTTP is the client the site's key reaches its hub with; nil is a
+	// plain one with a timeout.
+	HubHTTP *http.Client
 	// Version is the daemon's; a new engine is a reason to publish again.
 	Version string
 
@@ -57,6 +61,11 @@ type Service struct {
 	hosts      map[string]string // public hostname -> site id
 	publishing map[string]*pubState
 	nodeMu     sync.Mutex // node.json read-modify-write
+	// the site on the hub (hub.go): one announcing pass per site, a timer
+	// for one the hub's cooldown sent away, and hub.json's lock
+	announcing     map[string]*pubState
+	announceTimers map[string]*time.Timer
+	hubMu          sync.Mutex
 }
 
 type siteState struct {
@@ -76,6 +85,9 @@ func New(store *site.Store, state string, loc *time.Location) *Service {
 		status:     map[string]Status{},
 		hosts:      map[string]string{},
 		publishing: map[string]*pubState{},
+
+		announcing:     map[string]*pubState{},
+		announceTimers: map[string]*time.Timer{},
 	}
 }
 
@@ -233,8 +245,17 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 		p.Updated = planet.DateOf(newest)
 	}
 	dirs := map[string]string{}
+	threads := map[string]map[string]any{}
+	lost := s.ledgerHubs(st.ID) // a thread whose hub: line a save dropped still shows
 	for _, post := range posts {
 		dirs[post.ID] = post.Dir
+		hub := post.Hub
+		if hub == "" && post.Kind == "post" {
+			hub = lost[post.ID]
+		}
+		if t := hubThreadFor(hub); t != nil {
+			threads[post.ID] = t
+		}
 	}
 	in := build.Input{
 		Planet:   p,
@@ -243,6 +264,9 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 		Settings: st.TemplateSettings,
 		Attachments: func(a *planet.MyArticle) string {
 			return dirs[a.ID]
+		},
+		HubThread: func(a *planet.MyArticle) map[string]any {
+			return threads[a.ID]
 		},
 		Now:      time.Now(),
 		Location: s.Location,

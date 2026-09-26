@@ -32,6 +32,11 @@ type Input struct {
 	Attachments func(a *planet.MyArticle) string
 	AvatarPath  string
 	FaviconPath string
+	// HubThread is an article's thread on the exe hub for the template,
+	// {link, frame, hub, host, id}, or nil (PLAN.md, Replies from the
+	// hub). It reaches the page as hub_thread and nothing else: Planet
+	// never sets it, and article.json keeps Planet's shape.
+	HubThread func(a *planet.MyArticle) map[string]any
 	// AssetsDir replaces the template's assets/ folder, for a golden test
 	// whose site was built with an older copy of the template.
 	AssetsDir string
@@ -377,6 +382,11 @@ func (b *builder) renderArticleWith(file string, a *planet.MyArticle, dir string
 		"style_css_sha256":      b.tpl.StyleCSSHash,
 		"current_item_type":     "blog",
 		"social_image_url":      social,
+	}
+	if b.in.HubThread != nil {
+		if t := b.in.HubThread(a); t != nil {
+			ctx["hub_thread"] = t
+		}
 	}
 	for k, v := range b.customCode(ctx) {
 		ctx[k] = v

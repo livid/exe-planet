@@ -638,6 +638,26 @@ func (s *Store) UpdatePost(site, slug, kind string, u PostUpdate) (*Post, error)
 	return readPost(p.Dir, p.Kind, p.Slug), nil
 }
 
+// SetPostHub writes the address of a post's thread on the hub into its
+// front matter, or takes it out with "". It is the announcing node's
+// record (PLAN.md, Replies from the hub), not an edit: modified stays.
+func (s *Store) SetPostHub(site, slug, kind, hub string) (*Post, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, err := s.Post(site, slug, kind)
+	if err != nil {
+		return nil, err
+	}
+	if p.Hub == hub {
+		return p, nil
+	}
+	p.Hub = hub
+	if err := os.WriteFile(filepath.Join(p.Dir, "index.md"), FormatDoc(p.Meta, p.Body), 0o644); err != nil {
+		return nil, err
+	}
+	return readPost(p.Dir, p.Kind, p.Slug), nil
+}
+
 // MovePost moves a post between kinds: drafts to posts publishes it.
 func (s *Store) MovePost(site, slug, fromKind, toKind string) (*Post, error) {
 	s.mu.Lock()

@@ -80,7 +80,7 @@ Per node, never synced, derived or secret:
   <site uuid>/
     node.json                 expose {sub}, ipfs {enabled}, announce {hub}, last build, last CID, last published
     ipns.key                  PKCS#8 PEM, mode 600, the site's key: IPNS name, hub author, Solana address
-    hub.json                  planned: post id -> hub post id, written before the front matter's hub line
+    hub.json                  the site on its hub: each post's state and thread, the invite, the profile sent
     public/                   Planet's Public/<uuid> layout, rebuilt from the Workspace source
 ```
 
@@ -145,7 +145,7 @@ tags: charts, macos
 hero: photo.jpg
 link: https://example.com/original     optional external link
 type: page                             only under pages/; default post
-hub: https://hub.example.com/p/<64 hex>   planned: the post's thread, written by the announcing node
+hub: https://hub.example.com/p/<64 hex>   the post's thread, written by the announcing node
 ---
 ```
 
@@ -486,8 +486,8 @@ does not. Built 2026-09-25 (0.5.0).
   public Host). Off, a new sub, a delete or an archive send
   `DELETE /v1/routes/{host}`. The route lives in exe, so it survives
   either daemon's restart; the daemon rereads its node files at start.
-- **IPFS** (`ipfs`) on the first turn-on makes an ed25519 key (planned:
-  the site's one key, made by whichever switch needs it first, IPFS or
+- **IPFS** (`ipfs`) on the first turn-on makes an ed25519 key (the
+  site's one key, made by whichever switch needs it first, IPFS or
   Announce; see Replies from the hub), keeps it
   as PKCS#8 PEM in `<state>/<id>/ipns.key` (0600), lends Kubo a copy
   through `key/import?format=pem-pkcs8-cleartext` as `exe-planet-<id>`
@@ -511,14 +511,16 @@ does not. Built 2026-09-25 (0.5.0).
   a switch is dead, with the reason beside it, on a node without exe, a
   zone or Kubo.
 
-## Replies from the hub (planned 2026-09-26)
+## Replies from the hub (built 2026-09-26)
 
 Publish a post and it announces itself on the exe hub; the replies it
 gets there show under the post on the blog, live. My idea post on the
 hub (`d89824f7`, 2026-09-25), worked out with Livid 2026-09-26. The
 hub's side (invites, the replies frame) is in `/www/exe-hub/PLAN.md`,
-"Replies under a blog post". Today a reader of blog.v2core.com cannot
-answer.
+"Replies under a blog post". Built the same day (exe-planet 0.6.0,
+`internal/service/hub.go`; Platinum buildNumber 7); the live `exe` site
+is not switched on yet — that and Meet exe as the first post are
+Livid's say.
 
 The day it lands: move a draft into `posts/`; a minute later the post
 is on the hub with its link card, posted by the site itself; replies
@@ -558,13 +560,19 @@ window on the same page, signing with their wallet.
 ### Announcing
 
 - **A switch per node**, `announce` in `node.json` with `hub`, the one hub
-  address the site uses: it posts there and its readers' pages frame
-  that hub. One hub, so the post is there when a page first frames it
-  and the invite is needed on that hub alone; peering carries the post
-  to the other hub. The Publish… sheet shows the switch and the address;
-  the switch is dead, with the reason, until the site is exposed (a link
-  card needs a public URL), a hub address is set, and the key is this
-  site's own (see imported sites).
+  address the site uses (`HubOrigin`: http(s)://host, nothing after): it
+  posts there and its readers' pages frame that hub. One hub, so the post
+  is there when a page first frames it and the invite is needed on that
+  hub alone; peering carries the post to the other hub. The node answers
+  `hub_reason`, why it cannot be switched on, in this order: no exe, a
+  site whose IPNS name is a key this node does not hold (imported), not
+  exposed (a link card needs a public URL), no hub address; the server
+  refuses PUT with the reason. The Publish… sheet's Hub group: the
+  switch, the Hub field with a line saying the node's key invites the
+  site's, Id (the hub id · the Solana address, or when the key is made),
+  and Now (Off / On: each post published from now on goes to … /
+  Announcing… / Failed: …). The switch and field are dead only for the
+  first two reasons: expose and the address can be set in the same sheet.
 - **Turning it on** makes the key if there is none, then asks exe to
   invite it: `POST /v1/hub/publish {hub, type: "invite.set", body:
   {target: <site pubkey>, note: "Site: <name>, <hostname>"}}`, signed by
@@ -579,17 +587,26 @@ window on the same page, signing with their wallet.
   `/v1/hub/publish`, which signs with the node's key: the site's key
   never leaves this daemon. A hub envelope is a few dozen lines, no
   dependency.
-- **When.** After a build is swapped in, every post under `posts/` with
-  no thread (no `hub:` line and no ledger entry) is announced: its title,
-  its first line and its URL on the exposed hostname, so the hub's link
-  card comes from the live page's Open Graph tags. One post per cooldown
-  (the hub's 60 s applies to an invited key); a queue drains them in
-  order. Drafts are never announced; pages (`pages/`) neither; an edit
-  never announces again; deleting or archiving a post leaves its thread
-  alone, since other people's replies are in it.
-- **Older posts.** Switching on announces nothing already published; the
-  Planet app's post menu gets Announce on Hub for one of them (Meet exe
-  is the first, on Livid's say).
+- **When.** After a build is swapped in (`afterBuild`), one announcing
+  pass per site runs (`startAnnounce`, publishing's running/again
+  pattern): the profile if it moved, then every post under `posts/` with
+  no thread, oldest first. The announcement is the title in bold, the
+  post's summary cut at a word near 280 characters, and its address on
+  the exposed hostname last, the first link, so the hub's link card
+  comes from the live page's Open Graph tags. The hub's cooldown (60 s,
+  which an invited key keeps) answers 429 with Retry-After: the pass
+  stops and a timer brings it back after that, so a queue drains one post
+  a cooldown; a cooldown is not shown as an error. Any other failure is
+  `announce_error` and a retry in 5 minutes or at the next build. Drafts
+  are never announced; pages (`pages/`) neither; an edit never announces
+  again; deleting or archiving a post leaves its thread alone, since
+  other people's replies are in it.
+- **Older posts.** Switching on marks every post already published
+  `before` in the ledger, so nothing is announced by itself; the Planet
+  app's post menu has Announce on Hub (`POST
+  /v1/sites/{site}/posts/{post}/announce`, 202), dead for a page, a
+  draft or a post that has its line. Meet exe is the first, on Livid's
+  say.
 
 ### Where the thread id is kept
 
@@ -602,15 +619,26 @@ takes whole ids only, and the frame is built from it), in two places:
   it (point an old post at a thread that exists, or delete the line to
   take the window off). It is written by the daemon the way `ipns` is
   written into `site.json`.
-- **A node-state ledger is the guard**: `<state>/<id>/hub.json`, the
-  post's `id` (the UUID, never the slug: a rename must not announce
-  again) to the hub id, written *before* the front matter. A crash
-  between the hub's answer and the file write finds the ledger entry and
-  fills the line in instead of posting twice. The Writer keeps an
-  unsaved edit over a changed file, so its next save can drop the line;
-  the next build sees the ledger entry without the line and writes it
-  back.
-- A post counts as announced when either place has its id.
+- **A node-state ledger is the guard**: `<state>/<id>/hub.json`, keyed by
+  the post's `id` (the UUID, never the slug: a rename must not announce
+  again), each post `before`, `want` (asked by hand), `pending` or
+  `announced` with its thread. Before sending, the envelope and its
+  signature are kept as `pending`, and a retry sends those same bytes: a
+  post that landed is a duplicate to the hub, which answers the same id,
+  so a crash anywhere between signing and the file write never posts
+  twice. A pending envelope the hub refuses for its seq (409) never
+  landed, since a landed one would be a duplicate, so it is signed anew.
+  The Writer keeps an unsaved edit over a changed file, so its next save
+  can drop the line; the next pass sees the ledger entry without the line
+  and writes it back (`Store.SetPostHub`, which leaves `modified`
+  alone), and a build in between reads the thread from the ledger.
+- A post counts as announced when either place has its id; a line the
+  ledger does not know is learned into it.
+- The ledger also keeps where the invite went (`invited`: a hub that
+  changes is invited again and hears the profile anew), the avatar's
+  hash and CID, and the hash of the profile last sent, so `profile.set`
+  goes only when the name, the bio (the about, then the address) or the
+  avatar moved.
 
 ### The Reply and Replies windows
 
@@ -633,24 +661,40 @@ takes whole ids only, and the frame is built from it), in two places:
   its provider into no iframe and no http page, so only the top level of
   an https page reaches every wallet. The hub's plan has the reasons in
   full ("Answering from a blog").
-  - The hub's Reply window in the template's Platinum blocks: the field;
-    a who row when signed in (the face and name, as the hub strip draws
-    them); Sign In… or Reply (the Return default) and Sign Out on a row
-    of their own; a status line for what the hub says.
-  - `assets/replies.js`, loaded only when `hub_thread` is set: the Wallet
-    Standard handshake with the `window.solana` fallback, as the hub's
-    compose script does; `GET /v1/gate?author=` before anything is typed
-    in vain ("Replies need 10,000 $V2EX; this wallet holds 1,200", the
-    cooldown's wait); then `GET /v1/seq`, `signMessage` over
-    `exe-hub:v1\n` and the envelope (`post.create {text, reply_to}`),
-    `POST /v1/msg`. The reply comes back through the frame, live.
+  - The hub's Reply window in the template's Platinum blocks, its CSS
+    copied from the hub's composer: signed out, a line and Sign in with
+    Solana (a wallet picker when there are several); signed in, a who
+    row (the face — the identicon on its pale ground when there is no
+    picture — the name and id, linked to the hub profile) with Sign Out,
+    the field, and a status line beside the Reply button. Reply wears no
+    ring, as the hub's Post does: Return is a newline, Command or Control
+    with Return replies. The head script classes `<html>` `js` and
+    `wallet` so the window has its final shape before layout. It shows on
+    every device: a phone without a wallet reads the line saying one is
+    needed rather than a window that appears late.
+  - `assets/replies.js`, loaded at the end of `modules/replies.html` (not
+    in the head: `build.Inline` makes it an inline script for the Planet
+    app's page column, where `defer` does nothing), only when
+    `hub_thread` is set: the Wallet Standard handshake with the
+    `window.solana` fallback, as the hub's compose script does; `GET
+    /v1/gate?author=` at sign-in ("This address holds less than 10,000
+    tokens of 9raU…pump, so it can read but not reply.", the cooldown's
+    countdown); then `GET /v1/seq`, `signMessage` over `exe-hub:v1\n` and
+    the envelope (`post.create {text, reply_to}`), `POST /v1/msg`. The
+    reply comes back through the frame, live.
   - A commenter is a 10,000 $V2EX holder, the hub's gate unchanged
     (Livid, 2026-09-26).
-  - Reply to a reply: the page tells the frame `{hub: "signed-in", on}`,
-    the frame then shows a Reply link under each reply, and a click sends
-    `{hub: "aim", id, name, words}` up; the composer shows the hub's
-    "Replying to <name> — <words>" row with its clear button, and
-    `reply_to` is that reply instead of the root.
+  - Reply to a reply: the page tells the frame `{hub: "signed-in", on}`
+    (again when the frame says `ready`), the frame then shows a Reply link
+    under each reply, and a click sends `{hub: "aim", id, name, words}`
+    up; the composer shows the hub's "Replying to <name> — <words>" row
+    with its clear button, and `reply_to` is that reply instead of the
+    root. Pressing Reply first asks the hub for that reply (`GET
+    /v1/post/{id}`): one deleted meanwhile is said so and nothing is sent.
+  - Messages count only from the page's own frame window and the hub's
+    origin; a page shown sandboxed (the Planet app's page column, an
+    opaque origin) also hears its frame's "null", since every frame inside
+    a sandboxed one is opaque too.
   - localStorage keeps the wallet's name and address (`exe-hub-wallet`,
     as the hub's pages do) and the unsent draft per post, every access in
     try/catch; nothing else.
@@ -667,24 +711,33 @@ takes whole ids only, and the frame is built from it), in two places:
 - Nothing is baked at build: a reply never costs a rebuild, and the IPFS
   copy carries the frame's address, not the replies.
 
-### Tests and order
+### Tests
 
-- Go: a fake hub (`internal/hub/hubtest`, like `kubotest`) that checks
-  signatures and seqs and answers ids; the ledger and front matter cases
-  (crash between, line dropped by a save, a rename, a draft, a page, an
-  edit, an imported site); the builder's `hub_thread`; the envelope's
-  bytes against the hub's own verifier.
-- Playwright: the publish test's sheet with the Announce row; a scratch
-  site with a hand-written `hub:` line against a scratch hub, the Reply
-  and Replies windows at DPR 1, 1.5 and 2 and on a phone; the composer
-  with the hub's mock Wallet Standard wallets
-  (`~/tools/playwright/exe-hub-wallet`): below the gate, signed in, a
-  reply posted and arriving in the frame, an aimed reply to a reply, the
-  cooldown, no wallet.
-- Order: the hub's invites and frame first; then the template window over
-  a hand-written `hub:` line; then the key's roles, the invite, the
-  profile and the announcing on a scratch daemon with a fake exe and a
-  fake hub; the first live post on Livid's say.
+- Go (`internal/service/hub_test.go`): `TestAnnounce` against a fake hub
+  in the test that checks every signature as the hub does, keeps seqs,
+  answers duplicates with the same id and holds posts to a timed
+  cooldown — the invite through the fake exe, what was there before left
+  alone, the profile then the post, the hub line, Announce on Hub after
+  waiting out the cooldown, a dropped line written back without a second
+  post, a crash after the hub took a pending envelope, the profile sent
+  again only when it moved, a draft never, the invite lifted;
+  `TestAnnounceImportedSite`; `TestHubThreadTemplate` (the windows from
+  a valid line only, the ledger standing in for a lost one, article.json
+  unchanged). Run `-race` too: the announcer is goroutines.
+- Playwright, `~/tools/playwright/exe-planet-replies-test.js`: the whole
+  path on scratch daemons it starts (a real exe-hub on :17788 with a
+  token gate on a fake RPC, exe-planet on :7798, a fake exe on :7796
+  that signs as the hub's admin), mock Wallet Standard wallets: switch
+  on, the invite, a draft moved to posts announced with its line, no
+  wallet, a wallet below the gate, a reply that slides in live, the frame
+  growing, an aimed reply to a reply nested under it, the page inlined
+  into a sandboxed srcdoc frame as the app's column shows it, shots at
+  DPR 1, 1.5, 2 and a phone. `exe-planet-announce-sheet-test.js`: the
+  Hub group and Announce on Hub on the live desk against a scratch
+  daemon, every PUT and DELETE to the live daemon swallowed.
+- Real Stencil: PlanetSiteTemplates' `swift test` on the Mac renders the
+  new module (SiteTemplatePlatinum cf39614, PlanetSiteTemplates 423e955,
+  tag 0.9.4).
 
 ### Later
 
@@ -763,7 +816,8 @@ in 0.2 s and builds in 0.2 s.
    daemon with fakes the script runs (`-exe http://127.0.0.1:7796 -kubo
    http://127.0.0.1:7795 -exe-config <a file naming a domain>`).
 6. Markdown without a dependency, gated on the corpus.
-7. Replies from the hub, as that section says (planned 2026-09-26).
+7. Replies from the hub, as that section says. Done 2026-09-26 (0.6.0);
+   the live site switched on at Livid's say.
 
 ## Later
 

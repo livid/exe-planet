@@ -39,6 +39,8 @@ type Builder interface {
 	SetNode(ctx context.Context, slug string, u service.NodeUpdate) (service.NodeInfo, error)
 	Publish(slug string) (service.NodeInfo, error)
 	Retire(ctx context.Context, slug, id string)
+	AnnouncePost(slug, post string) error
+	LiftInvite(ctx context.Context, id string)
 	Export(slug string, w io.Writer) error
 	HostDir(host string) string
 }
@@ -71,6 +73,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/sites/{site}/posts/{post}", s.updatePost)
 	mux.HandleFunc("DELETE /v1/sites/{site}/posts/{post}", s.deletePost)
 	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/move", s.movePost)
+	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/announce", s.announcePost)
 	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/attachments", s.addAttachments)
 	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/attachments/{name}", s.getAttachment)
 	mux.HandleFunc("DELETE /v1/sites/{site}/posts/{post}/attachments/{name}", s.deleteAttachment)
@@ -162,7 +165,8 @@ func (s *Server) getNode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, n)
 }
 
-// setNode changes it: PUT /v1/sites/{site}/node {expose, subdomain, ipfs}.
+// setNode changes it: PUT /v1/sites/{site}/node {expose, subdomain, ipfs,
+// announce, hub}.
 func (s *Server) setNode(w http.ResponseWriter, r *http.Request) {
 	if s.Builder == nil {
 		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
@@ -179,6 +183,21 @@ func (s *Server) setNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, n)
+}
+
+// announcePost puts one post on the hub now, one published before
+// announcing was switched on: POST /v1/sites/{site}/posts/{post}/announce
+// (202; the post's hub: line follows when the hub has it).
+func (s *Server) announcePost(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	if err := s.Builder.AnnouncePost(r.PathValue("site"), r.PathValue("post")); err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "announcing"})
 }
 
 // publishSite sends the build to IPFS now: POST /v1/sites/{site}/publish.
@@ -330,6 +349,13 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request) {
 	s.retire(r)
+	// a deleted site's key leaves the hub's invite list; an archived one
+	// keeps its place
+	if s.Builder != nil {
+		if st, err := s.Store.Site(r.PathValue("site")); err == nil {
+			s.Builder.LiftInvite(r.Context(), st.ID)
+		}
+	}
 	if err := s.Store.DeleteSite(r.PathValue("site")); err != nil {
 		fail(w, err)
 		return

@@ -41,6 +41,12 @@ type Node struct {
 	PublishedHash string    `json:"published_hash,omitempty"`
 	BuiltHash     string    `json:"built_hash,omitempty"`
 	PublishError  string    `json:"publish_error,omitempty"`
+	// Announce is the site on the exe hub (PLAN.md, Replies from the
+	// hub): each post published from now on announces itself at Hub, the
+	// one hub the site posts to and its pages frame.
+	Announce      bool   `json:"announce"`
+	Hub           string `json:"hub,omitempty"`
+	AnnounceError string `json:"announce_error,omitempty"`
 }
 
 // NodeInfo is a Node as the API answers it, with what the node derives.
@@ -55,6 +61,13 @@ type NodeInfo struct {
 	Domain     string `json:"domain,omitempty"`
 	Exe        bool   `json:"exe"`
 	Kubo       bool   `json:"kubo"`
+	// the site's key in its other two spellings, once there is one: its
+	// id on a hub and its Solana address
+	HubID   string `json:"hub_id,omitempty"`
+	Address string `json:"address,omitempty"`
+	// why Announce cannot be switched on here, "" when it can
+	HubReason  string `json:"hub_reason,omitempty"`
+	Announcing bool   `json:"announcing"`
 }
 
 // NodeUpdate carries what PUT may change; nil leaves a field alone.
@@ -62,6 +75,8 @@ type NodeUpdate struct {
 	Expose    *bool   `json:"expose"`
 	Subdomain *string `json:"subdomain"`
 	IPFS      *bool   `json:"ipfs"`
+	Announce  *bool   `json:"announce"`
+	Hub       *string `json:"hub"`
 }
 
 // Caps is what this node can publish with.
@@ -193,12 +208,18 @@ func (s *Service) info(st *site.Site) NodeInfo {
 	if n.CID != "" {
 		in.CIDURL = "https://eth.sucks/ipfs/" + n.CID + "/"
 	}
-	if _, err := os.Stat(s.keyPath(st.ID)); err == nil {
+	if priv, err := readKey(s.keyPath(st.ID)); err == nil {
 		in.Key = true
+		pub := priv.Public().(ed25519.PublicKey)
+		in.HubID, in.Address = HubProfileID(pub), SolanaAddress(pub)
 	}
+	in.HubReason = s.hubReason(st, n)
 	s.mu.Lock()
 	if p := s.publishing[st.Slug]; p != nil {
 		in.Publishing = p.running
+	}
+	if p := s.announcing[st.Slug]; p != nil {
+		in.Announcing = p.running
 	}
 	s.mu.Unlock()
 	return in
@@ -293,8 +314,34 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 		}
 		n.IPFS = *u.IPFS
 	}
+	announce, oldHub := false, n.Hub
+	if u.Hub != nil {
+		hub, err := HubOrigin(*u.Hub)
+		if err != nil {
+			return NodeInfo{}, err
+		}
+		n.Hub = hub
+	}
+	if u.Announce != nil && !*u.Announce {
+		n.Announce, n.AnnounceError = false, ""
+	}
+	if (u.Announce != nil && *u.Announce && !n.Announce) || (n.Announce && n.Hub != oldHub && n.Hub != "") {
+		// switched on, or a new hub while on: the key, the invite, and
+		// what is there already marked so (a first switch only)
+		if err := s.startHub(ctx, st, n, !n.Announce); err != nil {
+			s.saveNode(n)
+			return NodeInfo{}, err
+		}
+		n.Announce, n.AnnounceError, announce = true, "", true
+	}
+	if n.Hub == "" {
+		n.Announce = false
+	}
 	if err := s.saveNode(n); err != nil {
 		return NodeInfo{}, err
+	}
+	if announce {
+		s.startAnnounce(slug)
 	}
 	if rebuild {
 		if _, err := s.Build(slug); err != nil {
@@ -311,36 +358,9 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 // the IPNS name.
 func (s *Service) ensureKey(ctx context.Context, id string) (string, error) {
 	path := s.keyPath(id)
-	var priv ed25519.PrivateKey
-	if b, err := os.ReadFile(path); err == nil {
-		block, _ := pem.Decode(b)
-		if block == nil {
-			return "", fmt.Errorf("%s is not a PEM key", path)
-		}
-		k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return "", fmt.Errorf("%s: %w", path, err)
-		}
-		var ok bool
-		if priv, ok = k.(ed25519.PrivateKey); !ok {
-			return "", fmt.Errorf("%s is not an ed25519 key", path)
-		}
-	} else {
-		_, priv, err = ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return "", err
-		}
-		der, err := x509.MarshalPKCS8PrivateKey(priv)
-		if err != nil {
-			return "", err
-		}
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			return "", err
-		}
-		if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600); err != nil {
-			return "", err
-		}
-		s.Logf("planet: made the IPNS key for %s", id)
+	priv, err := s.siteKey(id, true)
+	if err != nil {
+		return "", err
 	}
 	ipns := kubo.IPNSName(priv.Public().(ed25519.PublicKey))
 	keys, err := s.Kubo.Keys(ctx)
@@ -365,6 +385,47 @@ func (s *Service) ensureKey(ctx context.Context, id string) (string, error) {
 	}
 	s.Logf("planet: lent kubo the key for %s as %s", id, ipns)
 	return ipns, nil
+}
+
+// readKey reads a site's key; a missing file is os.ErrNotExist.
+func readKey(path string) (ed25519.PrivateKey, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return nil, fmt.Errorf("%s is not a PEM key", path)
+	}
+	k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	priv, ok := k.(ed25519.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("%s is not an ed25519 key", path)
+	}
+	return priv, nil
+}
+
+// makeKey makes a site's key once and keeps it as PKCS#8 PEM, 0600.
+func makeKey(path string, logf func(string, ...any), id string) (ed25519.PrivateKey, error) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600); err != nil {
+		return nil, err
+	}
+	logf("planet: made the key for %s", id)
+	return priv, nil
 }
 
 // Publish sends the site's build to IPFS now, changed or not.
@@ -398,6 +459,11 @@ func (s *Service) afterBuild(slug, id, hash string) {
 	s.nodeMu.Unlock()
 	if n.IPFS && hash != n.PublishedHash {
 		s.startPublish(slug, false)
+	}
+	// a post just published, or a profile that moved, goes to the hub
+	// once the page it links to is live
+	if n.Announce {
+		s.startAnnounce(slug)
 	}
 }
 

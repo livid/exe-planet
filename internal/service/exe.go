@@ -78,6 +78,18 @@ func (e *Exe) DeleteRoute(ctx context.Context, host string) error {
 	return e.call(ctx, "DELETE", "/v1/routes/"+url.PathEscape(host), nil, nil)
 }
 
+// HubPublish has exe sign one op with the node's own key and send it to
+// a hub (POST /v1/hub/publish): the node is the hub's admin, so this is
+// how a site's key is invited past the gate (PLAN.md, Replies from the
+// hub).
+func (e *Exe) HubPublish(ctx context.Context, hub, typ string, body any) error {
+	if e == nil {
+		return errors.New("exe is not configured on this node")
+	}
+	b, _ := json.Marshal(map[string]any{"hub": hub, "type": typ, "body": body})
+	return e.call(ctx, "POST", "/v1/hub/publish", bytes.NewReader(b), nil)
+}
+
 func (e *Exe) call(ctx context.Context, method, path string, body io.Reader, out any) error {
 	req, err := http.NewRequestWithContext(ctx, method, e.URL+path, body)
 	if err != nil {

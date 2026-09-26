@@ -26,6 +26,14 @@ type fakeExe struct {
 	calls  []string
 	auth   string
 	fail   bool
+	// what the node signed for a hub through exe (POST /v1/hub/publish)
+	hubOps  []fakeHubOp
+	hubFail string
+}
+
+type fakeHubOp struct {
+	Hub, Type string
+	Body      map[string]string
 }
 
 func newFakeExe(t *testing.T) (*fakeExe, *Exe) {
@@ -51,6 +59,19 @@ func newFakeExe(t *testing.T) (*fakeExe, *Exe) {
 		f.calls = append(f.calls, "del "+r.PathValue("host"))
 		delete(f.routes, r.PathValue("host"))
 		w.Write([]byte(`{"status":"removed"}`))
+	})
+	mux.HandleFunc("POST /v1/hub/publish", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		var op fakeHubOp
+		json.NewDecoder(r.Body).Decode(&op)
+		f.calls = append(f.calls, "hub "+op.Type)
+		if f.hubFail != "" {
+			http.Error(w, `{"error":"`+f.hubFail+`"}`, 403)
+			return
+		}
+		f.hubOps = append(f.hubOps, op)
+		w.Write([]byte(`{"id":"x","status":"accepted"}`))
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)

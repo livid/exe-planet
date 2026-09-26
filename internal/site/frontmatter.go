@@ -13,14 +13,18 @@ import (
 // daemon does not know are kept in Extra and written back unchanged, so
 // a person's own fields survive a round trip through the editor.
 type Meta struct {
-	ID       string            `json:"id"`
-	Title    string            `json:"title"`
-	Created  time.Time         `json:"created"`
-	Modified time.Time         `json:"modified,omitempty"`
-	Tags     []string          `json:"tags,omitempty"`
-	Hero     string            `json:"hero,omitempty"`
-	Link     string            `json:"link,omitempty"`
-	Extra    map[string]string `json:"extra,omitempty"`
+	ID       string    `json:"id"`
+	Title    string    `json:"title"`
+	Created  time.Time `json:"created"`
+	Modified time.Time `json:"modified,omitempty"`
+	Tags     []string  `json:"tags,omitempty"`
+	Hero     string    `json:"hero,omitempty"`
+	Link     string    `json:"link,omitempty"`
+	// Hub is the post's thread on the exe hub, the address of the post
+	// that announced it (PLAN.md, Replies from the hub). The announcing
+	// node writes it; a person may point it elsewhere or take it out.
+	Hub   string            `json:"hub,omitempty"`
+	Extra map[string]string `json:"extra,omitempty"`
 }
 
 // dateLayouts are the forms a person may type; the daemon writes RFC 3339.
@@ -84,6 +88,8 @@ func ParseDoc(data []byte) (Meta, string, error) {
 			m.Hero = value
 		case "link":
 			m.Link = value
+		case "hub":
+			m.Hub = value
 		default:
 			if m.Extra == nil {
 				m.Extra = map[string]string{}
@@ -119,6 +125,7 @@ func FormatDoc(m Meta, body string) []byte {
 	line("tags", strings.Join(m.Tags, ", "))
 	line("hero", m.Hero)
 	line("link", m.Link)
+	line("hub", m.Hub)
 	keys := make([]string, 0, len(m.Extra))
 	for k := range m.Extra {
 		keys = append(keys, k)
