@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/livid/exe-planet/internal/build"
+	"github.com/livid/exe-planet/internal/kubo"
 	"github.com/livid/exe-planet/internal/markdown"
 	"github.com/livid/exe-planet/internal/planet"
 	"github.com/livid/exe-planet/internal/site"
@@ -29,6 +30,10 @@ type Status struct {
 	Error     string    `json:"error,omitempty"`
 	Building  bool      `json:"building"`
 	Requested bool      `json:"requested,omitempty"`
+	// Hash is what the build was made from (the site folder, the
+	// template, the engine); a publish happens when it moves.
+	Hash string `json:"hash,omitempty"`
+	id   string
 }
 
 // Service builds sites.
@@ -38,10 +43,20 @@ type Service struct {
 	Templates string // the Workspace's Planet/Templates
 	Location  *time.Location
 	Logf      func(format string, args ...any)
+	// Exe and Kubo are the node's publishing; nil is a node without.
+	// Backend is this daemon's own origin, the route target of an expose.
+	Exe     *Exe
+	Kubo    *kubo.Client
+	Backend string
+	// Version is the daemon's; a new engine is a reason to publish again.
+	Version string
 
-	mu     sync.Mutex
-	sites  map[string]*siteState
-	status map[string]Status
+	mu         sync.Mutex
+	sites      map[string]*siteState
+	status     map[string]Status
+	hosts      map[string]string // public hostname -> site id
+	publishing map[string]*pubState
+	nodeMu     sync.Mutex // node.json read-modify-write
 }
 
 type siteState struct {
@@ -52,15 +67,20 @@ type siteState struct {
 // New makes a service; templates come from the store's Templates folder.
 func New(store *site.Store, state string, loc *time.Location) *Service {
 	return &Service{
-		Store:     store,
-		State:     state,
-		Templates: filepath.Join(store.Root, site.TemplatesDir),
-		Location:  loc,
-		Logf:      log.Printf,
-		sites:     map[string]*siteState{},
-		status:    map[string]Status{},
+		Store:      store,
+		State:      state,
+		Templates:  filepath.Join(store.Root, site.TemplatesDir),
+		Location:   loc,
+		Logf:       log.Printf,
+		sites:      map[string]*siteState{},
+		status:     map[string]Status{},
+		hosts:      map[string]string{},
+		publishing: map[string]*pubState{},
 	}
 }
+
+// Start reads the node files, so exposed hostnames answer at once.
+func (s *Service) Start() { s.loadHosts() }
 
 // PublicDir is where a site's build lives on this node.
 func (s *Service) PublicDir(id string) string {
@@ -104,6 +124,9 @@ func (s *Service) Build(slug string) (Status, error) {
 	var err error
 	for {
 		st, err = s.buildOnce(slug)
+		if err == nil && st.Hash != "" {
+			s.afterBuild(slug, st.id, st.Hash)
+		}
 		s.mu.Lock()
 		s.status[slug] = st
 		if !ss.again {
@@ -157,7 +180,12 @@ func (s *Service) buildOnce(slug string) (Status, error) {
 		return Status{Site: slug, Public: final, Error: err.Error()}, err
 	}
 	os.RemoveAll(old)
-	out := Status{Site: slug, Public: final, Built: time.Now(), Duration: time.Since(started).Milliseconds(), Files: len(res.Files), Warnings: res.Warnings}
+	out := Status{Site: slug, Public: final, Built: time.Now(), Duration: time.Since(started).Milliseconds(), Files: len(res.Files), Warnings: res.Warnings, id: st.ID}
+	// Two templates stamp build_timestamp into their pages, so the
+	// output never compares equal; the inputs do.
+	if h, err := inputHash(st.Dir, in.Template.Dir, s.Version); err == nil {
+		out.Hash = h
+	}
 	s.Logf("planet: built %s: %d files in %d ms", slug, len(res.Files), out.Duration)
 	return out, nil
 }

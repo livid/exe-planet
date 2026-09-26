@@ -276,8 +276,9 @@ hundreds of golden pairs for free.
 
 - `cmd/exe-planet`, flags `-listen 127.0.0.1:7799`, `-workspace
   ~/.exe/workspace/Planet`, `-state ~/.exe/planet`, `-kubo
-  http://127.0.0.1:5001`, `-exe http://127.0.0.1:7777` with the exe token
-  read from `~/.exe/config.json` for route registration. Every test passes
+  http://127.0.0.1:5001`, `-exe http://127.0.0.1:7777` and `-exe-config
+  ~/.exe/config.json`, read for the exe token and `cloudflare.domain`
+  (an empty `-exe` or `-kubo` is a node without that). Every test passes
   its own scratch directories; nothing derives a test path from `EXE_HOME`
   or `HOME`, and nothing under `~/.exe` is touched by a test.
 - Watches the Workspace by polling, not inotify (`internal/watch`): a
@@ -307,7 +308,12 @@ hundreds of golden pairs for free.
     lends its id and attachments); `POST /v1/sites/{slug}/build` builds
     now and answers the status; `GET /v1/sites/{slug}/status` reports the
     last build, whether one is running and whether another is queued;
-    `POST /v1/sites/{slug}/publish` is phase 5
+    `GET|PUT /v1/sites/{slug}/node` is the site's publishing on this node
+    (`{expose, subdomain, ipfs}` in, the node file plus `url`, `ipns`,
+    `ipns_url`, `cid_url`, `publishing`, `key`, `domain`, `exe`, `kubo`
+    out), `POST /v1/sites/{slug}/publish` (202) goes to IPFS now,
+    `GET /v1/sites/{slug}/export` is the zip, `GET /v1/node` says what the
+    node has (`domain`, `exe`, `kubo`, `kubo_version`/`kubo_error`)
   - `GET /v1/sites/{slug}/avatar` (the folder's `avatar.png`, 404 without),
     `GET /v1/sites/{slug}/posts/{slug}/view?base=&query=` (the built page
     with its resources inlined; with a base, the article's own files are
@@ -409,18 +415,46 @@ with a Back button.
 
 ## Publishing
 
-- **Build** writes `public/`, then compares against the previous build's
-  manifest; nothing else runs when nothing changed.
-- **Expose** registers `<slug>.<domain>` unless `node.json` names another
-  subdomain, and removes the route when turned off.
-- **IPFS** on first enable generates an ed25519 key, writes `ipns.key`,
-  imports it into Kubo as `exe-planet-<uuid>`, and records the IPNS name in
-  `site.json`. Every changed build adds `public/` as a directory over RPC
-  with CIDv1, publishes it to the key with a 7200 h lifetime as Planet
-  does, unpins the previous CID, and records the new one in `node.json`.
-  Kubo republishes keys in its keystore itself, so there is no keepalive.
-- Export Site bundles the Workspace folder and `ipns.key`, which is how a
-  site moves its publishing to another node.
+Per node, in `<state>/<id>/node.json` beside the build, never in the
+Workspace: a site's folder travels with the site, where it is served from
+does not. Built 2026-09-25 (0.5.0).
+
+- **Change detection.** Every build hashes what it was made from (the
+  site folder, the template folder, the daemon version) into
+  `Status.hash`; a publish happens only when that moved since the last
+  one. The output is not compared because Sepia and Memories stamp
+  `build_timestamp` into their pages.
+- **Expose** (`expose`, `subdomain`) asks exe for a route,
+  `POST /v1/routes {host: <sub>.<zone>, backend: http://127.0.0.1:7799}`,
+  with the sub defaulting to the slug and the zone read from exe's
+  `cloudflare.domain`; exe's DNS and tunnel warnings are kept in
+  `route_warnings`. The daemon then serves that site's `public/` at the
+  root of any request whose `Host` is the hostname (exe's proxy keeps the
+  public Host). Off, a new sub, a delete or an archive send
+  `DELETE /v1/routes/{host}`. The route lives in exe, so it survives
+  either daemon's restart; the daemon rereads its node files at start.
+- **IPFS** (`ipfs`) on the first turn-on makes an ed25519 key, keeps it
+  as PKCS#8 PEM in `<state>/<id>/ipns.key` (0600), lends Kubo a copy
+  through `key/import?format=pem-pkcs8-cleartext` as `exe-planet-<id>`
+  (a copy already there is checked to be the same key), writes the IPNS
+  name into `site.json` (derived by hand from the public key: protobuf
+  PublicKey, identity multihash, CIDv1 libp2p-key, base36, checked equal
+  to Kubo's answer) and rebuilds, since the pages carry the name. Every
+  changed build then adds `public/` over RPC as a pinned CIDv1
+  directory, publishes it to the key with a 7200 h lifetime and
+  allow-offline as Planet does, unpins the CID before it, and records
+  the CID, the time and the hash. Kubo republishes its keystore itself.
+  Off keeps the key and the name, so on again is the same site.
+- **Publish Now** (`POST …/publish`) goes again, changed or not; one
+  publish runs at a time per site, a request during one runs once more
+  after. A failure is kept in `publish_error` beside the last good CID.
+- **Export** (`GET …/export`) is a zip: `<slug>/` (the Workspace folder),
+  `<slug>.ipns.key` and `<slug>.node.json`, which is how a site takes its
+  publishing to another node.
+- The app's Publish… sheet holds both switches, the address field, the
+  URL, the IPNS name, the last CID with its time, Publish Now and Export…;
+  a switch is dead, with the reason beside it, on a node without exe, a
+  zone or Kubo.
 
 ## Import
 
@@ -485,7 +519,13 @@ in 0.2 s and builds in 0.2 s.
    drops relative preloads and resolves `../avatar.png` from the site
    root. Playwright: `exe-writer-test.js` and `exe-planet-app-test.js`
    (the latter against a scratch daemon, `PLANET=` its address).
-5. Publishing: expose, keys, IPFS.
+5. Publishing: expose, keys, IPFS. Done 2026-09-25 (0.5.0), as the
+   Publishing section says; `internal/kubo` (with `kubotest`, a fake
+   whose shapes were checked against Kubo 0.43), `internal/service`'s
+   `exe.go` and `node.go`. Tests: Go with fake exe and Kubo;
+   `exe-planet-publish-test.js` drives the sheet against a scratch
+   daemon with fakes the script runs (`-exe http://127.0.0.1:7796 -kubo
+   http://127.0.0.1:7795 -exe-config <a file naming a domain>`).
 6. Markdown without a dependency, gated on the corpus.
 
 ## Later

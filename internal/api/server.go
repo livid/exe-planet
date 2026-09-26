@@ -3,10 +3,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,6 +33,13 @@ type Builder interface {
 	View(slug, post string, att service.Attachments) (string, error)
 	RenderPath(rel, text string, att service.Attachments) (string, error)
 	PublicDir(id string) string
+	Caps(ctx context.Context) service.Caps
+	Node(slug string) (service.NodeInfo, error)
+	SetNode(ctx context.Context, slug string, u service.NodeUpdate) (service.NodeInfo, error)
+	Publish(slug string) (service.NodeInfo, error)
+	Retire(ctx context.Context, slug, id string)
+	Export(slug string, w io.Writer) error
+	HostDir(host string) string
 }
 
 // Server serves the API for one store.
@@ -74,6 +83,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sites/{site}/avatar", s.siteAvatar)
 	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/view", s.viewPost)
 	mux.HandleFunc("POST /v1/render", s.renderPath)
+	mux.HandleFunc("GET /v1/node", s.nodeCaps)
+	mux.HandleFunc("GET /v1/sites/{site}/node", s.getNode)
+	mux.HandleFunc("PUT /v1/sites/{site}/node", s.setNode)
+	mux.HandleFunc("POST /v1/sites/{site}/publish", s.publishSite)
+	mux.HandleFunc("GET /v1/sites/{site}/export", s.exportSite)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			writeErr(w, http.StatusNotFound, errors.New("no such route"))
@@ -82,7 +96,102 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		fmt.Fprintf(w, "exe-planet %s\n", s.Version)
 	})
-	return mux
+	// A request that arrives under an exposed site's hostname (exe's proxy
+	// keeps the public Host) is that site's public folder at the root.
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.Builder != nil && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			if dir := s.Builder.HostDir(r.Host); dir != "" {
+				http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
+				return
+			}
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+// retire takes a site off this node's routes before it is deleted or
+// archived.
+func (s *Server) retire(r *http.Request) {
+	if s.Builder == nil {
+		return
+	}
+	if st, err := s.Store.Site(r.PathValue("site")); err == nil {
+		s.Builder.Retire(r.Context(), st.Slug, st.ID)
+	}
+}
+
+// nodeCaps says what this node publishes with: GET /v1/node.
+func (s *Server) nodeCaps(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	writeJSON(w, http.StatusOK, s.Builder.Caps(r.Context()))
+}
+
+// getNode answers a site's publishing on this node.
+func (s *Server) getNode(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	n, err := s.Builder.Node(r.PathValue("site"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, n)
+}
+
+// setNode changes it: PUT /v1/sites/{site}/node {expose, subdomain, ipfs}.
+func (s *Server) setNode(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	var u service.NodeUpdate
+	if err := decode(r, &u); err != nil {
+		fail(w, err)
+		return
+	}
+	n, err := s.Builder.SetNode(r.Context(), r.PathValue("site"), u)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, n)
+}
+
+// publishSite sends the build to IPFS now: POST /v1/sites/{site}/publish.
+func (s *Server) publishSite(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	n, err := s.Builder.Publish(r.PathValue("site"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, n)
+}
+
+// exportSite answers a zip of the site's folder, key and node file.
+func (s *Server) exportSite(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	slug := r.PathValue("site")
+	if _, err := s.Store.Site(slug); err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+slug+`.zip"`)
+	if err := s.Builder.Export(slug, w); err != nil {
+		log.Printf("export %s: %v", slug, err)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -201,6 +310,7 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request) {
+	s.retire(r)
 	if err := s.Store.DeleteSite(r.PathValue("site")); err != nil {
 		fail(w, err)
 		return
@@ -209,6 +319,7 @@ func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) archiveSite(w http.ResponseWriter, r *http.Request) {
+	s.retire(r)
 	if err := s.Store.ArchiveSite(r.PathValue("site")); err != nil {
 		fail(w, err)
 		return

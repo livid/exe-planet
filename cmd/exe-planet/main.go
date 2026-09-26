@@ -18,12 +18,13 @@ import (
 	"time"
 
 	"github.com/livid/exe-planet/internal/api"
+	"github.com/livid/exe-planet/internal/kubo"
 	"github.com/livid/exe-planet/internal/service"
 	"github.com/livid/exe-planet/internal/site"
 	"github.com/livid/exe-planet/internal/watch"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 
 func main() {
 	home, _ := os.UserHomeDir()
@@ -31,14 +32,17 @@ func main() {
 	workspace := flag.String("workspace", filepath.Join(home, ".exe", "workspace", "Planet"), "the Planet folder in the Workspace: sites, templates, archived sites")
 	state := flag.String("state", filepath.Join(home, ".exe", "planet"), "per-node state: build output, node settings, keys")
 	templates := flag.String("templates", "templates", "the shipped templates, installed into the Workspace's Planet/Templates")
+	exeURL := flag.String("exe", "http://127.0.0.1:7777", "exe's API, which puts hostnames in front of exposed sites (empty: no expose)")
+	exeConfig := flag.String("exe-config", filepath.Join(home, ".exe", "config.json"), "exe's config.json, read for its api_token and cloudflare.domain")
+	kuboURL := flag.String("kubo", "http://127.0.0.1:5001", "Kubo's RPC API, where sites go to IPFS (empty: no IPFS)")
 	flag.Parse()
 
-	if err := run(*listen, *workspace, *state, *templates); err != nil {
+	if err := run(*listen, *workspace, *state, *templates, *exeURL, *exeConfig, *kuboURL); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(listen, workspace, state, templates string) error {
+func run(listen, workspace, state, templates, exeURL, exeConfig, kuboURL string) error {
 	if err := os.MkdirAll(state, 0o700); err != nil {
 		return err
 	}
@@ -50,6 +54,15 @@ func run(listen, workspace, state, templates string) error {
 		log.Printf("templates: %v", err)
 	}
 	svc := service.New(store, state, time.Local)
+	exe, err := service.LoadExe(exeURL, exeConfig)
+	if err != nil {
+		return err
+	}
+	svc.Exe = exe
+	svc.Kubo = kubo.New(kuboURL)
+	svc.Backend = "http://" + listen
+	svc.Version = version
+	svc.Start()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 

@@ -182,6 +182,12 @@ button.ghost.danger { color: #7a1010; }
 #dlg input[type=checkbox]:checked { background: #fff url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" shape-rendering="crispEdges"><path fill="black" d="M0 0h2v2H0zM2 2h2v2H2zM4 4h2v2H4zM6 2h2v2H6zM8 0h2v2H8zM2 6h2v2H2zM6 6h2v2H6zM0 8h2v2H0zM8 8h2v2H8z"/></svg>') center no-repeat; }
 #dlg input[type=checkbox]:disabled { border-color: #888; }
 #dlg .popup { width: 100%; }
+#dlg .suffix { flex: none; }
+#dlg .val { flex: 1; min-width: 0; overflow-wrap: anywhere; user-select: text; cursor: text; line-height: 16px; padding-top: 2px; align-self: flex-start; }
+#dlg .val.mono, #dlg .val a.mono { font: 11px/16px var(--mono); word-break: break-all; }
+#dlg .val a { color: var(--black); text-decoration: underline; }
+#dlg .row.f label { align-self: flex-start; line-height: 20px; }
+#dlg .row.h label.dis { color: #888; }
 #dlg .list { background: #fff; border: 1px solid var(--black); max-height: 140px; overflow-y: auto;
   box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
 #dlg .list div { padding: 0 6px; line-height: 16px; height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -693,13 +699,67 @@ async function deleteSite(slug) {
   try { await api("/sites/" + encodeURIComponent(slug), { method: "DELETE" }); await loadSites(); }
   catch (e) { alertBox("Could not delete", e.message); }
 }
-$("#b-publish").addEventListener("click", () => {
+$("#b-publish").addEventListener("click", publishSheet);
+async function publishSheet() {
+  if (!site) return;
+  const slug = site;
+  let caps, node;
+  try { [caps, node] = await Promise.all([api("/node"), api("/sites/" + encodeURIComponent(slug) + "/node")]); }
+  catch (e) { alertBox("Could not read the node", e.message); return; }
+  const canExpose = caps.exe && !!caps.domain, canIPFS = caps.kubo && !caps.kubo_error;
+  let poll = null;
   dialog(`<h2>Publish</h2>
-    <p>Where this site is published from this node. Both are off, and both come in phase 5.</p>
-    <div class="row h"><input type="checkbox" disabled><label>Expose at <b>${esc(site)}</b>.&lt;your domain&gt; through exe</label></div>
-    <div class="row h"><input type="checkbox" disabled><label>Publish to IPFS and keep an IPNS name</label></div>
-    <div class="btns"><button class="ghost default" id="d-ok">OK</button></div>`, () => true);
-});
+    <p class="hint">Where this site is served from this node. Both are off until you turn them on.</p>
+    <div class="group"><h3>Web</h3>
+      <div class="row h"><input type="checkbox" id="d-expose" ${canExpose ? "" : "disabled"} ${node.expose ? "checked" : ""}><label for="d-expose" class="${canExpose ? "" : "dis"}">Expose through exe, with its DNS record and tunnel</label></div>
+      <div class="row f"><label for="d-sub">Address</label><input type="text" id="d-sub" value="${esc(node.subdomain || "")}" placeholder="${esc(slug)}" ${canExpose ? "" : "disabled"}><span class="suffix">.${esc(caps.domain || "…")}</span></div>
+      <div class="row f"><label>Now</label><span class="val" id="d-url"></span></div>
+    </div>
+    <div class="group"><h3>IPFS</h3>
+      <div class="row h"><input type="checkbox" id="d-ipfs" ${canIPFS ? "" : "disabled"} ${node.ipfs ? "checked" : ""}><label for="d-ipfs" class="${canIPFS ? "" : "dis"}">Publish every changed build to IPFS under this node's key</label></div>
+      <div class="row f"><label>IPNS</label><span class="val mono" id="d-ipns"></span></div>
+      <div class="row f"><label>Last</label><span class="val" id="d-cid"></span></div>
+    </div>
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost left" id="d-export">Export…</button><button class="ghost left" id="d-pubnow" ${node.ipfs ? "" : "disabled"}>Publish Now</button><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Save</button></div>`, async () => {
+    const upd = { expose: $("#d-expose").checked, subdomain: $("#d-sub").value.trim(), ipfs: $("#d-ipfs").checked };
+    $("#d-err").textContent = upd.expose && !node.expose ? "Adding the route…" : "";
+    $("#d-ok").disabled = true;
+    try {
+      node = await json("PUT", "/sites/" + encodeURIComponent(slug) + "/node", upd);
+      $("#d-err").textContent = "";
+      return true;
+    } catch (e) { $("#d-err").textContent = e.message; $("#d-ok").disabled = false; return false; }
+  }, () => clearTimeout(poll));
+  const show = () => {
+    const url = $("#d-url");
+    url.innerHTML = "";
+    if (node.expose && node.url) { const a = document.createElement("a"); a.href = node.url; a.target = "_blank"; a.textContent = node.url; url.append(a); }
+    else url.textContent = canExpose ? "Not exposed" : (caps.exe ? "exe has no domain to expose in" : "exe is not configured on this node");
+    if (node.route_warnings && node.route_warnings.length) url.append(" · " + node.route_warnings.join("; "));
+    $("#d-ipns").textContent = node.ipns || (canIPFS ? "Made when IPFS is first turned on" : (caps.kubo_error ? "Kubo: " + caps.kubo_error : "Kubo is not configured on this node"));
+    const cid = $("#d-cid");
+    cid.innerHTML = "";
+    if (node.publishing) cid.textContent = "Publishing…";
+    else if (node.publish_error) cid.textContent = "Failed: " + node.publish_error + (node.cid ? " (still " + node.cid.slice(0, 16) + "…)" : "");
+    else if (node.cid) { const a = document.createElement("a"); a.href = node.cid_url; a.target = "_blank"; a.className = "mono"; a.textContent = node.cid; cid.append(fmtTime(node.published) + " · "); cid.append(a); if (node.built_hash && node.built_hash !== node.published_hash) cid.append(" · a newer build waits"); }
+    else cid.textContent = node.ipfs ? "Not published yet" : "Never published";
+    $("#d-pubnow").disabled = !node.ipfs || node.publishing;
+  };
+  show();
+  const refresh = async () => {
+    try { node = await api("/sites/" + encodeURIComponent(slug) + "/node"); show(); } catch (e) {}
+    if ($("#d-cid")) poll = setTimeout(refresh, node.publishing ? 1000 : 3000);
+  };
+  poll = setTimeout(refresh, 3000);
+  $("#d-pubnow").addEventListener("click", async () => {
+    $("#d-pubnow").disabled = true;
+    try { node = await api("/sites/" + encodeURIComponent(slug) + "/publish", { method: "POST" }); show(); clearTimeout(poll); poll = setTimeout(refresh, 1000); }
+    catch (e) { $("#d-err").textContent = e.message; $("#d-pubnow").disabled = false; }
+  });
+  $("#d-export").addEventListener("click", () => { window.open(withToken(API + "/sites/" + encodeURIComponent(slug) + "/export"), "_blank"); });
+  $("#d-sub").addEventListener("input", () => { const v = $("#d-sub").value.trim(); $("#d-err").textContent = v && !SLUG.test(v) ? "An address is lowercase letters, digits and hyphens." : ""; });
+}
 
 // ---- import ----
 $("#b-import").addEventListener("click", () => {
@@ -798,11 +858,11 @@ $("#rows").addEventListener("contextmenu", e => {
 });
 
 // ---- dialogs, alerts, confirms (the Hub app's blocks) ----
-function dialog(html, ok) {
+function dialog(html, ok, onClose) {
   const veil = $("#veil"), dlg = $("#dlg");
   dlg.innerHTML = html;
   veil.classList.add("on");
-  const close = () => { veil.classList.remove("on"); dlg.innerHTML = ""; document.removeEventListener("keydown", onKey, true); };
+  const close = () => { veil.classList.remove("on"); dlg.innerHTML = ""; document.removeEventListener("keydown", onKey, true); if (onClose) onClose(); };
   const submit = async () => { if (await ok() !== false) close(); };
   const onKey = e => {
     if (veil.classList.contains("alert")) return;
