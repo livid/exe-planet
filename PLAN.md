@@ -226,7 +226,13 @@ Templates ship vendored under `templates/` in this repo and are copied into
 never over a copy that holds a `.git` directory. Croptop is not shipped: it
 is an NFT minting UI.
 
-**Platinum** (`templates/platinum`, 2026-09-25) is ours, the seventh: every
+**Platinum** (`templates/platinum`, 2026-09-25) is ours, the seventh,
+published the same day as
+[Planetable/SiteTemplatePlatinum](https://github.com/Planetable/SiteTemplatePlatinum)
+and bundled as the `platinum` submodule of PlanetSiteTemplates (tag
+0.9.0); the vendored copy here is that repo's checkout without `.git`,
+so a change goes to the repo first (its pre-commit hook sets
+`buildNumber` to the commit count) and is rsynced back. Every
 page one window on the desk gray, drawn as the exe desk and its homepage
 draw theirs. `assets/chrome.css` is a verbatim copy of exe-stats'
 `chrome.css` (the window, striped bar, sunken frame, status strip, push
