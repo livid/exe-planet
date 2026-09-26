@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The social card: a 1200 by 675 animated GIF (the size X shows in the
-timeline) that carries the 88 by 31 badge blown up pixel for pixel and
+timeline) that carries the 88 by 31 badge blown up pixel for pixel, clean
+on the white, and
 the introduction beside it, drawn as one Platinum window at double
 scale: 2px black edges, 2px bevels, 2px title-bar stripes, the desk gray
 around it. The badge's eight frames are the only motion.
@@ -126,16 +127,12 @@ def base_frame():
     # the status strip along the frame's bottom
     sb_h = 30
     statusbar(d, cx0 - S, cy1 - sb_h, cx1 + S, cy1 + S, "blog.v2core.com", "Open source, one Go binary, on a machine you own")
-    # top left: the badge at 6x on a lavender field, the well a sunken box
+    # top left: the badge at 6x, clean on the white, nothing around it
     scale = 6
     bw, bh = 88 * scale, 31 * scale
-    pad = 20
     wx0, wy0 = cx0 + 44, cy0 + 40
-    wx1, wy1 = wx0 + bw + 2 * pad, wy0 + bh + 2 * pad
-    d.rectangle([wx0 - S, wy0 - S, wx1 - 1, wy1 - 1], fill=G600)
-    d.rectangle([wx0, wy0, wx1 + S - 1, wy1 + S - 1], fill=WHITE)
-    d.rectangle([wx0, wy0, wx1 - 1, wy1 - 1], fill=LAV, outline=BLACK, width=S)
-    badge_at = (wx0 + pad, wy0 + pad)
+    wx1, wy1 = wx0 + bw, wy0 + bh
+    badge_at = (wx0, wy0)
     # beside it: the name and what it is
     tx = wx1 + 44
     tw = cx1 - 44 - tx
