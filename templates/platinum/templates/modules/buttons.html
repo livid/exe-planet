@@ -1,9 +1,9 @@
 <div class="btnrow">
   <a class="btn{% if current_item_type != 'index' %} default{% endif %}" href="{{ assets_prefix }}">Home</a>
-  <a class="btn" href="{{ assets_prefix }}archive.html">Archive</a>
-  {% if planet.tags.count > 0 %}<a class="btn" href="{{ assets_prefix }}tags.html">Tags</a>{% endif %}
+  <a class="btn glyph" href="{{ assets_prefix }}archive.html" title="Archive" aria-label="Archive"><span class="t">Archive</span>{% include 'modules/glyph_archive.html' %}</a>
+  {% if planet.tags.count > 0 %}<a class="btn glyph" href="{{ assets_prefix }}tags.html" title="Tags" aria-label="Tags"><span class="t">Tags</span>{% include 'modules/glyph_tags.html' %}</a>{% endif %}
   {% for item in site_navigation %}
-  <a class="btn" href="{% if item.externalLink.count > 0 %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{% if item.slug.count > 0 %}{{ item.slug }}{% else %}{{ item.id }}{% endif %}/{% endif %}"{% if item.externalLink.count > 0 %} target="_blank" rel="noopener"{% endif %}>{{ item.title|escape }}</a>
+  <a class="btn{% if item.title == 'Badge' %} glyph{% endif %}" href="{% if item.externalLink.count > 0 %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{% if item.slug.count > 0 %}{{ item.slug }}{% else %}{{ item.id }}{% endif %}/{% endif %}"{% if item.externalLink.count > 0 %} target="_blank" rel="noopener"{% endif %} title="{{ item.title|escape }}" aria-label="{{ item.title|escape }}"><span class="t">{{ item.title|escape }}</span>{% if item.title == 'Badge' %}{% include 'modules/glyph_badge.html' %}{% endif %}</a>
   {% endfor %}
-  <a class="btn" href="{{ assets_prefix }}rss.xml">RSS</a>
+  <a class="btn glyph" href="{{ assets_prefix }}rss.xml" title="RSS" aria-label="RSS"><span class="t">RSS</span>{% include 'modules/glyph_rss.html' %}</a>
 </div>

@@ -39,6 +39,7 @@ func TestPlatinumTemplate(t *testing.T) {
 	store.AddAttachment("exe", "post-l", "", "shot.png", strings.NewReader("png"))
 	store.CreatePost("exe", site.KindPost, "quiet", site.Meta{Created: day.AddDate(0, 0, 20)}, "Just a thought.\n")
 	store.CreatePost("exe", site.KindPage, "about", site.Meta{Title: "About", Created: day}, "About this site.\n")
+	store.CreatePost("exe", site.KindPage, "badge", site.Meta{Title: "Badge", Created: day}, "The badge.\n")
 	if _, err := svc.Build("exe"); err != nil {
 		t.Fatal(err)
 	}
@@ -66,8 +67,12 @@ func TestPlatinumTemplate(t *testing.T) {
 		`class="item-title" href="./quiet/">Sep 21, 2026</a>`, `<div class="item-body content"><p>Just a thought.</p>`,
 		`href="./post-l/">Post L</a>`, `<span class="item-date">Sep 13, 2026</span>`,
 		`10 posts · page 1 of 2</span>`, `<a href="./page2.html">Older</a>`,
-		`<a class="btn" href="./">Home</a>`, `<a class="btn" href="./archive.html">Archive</a>`, `<a class="btn" href="./tags.html">Tags</a>`,
-		`<a class="btn" href="./about/">About</a>`, `<a class="btn" href="./rss.xml">RSS</a>`,
+		`<a class="btn" href="./">Home</a>`,
+		`<a class="btn glyph" href="./archive.html" title="Archive" aria-label="Archive"><span class="t">Archive</span><svg class="ix"`,
+		`<a class="btn glyph" href="./tags.html" title="Tags" aria-label="Tags"><span class="t">Tags</span><svg class="ix"`,
+		`<a class="btn" href="./about/" title="About" aria-label="About"><span class="t">About</span></a>`,
+		`<a class="btn glyph" href="./badge/" title="Badge" aria-label="Badge"><span class="t">Badge</span><svg class="ix"`,
+		`<a class="btn glyph" href="./rss.xml" title="RSS" aria-label="RSS"><span class="t">RSS</span><svg class="ix"`,
 		`Built with <a href="https://exe.v2core.com/"`)
 	if strings.Contains(index, `class="strip tools"`) || strings.Contains(index, `btn default`) {
 		t.Error("the index wears a crumb strip or a ringed button")
@@ -80,7 +85,7 @@ func TestPlatinumTemplate(t *testing.T) {
 		`<h1 class="post-title">Post L</h1>`, `<div class="date">Sep 13, 2026`,
 		`<h1>Hello</h1>`, `<code>code</code>`, `<pre><code class="language-sh">$ exe serve`, `<img src="shot.png" alt="shot"`,
 		`<a href="../exe.html" class="tag">exe</a>`, `<a href="../desk-things.html" class="tag">Desk Things</a>`,
-		`<a class="btn default" href="../">Home</a>`, `<span><a href="../">exe</a></span>`,
+		`<a class="btn default" href="../">Home</a>`, `<span><a href="../">exe</a></span>`, `fill="currentColor"`,
 		`<meta property="og:type" content="article" />`)
 	about := read("about/index.html")
 	has("about/index.html", about, `<div class="title">About</div>`, `<h1 class="post-title">About</h1>`)
