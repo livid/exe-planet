@@ -1,0 +1,92 @@
+/* Platinum, the site template: every page is one window on the desktop
+   gray, drawn as the exe desk and its homepage draw theirs. The chrome —
+   the window, its striped bar, the sunken frame, the status strip and the
+   push button — is chrome.css beside this file, a copy of exe-stats'
+   shared block; this file is only what a site needs on top of it. Every
+   1px line is a border on a box of its own; 12px type; no hover states. */
+:root { --rule: #ddd; --quiet: #555; --cell: #999; --head: #ddd; }
+.window { max-width: 720px; }
+
+/* the top strip: where this page sits, in one line, on the platinum the
+   desk's status bars are made of */
+.strip.tools { display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  background: #ddd; color: #333; font-size: 11px; border-bottom: 1px solid #262626;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+.crumbs { display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; overflow: hidden; }
+.crumbs .crumb { display: inline-flex; align-items: baseline; gap: 5px; flex: none; }
+.crumbs a { color: #333399; text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+/* the step between two names is a chevron on the pixel grid; between
+   ratios 1 and 2 a fractional scale would drop a row, so it is smoothed
+   there */
+.crumbs .sep { display: block; flex: none; align-self: center; margin: 0 1px; width: 4px; height: 7px; color: #777; shape-rendering: crispEdges; }
+.crumbs .sep .k { fill: currentColor; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) { .crumbs .sep { shape-rendering: geometricPrecision; } }
+.crumbs b { flex: 0 1 auto; min-width: 3em; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .crumbs .crumb:not(:last-of-type) { display: none; } }
+
+/* the page's body: the site's name and a line about it, then the posts */
+.body { padding: 16px 16px 12px; }
+.head { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+.head .avatar { display: block; width: 32px; height: 32px; flex: none; }
+.head h1 { margin: 0; font-size: 12px; line-height: 16px; }
+.head h1 small { display: block; font-size: 12px; font-weight: normal; color: var(--quiet); }
+.head h1 small p { margin: 0; }
+
+/* the list: each post a line with its date at the far end, a summary
+   under it, 1px rules between; the last line closes the list */
+.items { margin: 0; }
+.item { padding: 6px 0; border-top: 1px solid var(--rule); }
+.items .item:last-child { border-bottom: 1px solid var(--rule); }
+.item-head { display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+.item-title { font-weight: bold; text-decoration: none; color: #333399; }
+.item-title:hover { text-decoration: underline; }
+.item-date { margin-left: auto; font-size: 11px; color: var(--quiet); white-space: nowrap; }
+.item-summary { margin: 2px 0 0; color: #333; }
+.item-body { margin: 2px 0 0; }
+h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
+.items + h2.section { margin-top: 20px; }
+
+/* a post: its title, its date in the quiet ink, then the text at the
+   manual's size, with a terminal for code and a sunken field for a
+   picture on its own */
+.post-title { margin: 0 0 2px; font-size: 12px; line-height: 16px; }
+.date { margin: 0 0 12px; font-size: 11px; color: var(--quiet); }
+.content { font-size: 12px; line-height: 1.45; }
+.content > :first-child { margin-top: 0; }
+.content h1, .content h2 { font-size: 12px; font-weight: bold; line-height: 1.34; margin: 16px 0 4px; }
+.content h3, .content h4 { font-size: 12px; font-weight: bold; line-height: 1.34; margin: 12px 0 4px; color: var(--quiet); }
+.content p { margin: 0 0 8px; }
+.content ul, .content ol { margin: 0 0 8px; padding: 0 0 0 18px; }
+.content li { margin: 0 0 4px; }
+.content li > p { margin: 0 0 4px; }
+.content code { font: 11px/1.45 Monaco, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+.content pre { margin: 8px 0; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; background: #000; color: #fff; cursor: text;
+  border: 1px solid #262626; box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+.content pre code { color: inherit; }
+.content blockquote { margin: 0 0 8px; padding: 0 0 0 10px; border-left: 2px solid #999; color: var(--quiet); }
+.content hr { border: 0; border-top: 1px solid #262626; margin: 12px 0; }
+.content img, .content video { max-width: 100%; height: auto; }
+.content p > img:only-child { display: block; margin: 12px 0; border: 1px solid #262626; background: #ccf; box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+.content table { border-collapse: collapse; font-size: 11px; line-height: 1.4; margin: 8px 0; max-width: 100%; }
+.content th, .content td { border: 1px solid var(--cell); padding: 3px 6px; text-align: left; vertical-align: top; }
+.content th { background: var(--head); font-weight: bold; white-space: nowrap; }
+.content input[type=checkbox] { vertical-align: -1px; }
+.video-container, .audio-container { margin: 0 0 8px; }
+.video-container video, .audio-container audio { display: block; width: 100%; }
+.tags { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 12px 0 0; font-size: 11px; }
+.tags .quiet { color: var(--quiet); }
+.tags .tag { color: #333399; text-decoration: none; }
+.tags .tag:hover { text-decoration: underline; }
+
+/* the button row: its own row under the text, 12px from the frame's
+   edges and between buttons, the way home rightmost and ringed */
+.btnrow { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; padding: 4px 12px 12px; }
+.btnrow .btn { font-family: inherit; }
+.btn.default { outline: 2px solid #262626; outline-offset: 1px; border-radius: 4px; }
+/* the status strip's two ends: the first at the left, the last pushed
+   right, the room between them whatever is left */
+.statusbar > :last-child:not(:first-child) { margin-left: auto; }
+.statusbar a { color: #333399; text-decoration: none; }
+.statusbar a:hover { text-decoration: underline; }
+.foot { max-width: 720px; margin: 0 auto; text-align: center; font-size: 11px; color: #333; }

@@ -226,6 +226,23 @@ Templates ship vendored under `templates/` in this repo and are copied into
 never over a copy that holds a `.git` directory. Croptop is not shipped: it
 is an NFT minting UI.
 
+**Platinum** (`templates/platinum`, 2026-09-25) is ours, the seventh: every
+page one window on the desk gray, drawn as the exe desk and its homepage
+draw theirs. `assets/chrome.css` is a verbatim copy of exe-stats'
+`chrome.css` (the window, striped bar, sunken frame, status strip, push
+button; re-copy, never edit), `assets/style.css` is the site's own: a
+crumb strip at the top of every page but the index, the site's avatar and
+about in the head, posts as ruled lines with the date at the far end, the
+manual's 12px type for a post with a black terminal for code and a sunken
+field for a picture on its own, tags under the text, the button row
+(Home ringed off the index, Archive, Tags when any, the site's pages,
+RSS) and the status strip (counts and Newer/Older on the index, the site
+and the date on a post). It reads the same context as Plain, uses no
+`elif` (the engine has none) and no summary on the index (Planet's
+article maps carry none). `TestPlatinumTemplate` builds every page kind.
+The live `exe` site (slug `exe`, avatar = the desk's icon) wears it; its
+first post is "Meet exe".
+
 ### What parity taught, so it is not relearned
 
 - Stencil splits a tag into components with `smartSplit` and

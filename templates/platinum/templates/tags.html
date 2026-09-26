@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% endblock %}
+{% block window_title %}{{ planet.name|escape }} — Tags{% endblock %}
+{% block main %}
+<div class="strip tools"><div class="crumbs"><span class="crumb"><a href="{{ assets_prefix }}">{{ planet.name|escape }}</a></span>{% include 'modules/sep.html' %}<b>Tags</b></div></div>
+<div class="body">
+  <div class="head"><h1>Tags<small>{{ tags.count }} tag{% if tags.count != 1 %}s{% endif %}</small></h1></div>
+  <div class="items">
+    {% for tag in tags %}
+    <div class="item">
+      <div class="item-head">
+        <a class="item-title" href="{{ assets_prefix }}{{ tag }}.html">{{ tags[tag]|escape }}</a>
+        <span class="item-date">{{ tag_articles[tag].count }} post{% if tag_articles[tag].count != 1 %}s{% endif %}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block status %}
+<span>{{ tags.count }} tag{% if tags.count != 1 %}s{% endif %}</span>
+{% endblock %}

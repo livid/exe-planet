@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta content="True" name="HandheldFriendly">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#cccccc">
+    <link rel="stylesheet" href="{{ assets_prefix }}assets/chrome.css">
+    <link rel="stylesheet" href="{{ assets_prefix }}assets/style.css?sha256={{ style_css_sha256 }}">
+    <link rel="alternate" type="application/rss+xml" title="{{ planet.name|escape }}" href="{{ assets_prefix }}rss.xml">
+    <link rel="preload" href="{{ assets_prefix }}planet.json" as="fetch" type="application/json" crossorigin="anonymous">
+    <title>{% block title %}{{ page_title|escape }}{% endblock %}</title>
+    <script>
+      window.PLANET = {
+        visitedFromPlanetClient: !!navigator.userAgent.match(/Planet\/\S*/),
+        assetsPrefix: '{{ assets_prefix }}',
+      };
+    </script>
+    {% if has_avatar %}
+    <link rel="icon" href="{{ assets_prefix }}avatar.png" sizes="144x144">
+    <link rel="shortcut icon" href="{{ assets_prefix }}favicon.ico" type="image/png">
+    {% endif %}
+    {% block head %}{% endblock %}
+    {% if planet.plausibleEnabled %}
+    <script defer data-domain="{{ planet.plausibleDomain }}" src="https://{{ planet.plausibleAPIServer }}/js/plausible.local.js"></script>
+    {% endif %}
+    {% if custom_code_head.count > 0 %}{{ custom_code_head }}{% endif %}
+  </head>
+  <body>
+    {% if custom_code_body_start.count > 0 %}{{ custom_code_body_start }}{% endif %}
+    <div class="window">
+      <div class="titlebar"><div class="stripe"></div><div class="title">{% block window_title %}{{ planet.name|escape }}{% endblock %}</div><div class="stripe"></div></div>
+      <div class="frame">
+        {% block main %}{% endblock %}
+        {% include 'modules/buttons.html' %}
+        <div class="statusbar">{% block status %}<span>{{ planet.name|escape }}</span>{% endblock %}</div>
+      </div>
+    </div>
+    <p class="foot">Built with <a href="https://exe.v2core.com/" target="_blank" rel="noopener">exe</a> and its Planet.</p>
+    {% if custom_code_body_end.count > 0 %}{{ custom_code_body_end }}{% endif %}
+  </body>
+</html>

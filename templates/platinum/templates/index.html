@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% if previous_page %}<link rel="prev" href="./{{ previous_page }}">{% endif %}
+{% if next_page %}<link rel="next" href="./{{ next_page }}">{% endif %}
+{% endblock %}
+{% block window_title %}{% if tag_key %}{{ planet.name|escape }} — {{ tag_value|escape }}{% else %}{{ planet.name|escape }}{% endif %}{% endblock %}
+{% block main %}
+{% if tag_key %}
+<div class="strip tools"><div class="crumbs"><span class="crumb"><a href="{{ assets_prefix }}">{{ planet.name|escape }}</a></span><svg class="sep" viewBox="0 0 4 7" aria-hidden="true"><path class="k" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg><span class="crumb"><a href="{{ assets_prefix }}tags.html">Tags</a></span><svg class="sep" viewBox="0 0 4 7" aria-hidden="true"><path class="k" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg><b>{{ tag_value|escape }}</b></div></div>
+{% endif %}
+<div class="body">
+  {% if tag_key %}
+  <div class="head"><h1>{{ tag_value|escape }}<small>{{ articles.count }} post{% if articles.count != 1 %}s{% endif %} tagged</small></h1></div>
+  {% else %}
+  <div class="head">
+    {% if has_avatar %}<img src="{{ assets_prefix }}avatar.png" alt="" width="32" height="32" class="avatar">{% endif %}
+    <h1>{{ planet.name|escape }}{% if page_description_html.count > 0 %}<small>{{ page_description_html }}</small>{% endif %}</h1>
+  </div>
+  {% endif %}
+  <div class="items">
+    {% for article in articles %}
+    <div class="item">
+      <div class="item-head">
+        {% if article.title.count > 0 %}<a class="item-title" href=".{{ article.link }}">{{ article.title|escape }}</a>{% else %}<a class="item-title" href=".{{ article.link }}">{{ article.created|ymd }}</a>{% endif %}
+        <span class="item-date">{{ article.created|ymd }}</span>
+      </div>
+      {% if article.title.count == 0 and article.contentRendered.count > 0 %}<div class="item-body content">{{ article.contentRendered }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block status %}
+<span>{{ articles.count }} post{% if articles.count != 1 %}s{% endif %}{% if total_pages > 1 %} · page {{ current_page }} of {{ total_pages }}{% endif %}</span>
+{% if previous_page %}<a href="./{{ previous_page }}">Newer</a>{% endif %}
+{% if next_page %}<a href="./{{ next_page }}">Older</a>{% endif %}
+{% endblock %}

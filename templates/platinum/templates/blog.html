@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/article_seo.html' %}
+{% if article.externalLink.count > 0 %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!window.PLANET.visitedFromPlanetClient) { window.location.href = "{{ article.externalLink|escapejs }}"; }
+  });
+</script>
+{% endif %}
+{% endblock %}
+{% block window_title %}{% if article.title.count > 0 %}{{ article.title|escape }}{% else %}{{ planet.name|escape }}{% endif %}{% endblock %}
+{% block main %}
+<div class="strip tools"><div class="crumbs"><span class="crumb"><a href="../">{{ planet.name|escape }}</a></span>{% include 'modules/sep.html' %}<b>{% if article.title.count > 0 %}{{ article.title|escape }}{% else %}{{ article.created|ymd }}{% endif %}</b></div></div>
+<div class="body">
+  {% if article.title.count > 0 %}<h1 class="post-title">{{ article.title|escape }}</h1>{% endif %}
+  {% if article_type == 0 %}<div class="date">{{ article.created|formatDate }}</div>{% endif %}
+  <div class="content">
+    {% if article.hasVideo %}
+    <div class="video-container">
+      <video class="video" controls playsinline preload="auto" poster="_videoThumbnail.png"><source src="{{ article.videoFilename }}"></video>
+    </div>
+    {% endif %}
+    {% if article.hasAudio %}
+    <div class="audio-container"><audio class="audio" controls><source src="{{ article.audioFilename }}"></audio></div>
+    {% endif %}
+    {{ content_html }}
+  </div>
+  {% if article.tags.count > 0 %}
+  <div class="tags"><span class="quiet">Tags</span>{% for tag in article.tags %}<a href="{{ assets_prefix }}{{ tag }}.html" class="tag">{{ article.tags[tag]|escape }}</a>{% endfor %}</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block status %}
+<span><a href="../">{{ planet.name|escape }}</a></span>
+<span>{{ article.created|formatDate }}</span>
+{% endblock %}

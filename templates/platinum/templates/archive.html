@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% endblock %}
+{% block window_title %}{{ planet.name|escape }} — Archive{% endblock %}
+{% block main %}
+<div class="strip tools"><div class="crumbs"><span class="crumb"><a href="{{ assets_prefix }}">{{ planet.name|escape }}</a></span>{% include 'modules/sep.html' %}<b>Archive</b></div></div>
+<div class="body">
+  <div class="head"><h1>Archive<small>{{ articles.count }} post{% if articles.count != 1 %}s{% endif %}</small></h1></div>
+  {% for item in archive_sections %}
+  <h2 class="section">{{ item }}</h2>
+  <div class="items">
+    {% for article in archive[item] %}
+    <div class="item">
+      <div class="item-head">
+        {% if article.title.count > 0 %}<a class="item-title" href=".{{ article.link }}">{{ article.title|escape }}</a>{% else %}<a class="item-title" href=".{{ article.link }}">{{ article.created|ymd }}</a>{% endif %}
+        <span class="item-date">{{ article.created|ymd }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block status %}
+<span>{{ articles.count }} post{% if articles.count != 1 %}s{% endif %} in {{ archive_sections.count }} month{% if archive_sections.count != 1 %}s{% endif %}</span>
+{% endblock %}

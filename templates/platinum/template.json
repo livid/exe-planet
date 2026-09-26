@@ -1,0 +1,12 @@
+{
+  "name": "Platinum",
+  "description": "Mac OS 9 Platinum: every page a window on the desktop gray, drawn the way the exe desk draws its own",
+  "author": "exe",
+  "authorWebsite": "https://exe.v2core.com",
+  "version": "1.0",
+  "idealItemsPerPage": 10,
+  "generateIndexPagination": true,
+  "generateTagPages": true,
+  "generateArchive": true,
+  "buildNumber": 1
+}
