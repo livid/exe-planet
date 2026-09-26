@@ -102,6 +102,7 @@
   // ---- state ----
   let verdict = null, until = 0, busy = false, flash = "", timer = 0;
   let target = null; // the reply this window answers instead of the post
+  let saving = 0;    // the draft's save, debounced behind the typing
   const watched = new WeakSet();
 
   const need = v => (v.mints || []).map(m => (m.raw ? m.amount + " raw units" : m.amount + " tokens") + " of " + short(m.mint)).join(" or ");
@@ -178,7 +179,6 @@
   }
   function signedOut() {
     verdict = null; flash = ""; until = 0;
-    if (target) { target = null; showTarget(); }
     remember(null);
     root.classList.remove("wallet");
     q(".me-av").hidden = true;
@@ -233,22 +233,46 @@
   // ---- the reply this window answers ----
   // A Reply link under a reply in the frame aims this window at it: a line
   // names it ("Replying to Name — its first words") with a cross that lets
-  // it go, so the window answers the post again. The reply is checked
-  // on the hub as Reply is pressed: words written to one reply are never
-  // sent anywhere else by themselves.
+  // it go, so the window answers the post again. The aim belongs to the
+  // draft, not to the session: it is saved with the words and comes back
+  // with them after a reload, and a sign-out leaves it be. The reply is
+  // checked on the hub as Reply is pressed: words written to one reply
+  // are never sent anywhere else by themselves, and one deleted meanwhile
+  // is said so, the words and the aim kept until the reader lets it go.
   const reRow = q(".re-row"), reQ = q(".re-q"), reClear = q(".re-clear");
+  const aimOf = d => d && typeof d === "object" && typeof d.id === "string" && /^[0-9a-f]{64}$/.test(d.id)
+    ? { id: d.id, name: String(d.name || "").slice(0, 64), words: String(d.words || "").slice(0, 200) } : null;
   function showTarget() {
     reRow.hidden = !target;
     if (target) reQ.replaceChildren("Replying to ", Object.assign(document.createElement("b"), { textContent: target.name }), target.words ? " — " + target.words : "");
     render();
   }
   function aim(d) {
-    target = { id: d.id, name: String(d.name || "").slice(0, 64), words: String(d.words || "").slice(0, 200) };
+    target = aimOf(d);
     showTarget();
+    saveDraft();
     box.closest(".window").scrollIntoView({ block: "center" });
     text.focus({ preventScroll: true });
   }
-  reClear.addEventListener("click", () => { target = null; showTarget(); text.focus(); });
+  reClear.addEventListener("click", () => { target = null; showTarget(); saveDraft(); text.focus(); });
+
+  // ---- the draft: the words and the reply they answer, kept together ----
+  // {v: 1, text, reply_to} under the post's key; a draft an earlier build
+  // saved as bare words reads as words answering the post. Words alone
+  // are the draft: an aim with nothing written is not kept.
+  function saveDraft() {
+    clearTimeout(saving);
+    store(DRAFT, text.value ? JSON.stringify({ v: 1, text: text.value, reply_to: target }) : null);
+  }
+  function readDraft() {
+    const s = stored(DRAFT);
+    if (!s) return null;
+    try {
+      const j = JSON.parse(s);
+      if (j && typeof j === "object" && j.v === 1) return { text: String(j.text || ""), reply_to: aimOf(j.reply_to) };
+    } catch (e) {}
+    return { text: s, reply_to: null };
+  }
 
   // ---- the controls ----
   signin.addEventListener("click", async () => {
@@ -279,12 +303,11 @@
       else if (w && w.features["standard:disconnect"]) w.features["standard:disconnect"].disconnect().catch(() => {});
     } catch (e) {}
   });
-  let saving = 0;
   text.addEventListener("input", () => {
     flash = "";
     render();
     clearTimeout(saving);
-    saving = setTimeout(() => store(DRAFT, text.value || null), 400);
+    saving = setTimeout(saveDraft, 400);
   });
   text.addEventListener("keydown", e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !send.disabled) send.click(); });
   send.addEventListener("click", async () => {
@@ -316,8 +339,12 @@
   });
 
   // ---- start: the draft, and no wallet, one signed in before, or none ----
-  const draft = stored(DRAFT);
-  if (draft) text.value = draft;
+  const draft = readDraft();
+  if (draft) {
+    text.value = draft.text;
+    target = draft.reply_to;
+    showTarget();
+  }
   const saved = recall();
   found.then(ws => {
     if (!ws.length) {

@@ -700,7 +700,17 @@ takes whole ids only, and the frame is built from it), in two places:
     a sandboxed one is opaque too.
   - localStorage keeps the wallet's name and address (`exe-hub-wallet`,
     as the hub's pages do) and the unsent draft per post, every access in
-    try/catch; nothing else.
+    try/catch; nothing else. The draft is the words and the reply they
+    answer, together (`{v: 1, text, reply_to}` under
+    `exe-hub-draft:<root>`), so a reload brings the "Replying to" row
+    back with the text, and a sign-out leaves the aim alone: it is the
+    draft's, not the session's. Words alone make a draft — an aim with
+    nothing written is not kept — and a draft an earlier build saved as
+    bare words reads as words answering the post. An aim at a reply
+    deleted meanwhile is refused at Reply by the check above, the words
+    and the row kept until the reader clears it. (Codex on Spark found
+    the words coming back without their reply after a reload,
+    2026-09-26; Livid: "Improve it." SiteTemplatePlatinum buildNumber 8.)
   - The script is the template's own, fixed per build, not one the hub
     serves: a script from the hub on this page could ask the reader's
     wallet to sign anything if the hub were compromised. The cost is a
@@ -733,9 +743,13 @@ takes whole ids only, and the frame is built from it), in two places:
   that signs as the hub's admin), mock Wallet Standard wallets: switch
   on, the invite, a draft moved to posts announced with its line, no
   wallet, a wallet below the gate, a reply that slides in live, the frame
-  growing, an aimed reply to a reply nested under it, the page inlined
-  into a sandboxed srcdoc frame as the app's column shows it, shots at
-  DPR 1, 1.5, 2 and a phone. `exe-planet-announce-sheet-test.js`: the
+  growing, an aimed reply to a reply nested under it, a draft aimed at
+  a reply kept through a reload and a sign-out (the cross clears both,
+  a bare-string draft from an earlier build still reads, a saved aim
+  shows at once at every DPR), an aim at a reply deleted meanwhile
+  refused at Reply with nothing signed, the page inlined into a
+  sandboxed srcdoc frame as the app's column shows it, shots at DPR 1,
+  1.5, 2 and a phone. `exe-planet-announce-sheet-test.js`: the
   Hub group and Announce on Hub on the live desk against a scratch
   daemon, every PUT and DELETE to the live daemon swallowed.
 - Real Stencil: PlanetSiteTemplates' `swift test` on the Mac renders the
