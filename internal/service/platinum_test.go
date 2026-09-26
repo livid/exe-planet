@@ -92,7 +92,11 @@ func TestPlatinumTemplate(t *testing.T) {
 	has("tags.html", tags, `<div class="title">exe — Tags</div>`, `href="./desk-things.html">Desk Things</a>`, `1 post</span>`, `2 tags</span>`)
 	tag := read("exe.html")
 	has("exe.html", tag, `<div class="title">exe — exe</div>`, `<b>exe</b></div></div>`, `<h1>exe<small>1 post tagged</small></h1>`, `href="./post-l/">Post L</a>`)
-	for _, f := range []string{"assets/chrome.css", "assets/style.css", "rss.xml", "planet.json", "avatar.png"} {
+	rss := read("rss.xml")
+	if !strings.HasPrefix(rss, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"assets/rss.xsl\"?>\n<rss ") {
+		t.Errorf("rss.xml has no stylesheet line:\n%.200s", rss)
+	}
+	for _, f := range []string{"assets/chrome.css", "assets/style.css", "assets/rss.xsl", "rss.xml", "planet.json", "avatar.png"} {
 		if _, err := os.Stat(filepath.Join(pub, filepath.FromSlash(f))); err != nil {
 			t.Errorf("no %s in the build", f)
 		}

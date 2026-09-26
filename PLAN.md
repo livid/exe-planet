@@ -239,7 +239,16 @@ field for a picture on its own, tags under the text, the button row
 RSS) and the status strip (counts and Newer/Older on the index, the site
 and the date on a post). It reads the same context as Plain, uses no
 `elif` (the engine has none) and no summary on the index (Planet's
-article maps carry none). `TestPlatinumTemplate` builds every page kind.
+article maps carry none). `TestPlatinumTemplate` builds every page kind. Its `assets/rss.xsl`
+styles the feed: a template that ships that file gets
+`<?xml-stylesheet type="text/xsl" href="assets/rss.xsl"?>` written into
+`rss.xml` and `podcast.xml` after the XML declaration (the builder's
+one rule; Planet's templates ship none, so their goldens hold), and a
+browser opening the feed draws it as one more window, the posts as the
+index lists them and the address to paste into a reader. Chromium 151
+still transforms it, with a warning that every browser is dropping
+XSLT; a reader never sees the stylesheet, so the feed loses nothing
+when that day comes.
 The live `exe` site (slug `exe`, avatar = the desk's icon) wears it; its
 first post is "Meet exe".
 
@@ -441,6 +450,12 @@ does not. Built 2026-09-25 (0.5.0).
   `Status.hash`; a publish happens only when that moved since the last
   one. The output is not compared because Sepia and Memories stamp
   `build_timestamp` into their pages.
+- **An exposed site builds with its hostname** as Planet's `domain`
+  (`input()` reads the node file), so the feed's `<link>`s, the Open
+  Graph image and every absolute URL carry `https://<hostname>/`
+  instead of the IPNS gateway form, which with no name yet read
+  `https://eth.sucks/ipns//`. The hostname is part of the input hash,
+  and a route change rebuilds at once.
 - **Expose** (`expose`, `subdomain`) asks exe for a route,
   `POST /v1/routes {host: <sub>.<zone>, backend: http://127.0.0.1:7799}`,
   with the sub defaulting to the slug and the zone read from exe's

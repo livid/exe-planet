@@ -45,6 +45,10 @@
 .item-summary { margin: 2px 0 0; color: #333; }
 .item-body { margin: 2px 0 0; }
 h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
+/* the feed, as rss.xsl shows it in a browser: a line saying what the
+   file is, with its address to copy */
+.feed-note { margin: 0 0 12px; }
+.feed-note code { font: 11px/1.45 Monaco, Menlo, Consolas, "DejaVu Sans Mono", monospace; user-select: all; }
 .items + h2.section { margin-top: 20px; }
 
 /* a post: its title, its date in the quiet ink, then the text at the

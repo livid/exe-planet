@@ -106,6 +106,12 @@ func TestExpose(t *testing.T) {
 	if dir := svc.HostDir("notes.example.test:443"); dir == "" || !strings.HasSuffix(dir, "public") {
 		t.Fatalf("host dir %q", dir)
 	}
+	// the rebuild that follows carries the hostname into the feed
+	rss, _ := os.ReadFile(filepath.Join(svc.HostDir("notes.example.test"), "rss.xml"))
+	hello, _ := store.Post("notes", "hello", "")
+	if !strings.Contains(string(rss), "<link>https://notes.example.test/</link>") || !strings.Contains(string(rss), "<link>https://notes.example.test/"+hello.ID+"/</link>") {
+		t.Fatalf("rss after expose:\n%.600s", rss)
+	}
 	if svc.HostDir("other.example.test") != "" {
 		t.Fatal("a stranger's host is served")
 	}
@@ -131,11 +137,16 @@ func TestExpose(t *testing.T) {
 	if _, err := svc.SetNode(ctx, "notes", NodeUpdate{Subdomain: &bad}); err == nil {
 		t.Fatal("a bad subdomain was taken")
 	}
-	// off removes the route
+	// off removes the route, and the feed goes back to the gateway form
 	off := false
 	n, err = svc.SetNode(ctx, "notes", NodeUpdate{Expose: &off})
 	if err != nil || n.Expose || n.Hostname != "" || len(fe.routes) != 0 || n.Subdomain != "blog" {
 		t.Fatalf("off: %+v %v %v", n, fe.routes, err)
+	}
+	st0, _ := store.Site("notes")
+	rss, _ = os.ReadFile(filepath.Join(svc.PublicDir(st0.ID), "rss.xml"))
+	if strings.Contains(string(rss), "example.test") {
+		t.Fatalf("rss after off still carries the hostname:\n%.400s", rss)
 	}
 	// exe refusing leaves expose off
 	fe.fail = true

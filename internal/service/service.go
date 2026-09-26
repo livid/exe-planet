@@ -183,7 +183,11 @@ func (s *Service) buildOnce(slug string) (Status, error) {
 	out := Status{Site: slug, Public: final, Built: time.Now(), Duration: time.Since(started).Milliseconds(), Files: len(res.Files), Warnings: res.Warnings, id: st.ID}
 	// Two templates stamp build_timestamp into their pages, so the
 	// output never compares equal; the inputs do.
-	if h, err := inputHash(st.Dir, in.Template.Dir, s.Version); err == nil {
+	salt := s.Version
+	if in.Planet.Domain != nil {
+		salt += " " + *in.Planet.Domain
+	}
+	if h, err := inputHash(st.Dir, in.Template.Dir, salt); err == nil {
 		out.Hash = h
 	}
 	s.Logf("planet: built %s: %d files in %d ms", slug, len(res.Files), out.Duration)
@@ -219,6 +223,12 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 		return build.Input{}, err
 	}
 	p, articles := FromSite(st, posts)
+	// An exposed site is Planet's "domain" case: its feed and its absolute
+	// links carry the hostname instead of an IPNS gateway.
+	if n := s.loadNode(st.ID); n.Expose && n.Hostname != "" && p.Domain == nil {
+		host := n.Hostname
+		p.Domain = &host
+	}
 	if newest := newestChange(st.Dir); planet.DateOf(newest) > p.Updated {
 		p.Updated = planet.DateOf(newest)
 	}

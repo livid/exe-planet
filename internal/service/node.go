@@ -225,6 +225,7 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 	if u.Expose != nil {
 		expose = *u.Expose
 	}
+	rebuild, publish := false, false
 	want := ""
 	if expose {
 		if s.Exe == nil {
@@ -266,10 +267,10 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 		}
 		n.RouteWarnings = warnings
 		s.Logf("planet: %s exposed at %q", slug, want)
+		rebuild = true // the feed and the absolute links carry the hostname
 	}
 	n.Expose = expose
 
-	rebuild, publish := false, false
 	if u.IPFS != nil && *u.IPFS != n.IPFS {
 		if *u.IPFS {
 			if s.Kubo == nil {
@@ -570,12 +571,13 @@ func (s *Service) Export(slug string, w io.Writer) error {
 }
 
 // inputHash is what a build is made from: every file of the site folder
-// and of its template, path and bytes in order, and the engine's
-// version. Two builds from the same inputs compare equal without a
-// manifest file, whatever the pages stamp.
-func inputHash(siteDir, templateDir, version string) (string, error) {
+// and of its template, path and bytes in order, and the salt (the
+// engine's version and the hostname the pages carry). Two builds from
+// the same inputs compare equal without a manifest file, whatever the
+// pages stamp.
+func inputHash(siteDir, templateDir, salt string) (string, error) {
 	h := sha256.New()
-	io.WriteString(h, "exe-planet "+version+"\n")
+	io.WriteString(h, "exe-planet "+salt+"\n")
 	for _, dir := range []string{siteDir, templateDir} {
 		var paths []string
 		err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {

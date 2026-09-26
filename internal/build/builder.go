@@ -689,6 +689,13 @@ func (b *builder) rss(podcast bool) error {
 	if err != nil {
 		return err
 	}
+	// A template that ships assets/rss.xsl gets the feed styled: a browser
+	// opening rss.xml renders the stylesheet's page, a reader ignores it.
+	if _, err := os.Stat(filepath.Join(b.tpl.Dir, "assets", "rss.xsl")); err == nil {
+		if head, rest, ok := strings.Cut(xml, "\n"); ok && strings.HasPrefix(head, "<?xml") {
+			xml = head + "\n" + `<?xml-stylesheet type="text/xsl" href="assets/rss.xsl"?>` + "\n" + rest
+		}
+	}
 	name := "rss.xml"
 	if podcast {
 		name = "podcast.xml"
