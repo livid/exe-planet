@@ -93,7 +93,7 @@ func TestPlatinumTemplate(t *testing.T) {
 		t.Error("a page shows a date")
 	}
 	archive := read("archive.html")
-	has("archive.html", archive, `<div class="title">exe — Archive</div>`, `<h2 class="section">September 2026</h2>`, `href="./post-l/">Post L</a>`, `14 posts in 1 month</span>`)
+	has("archive.html", archive, `<div class="title">exe — Archive</div>`, `<h2 class="section">September 2026</h2>`, `href="./post-l/">Post L</a>`, `15 posts in 1 month</span>`)
 	tags := read("tags.html")
 	has("tags.html", tags, `<div class="title">exe — Tags</div>`, `href="./desk-things.html">Desk Things</a>`, `1 post</span>`, `2 tags</span>`)
 	tag := read("exe.html")
