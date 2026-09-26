@@ -37,6 +37,9 @@ around.
   following or reading of other planets. The importer is needed anyway for
   the golden tests.
 - **Expose and IPFS are per node and default off.**
+- **One key per site, three roles** (2026-09-26, Livid's proposal). The
+  site's ed25519 key is its IPNS name, its hub author and its Solana
+  address (tips, later). See Replies from the hub.
 
 ## Layout on disk
 
@@ -75,8 +78,9 @@ Per node, never synced, derived or secret:
 ```
 ~/.exe/planet/
   <site uuid>/
-    node.json                 expose {sub}, ipfs {enabled}, last build, last CID, last published
-    ipns.key                  PKCS#8 PEM, mode 600, the site's IPNS identity
+    node.json                 expose {sub}, ipfs {enabled}, announce {hub}, last build, last CID, last published
+    ipns.key                  PKCS#8 PEM, mode 600, the site's key: IPNS name, hub author, Solana address
+    hub.json                  planned: post id -> hub post id, written before the front matter's hub line
     public/                   Planet's Public/<uuid> layout, rebuilt from the Workspace source
 ```
 
@@ -141,6 +145,7 @@ tags: charts, macos
 hero: photo.jpg
 link: https://example.com/original     optional external link
 type: page                             only under pages/; default post
+hub: https://hub.example.com/p/<64 hex>   planned: the post's thread, written by the announcing node
 ---
 ```
 
@@ -481,7 +486,9 @@ does not. Built 2026-09-25 (0.5.0).
   public Host). Off, a new sub, a delete or an archive send
   `DELETE /v1/routes/{host}`. The route lives in exe, so it survives
   either daemon's restart; the daemon rereads its node files at start.
-- **IPFS** (`ipfs`) on the first turn-on makes an ed25519 key, keeps it
+- **IPFS** (`ipfs`) on the first turn-on makes an ed25519 key (planned:
+  the site's one key, made by whichever switch needs it first, IPFS or
+  Announce; see Replies from the hub), keeps it
   as PKCS#8 PEM in `<state>/<id>/ipns.key` (0600), lends Kubo a copy
   through `key/import?format=pem-pkcs8-cleartext` as `exe-planet-<id>`
   (a copy already there is checked to be the same key), writes the IPNS
@@ -503,6 +510,150 @@ does not. Built 2026-09-25 (0.5.0).
   URL, the IPNS name, the last CID with its time, Publish Now and Export…;
   a switch is dead, with the reason beside it, on a node without exe, a
   zone or Kubo.
+
+## Replies from the hub (planned 2026-09-26)
+
+Publish a post and it announces itself on the exe hub; the replies it
+gets there show under the post on the blog, live. My idea post on the
+hub (`d89824f7`, 2026-09-25), worked out with Livid 2026-09-26. The
+hub's side (invites, the replies frame) is in `/www/exe-hub/PLAN.md`,
+"Replies under a blog post". Today a reader of blog.v2core.com cannot
+answer.
+
+The day it lands: move a draft into `posts/`; a minute later the post
+is on the hub with its link card, posted by the site itself; replies
+made there show in a Replies window under the post, in the reader's
+language, arriving live; Reply on Hub… opens the thread to answer.
+
+### One key per site
+
+- The site's ed25519 key (`<state>/<id>/ipns.key`) is one public key in
+  three spellings: the **hub id** (the hub's `Fingerprint`, 16 hex), the
+  **IPNS name** (protobuf key, identity multihash, base36, `k51…`) and the
+  **Solana address** (the raw 32 bytes in base58). The IPNS name holds the
+  public key, so `ipns` in `site.json` is enough to derive the other two;
+  `site.json` gains no field.
+- What that buys: the hub profile, the IPNS site and a tip address are
+  provably the same owner, with no link to trust; the site speaks on the
+  hub as itself, with its own name and picture; and only the node holding
+  the key can announce, so two synced nodes cannot both announce a post.
+- Signatures do not cross over: the hub signs `exe-hub:v1\n` and the
+  envelope, IPNS signs `ipns-signature:`-prefixed data, Solana signs a
+  transaction message no such text parses as. The hub's wallet sign-in
+  already rests on a Solana key signing hub messages.
+- The key is made on the first switch that needs it (Announce, IPFS,
+  later Tips), not at site creation: a site that never publishes needs
+  none. The file keeps the name `ipns.key`.
+- **An imported Planet site** has its identity in the key Planet holds on
+  the Mac (`ipfs key gen <name>`, no type given: Kubo's default, ed25519,
+  to be checked on one of Livid's planets). A new key would lose its
+  Planet followers, so it announces only once the `.planet` key import
+  (Later) brings that key; until then Announce is dead with the reason.
+- Custody: the key lives in three places (`ipns.key`, Kubo's keystore,
+  every Export zip). Kubo's RPC has no `key/export`; its `key sign`
+  prefixes what it signs, which is to be verified on a probe key before
+  a Solana balance ever rides on the key.
+
+### Announcing
+
+- **A switch per node**, `announce` in `node.json` with `hub`, the one hub
+  address the site uses: it posts there and its readers' pages frame
+  that hub. One hub, so the post is there when a page first frames it
+  and the invite is needed on that hub alone; peering carries the post
+  to the other hub. The Publish… sheet shows the switch and the address;
+  the switch is dead, with the reason, until the site is exposed (a link
+  card needs a public URL), a hub address is set, and the key is this
+  site's own (see imported sites).
+- **Turning it on** makes the key if there is none, then asks exe to
+  invite it: `POST /v1/hub/publish {hub, type: "invite.set", body:
+  {target: <site pubkey>, note: "Site: <name>, <hostname>"}}`, signed by
+  the node's key, an admin on that hub. The sheet says so beside the
+  switch. Then the site's `profile.set`: name = the site's name, avatar =
+  `avatar.png` minted by that hub's `POST /v1/avatar`, bio = the about
+  and the site's address; sent again whenever those change. Turning it
+  off stops announcing and keeps the invite (the site's profile and posts
+  stay on the hub); deleting the site sends `invite.lift`.
+- **exe-planet signs its own envelopes** (`GET /v1/seq`, sign
+  `exe-hub:v1\n` + the envelope, `POST /v1/msg`), not through exe's
+  `/v1/hub/publish`, which signs with the node's key: the site's key
+  never leaves this daemon. A hub envelope is a few dozen lines, no
+  dependency.
+- **When.** After a build is swapped in, every post under `posts/` with
+  no thread (no `hub:` line and no ledger entry) is announced: its title,
+  its first line and its URL on the exposed hostname, so the hub's link
+  card comes from the live page's Open Graph tags. One post per cooldown
+  (the hub's 60 s applies to an invited key); a queue drains them in
+  order. Drafts are never announced; pages (`pages/`) neither; an edit
+  never announces again; deleting or archiving a post leaves its thread
+  alone, since other people's replies are in it.
+- **Older posts.** Switching on announces nothing already published; the
+  Planet app's post menu gets Announce on Hub for one of them (Meet exe
+  is the first, on Livid's say).
+
+### Where the thread id is kept
+
+Every post keeps the whole 64-hex id of its announcement (`reply_to`
+takes whole ids only, and the frame is built from it), in two places:
+
+- **The front matter is the record**: `hub: https://<hub>/p/<id>`. It
+  travels with the post (sync, Export, a copy in the Finder, a folder
+  rename) so every node builds the same Replies window; a person may edit
+  it (point an old post at a thread that exists, or delete the line to
+  take the window off). It is written by the daemon the way `ipns` is
+  written into `site.json`.
+- **A node-state ledger is the guard**: `<state>/<id>/hub.json`, the
+  post's `id` (the UUID, never the slug: a rename must not announce
+  again) to the hub id, written *before* the front matter. A crash
+  between the hub's answer and the file write finds the ledger entry and
+  fills the line in instead of posting twice. The Writer keeps an
+  unsaved edit over a changed file, so its next save can drop the line;
+  the next build sees the ledger entry without the line and writes it
+  back.
+- A post counts as announced when either place has its id.
+
+### The Replies window
+
+- The builder gives the template a top-level `hub_thread` with `link`
+  (the thread page) and `frame` (`<hub>/p/<id>/replies`) when the front
+  matter has `hub:`. It stays out of `article.json` and `planet.json`, so
+  the output keeps Planet's shape, and real Planet, which never sets it,
+  draws nothing.
+- Platinum grows `modules/replies.html`: a second window, Replies, under
+  the post's window, holding an `<iframe loading="lazy">` of the frame;
+  its shape (the title bar and a one-row placeholder) is there from the
+  first paint so the post never moves, and it is the last thing on the
+  page, so its growth pushes only the footer. The frame's height comes
+  from its `{hub: "height", h}` messages, taken only from that frame's
+  window and the hub's origin. Reply on Hub… opens `link` in a tab, on
+  a row of its own (no buttons on a status line). A hub that cannot be
+  reached leaves the placeholder and the button.
+- It ships by the template routine: SiteTemplatePlatinum, then rsync into
+  `templates/platinum`, then the PlanetSiteTemplates submodule and tag.
+- Nothing is baked at build: a reply never costs a rebuild, and the IPFS
+  copy carries the frame's address, not the replies.
+
+### Tests and order
+
+- Go: a fake hub (`internal/hub/hubtest`, like `kubotest`) that checks
+  signatures and seqs and answers ids; the ledger and front matter cases
+  (crash between, line dropped by a save, a rename, a draft, a page, an
+  edit, an imported site); the builder's `hub_thread`; the envelope's
+  bytes against the hub's own verifier.
+- Playwright: the publish test's sheet with the Announce row; a scratch
+  site with a hand-written `hub:` line against a scratch hub, the Replies
+  window at DPR 1, 1.5 and 2 and on a phone.
+- Order: the hub's invites and frame first; then the template window over
+  a hand-written `hub:` line; then the key's roles, the invite, the
+  profile and the announcing on a scratch daemon with a fake exe and a
+  fake hub; the first live post on Livid's say.
+
+### Open
+
+- Who may reply: the hub's token gate (10k $V2EX) applies to commenters
+  too. The plan keeps it; open replies on announced threads would change
+  the hub's gate and are Livid's call.
+- A composer inside the frame, once wallet extensions are known to
+  inject into a cross-origin frame.
 
 ## Import
 
@@ -575,9 +726,20 @@ in 0.2 s and builds in 0.2 s.
    daemon with fakes the script runs (`-exe http://127.0.0.1:7796 -kubo
    http://127.0.0.1:7795 -exe-config <a file naming a domain>`).
 6. Markdown without a dependency, gated on the corpus.
+7. Replies from the hub, as that section says (planned 2026-09-26).
 
 ## Later
 
 - The Finder opening `index.md` under `Planet/` in this editor.
-- Import of a `.planet` backup including its key.
+- Import of a `.planet` backup including its key (an imported site
+  announces on the hub only with its own key).
+- **Tips** to the site's Solana address, the third role of its key: the
+  address and a Tip… button on the page. SOL arrives as is (a first
+  transfer must cover the rent minimum, about 0.00089 SOL); USDC and
+  other SPL tokens land in a token account the sender's wallet makes
+  and pays for (about 0.002 SOL); moving a token out costs a fee in SOL,
+  so a site holding only USDC withdraws with Livid's wallet paying or
+  once it holds some SOL. Withdraw… sweeps to Livid's own wallet to keep
+  what rides on the key small; Export warns that its zip is a wallet;
+  Kubo's `key sign` checked first (see One key per site).
 - Podcast fields and `podcast.xml`.
