@@ -236,15 +236,19 @@ func TestViewAndRenderPath(t *testing.T) {
 		t.Fatalf("view route:\n%s", page)
 	}
 
-	// The Writer's render: a post's path goes through the site's template
-	// with the field's unsaved text; any other file is plain Markdown.
+	// The Writer's render: any file's body, front matter stripped, in
+	// Planet's Writer template, with the folder's pictures folded in.
 	rel := "Planet/notes/posts/hello/index.md"
 	page, err = svc.RenderPath(rel, "---\nid: "+p.ID+"\ntitle: Draft title\n---\n\n**bold** ![pic](photo.jpg)\n", Attachments{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(page, "<h1>Draft title</h1>") || !strings.Contains(page, "<strong>bold</strong>") || !strings.Contains(page, "base64,anBlZw==") {
+	if strings.Contains(page, "Draft title") || !strings.Contains(page, "<strong>bold</strong>") || !strings.Contains(page, "base64,anBlZw==") || !strings.Contains(page, `<div class="content">`) {
 		t.Fatalf("post render:\n%s", page)
+	}
+	page, _ = svc.RenderPath(rel, "![pic](photo.jpg)\n", Attachments{Base: "/att/", Query: "token=T"})
+	if !strings.Contains(page, `src="/att/photo.jpg?token=T"`) {
+		t.Fatalf("post render route:\n%s", page)
 	}
 	os.MkdirAll(filepath.Join(filepath.Dir(store.Root), "Notes"), 0o755)
 	os.WriteFile(filepath.Join(filepath.Dir(store.Root), "Notes", "pic.png"), []byte("png"), 0o644)
@@ -252,7 +256,7 @@ func TestViewAndRenderPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(page, "<title>Todo</title>") || !strings.Contains(page, "<h1>Todo</h1>") || !strings.Contains(page, "base64,cG5n") || !strings.Contains(page, `type="checkbox"`) {
+	if !strings.Contains(page, "<title>Preview</title>") || !strings.Contains(page, "<h1>Todo</h1>") || !strings.Contains(page, "base64,cG5n") || !strings.Contains(page, `type="checkbox"`) {
 		t.Fatalf("plain render:\n%s", page)
 	}
 	for _, bad := range []string{"", "../x.md", "Planet/../../etc/passwd"} {

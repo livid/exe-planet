@@ -376,6 +376,18 @@ async function renderNow() {
 }
 
 ed.addEventListener("input", () => { scheduleSave(); schedulePreview(); });
+
+// ---- scroll sync, as Planet's Writer does it: the page scrolls to the
+// same fraction as the field, and a fresh rendering asks for it again ----
+function scrollPercent() {
+  const range = ed.scrollHeight - ed.clientHeight;
+  return range > 0 ? Math.min(1, Math.max(0, ed.scrollTop / range)) : 0;
+}
+function syncPreview() {
+  if (pv.contentWindow) pv.contentWindow.postMessage({ exe: "preview-scroll", percent: scrollPercent() }, "*");
+}
+let syncTimer = null;
+ed.addEventListener("scroll", () => { if (!syncTimer) syncTimer = setTimeout(() => { syncTimer = null; syncPreview(); }, 40); }, { passive: true });
 document.addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
 });
@@ -507,6 +519,8 @@ document.addEventListener("scroll", e => {
 // Workspace file changed on disk from elsewhere ({exe:"workspace-changed"}:
 // an agent, a synced peer, Planet), and hides or shows the window.
 window.addEventListener("message", async e => {
+  // the page's own frame has no origin: its ready call comes first
+  if (e.source === pv.contentWindow && e.data && e.data.exe === "preview-ready") { syncPreview(); return; }
   if (e.origin !== location.origin || !e.data) return;
   if (e.data.exe === "open" && typeof e.data.path === "string") {
     open(e.data.path);

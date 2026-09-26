@@ -312,8 +312,9 @@ hundreds of golden pairs for free.
     `GET /v1/sites/{slug}/posts/{slug}/view?base=&query=` (the built page
     with its resources inlined; with a base, the article's own files are
     fetched from `<base><name>?<query>` instead), `POST /v1/render
-    {path, text}` (a Workspace path and its text as a page: a post's
-    `index.md` through its template, anything else plain)
+    {path, text}` (a Workspace path and its text in Planet's Writer
+    preview template, the folder's pictures folded in or fetched from
+    `base`)
   - `GET /v1/templates` (each with its `settings` from template.json),
     `GET /v1/templates/{name}`
   - `GET /v1/import?library=<path>` lists the planets in a Planet library
@@ -367,8 +368,15 @@ change screenshotted at device pixel ratios 1, 1.5 and 2 and on a phone.
 
 **Writer** edits any Markdown file in the Workspace, not only a post: two
 columns, the text in a field on the left and on the right a frame holding
-the page `POST /v1/render` makes of it (a post's `index.md` renders through
-its site's real template, any other file as a plain page), debounced. It
+the page `POST /v1/render` makes of it, debounced. The page is Planet's
+own Writer preview, `WriterBasic.html` vendored into
+`internal/service/writer.html` (MIT): the rendered body in a `.content`
+div, front matter stripped, no title and no site chrome, just as the Mac
+app previews while writing; the site's real template is the Planet
+window's page column. The preview scrolls with the field (Planet's
+`scrollPosition(percent)`, here a `preview-scroll` message into the
+sandboxed frame, sent again when a fresh rendering says `preview-ready`,
+so retyping never jumps the page back to the top). It
 saves the file through exe's `PUT /v1/workspace/<path>` as you type, with
 `X-Exe-Seq` and `X-Exe-Client`, and keeps an unsaved edit when the desk
 says the file changed elsewhere (a clean file reloads). A dropped picture

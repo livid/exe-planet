@@ -1,6 +1,7 @@
 package service
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"log"
@@ -421,62 +422,26 @@ func (s *Service) RenderPath(rel, text string, att Attachments) (string, error) 
 		return "", fmt.Errorf("%w: path must be relative to the Workspace, with no . or .. segments", site.ErrInvalid)
 	}
 	workspace := filepath.Dir(s.Store.Root)
-	planetDir := filepath.Base(s.Store.Root)
-	parts := strings.Split(rel, "/")
-	if len(parts) == 5 && parts[0] == planetDir && parts[4] == "index.md" {
-		kind := map[string]string{"posts": site.KindPost, "pages": site.KindPage, "drafts": site.KindDraft}[parts[2]]
-		if kind != "" && site.ValidSiteSlug(parts[1]) == nil && site.ValidSlug(parts[3]) == nil {
-			return s.renderPost(parts[1], kind, parts[3], text, att)
-		}
-	}
-	m, body, err := site.ParseDoc([]byte(text))
+	_, body, err := site.ParseDoc([]byte(text))
 	if err != nil {
 		body = text
 	}
-	title := m.Title
-	if title == "" {
-		title = firstHeading(body)
-	}
-	if title == "" {
-		title = path.Base(rel)
-	}
-	page := plainPage(title, markdown.Render(body))
-	return build.Inline(page, build.InlineOptions{PageDir: filepath.Join(workspace, filepath.FromSlash(path.Dir(rel))), AttachmentURL: attachmentURL(att)}), nil
-}
-
-func (s *Service) renderPost(slug, kind, postSlug, text string, att Attachments) (string, error) {
-	st, err := s.Store.Site(slug)
-	if err != nil {
-		return "", err
-	}
-	m, body, err := site.ParseDoc([]byte(text))
-	if err != nil {
-		return "", fmt.Errorf("%w: %v", site.ErrInvalid, err)
-	}
-	post := &site.Post{Kind: kind, Slug: postSlug, Meta: m, Body: body}
-	if existing, err := s.Store.Post(slug, postSlug, kind); err == nil {
-		post.Dir, post.Attachments = existing.Dir, existing.Attachments
-		if post.ID == "" {
-			post.ID = existing.ID
-		}
-		if post.Created.IsZero() {
-			post.Created = existing.Created
-		}
-	}
-	html, err := s.Preview(slug, post)
-	if err != nil {
-		return "", err
-	}
-	tpl, err := build.FindTemplate(s.Templates, st.Template)
-	if err != nil {
-		return "", err
-	}
-	return build.Inline(html, build.InlineOptions{
-		PageDir:       post.Dir,
-		RootDir:       s.PublicDir(st.ID),
-		AssetsDir:     filepath.Join(tpl.Dir, "assets"),
+	return build.Inline(writerPage(markdown.Render(body)), build.InlineOptions{
+		PageDir:       filepath.Join(workspace, filepath.FromSlash(path.Dir(rel))),
 		AttachmentURL: attachmentURL(att),
 	}), nil
+}
+
+// writerTemplate is Planet's own Writer preview page (WriterBasic.html):
+// the rendered Markdown in a .content div, no title, no site chrome. The
+// site's real template is the Planet window's business.
+//
+//go:embed writer.html
+var writerTemplate string
+
+// writerPage puts rendered Markdown into the Writer template.
+func writerPage(contentHTML string) string {
+	return strings.Replace(writerTemplate, "{{ content_html }}", contentHTML, 1)
 }
 
 // WorkspaceRel accepts a path relative to the Workspace root: no leading
@@ -491,30 +456,6 @@ func WorkspaceRel(p string) bool {
 		}
 	}
 	return true
-}
-
-// firstHeading is a Markdown file's first ATX heading, its natural title.
-func firstHeading(body string) string {
-	for _, line := range strings.Split(body, "\n") {
-		if t := strings.TrimSpace(line); strings.HasPrefix(t, "#") {
-			return strings.TrimSpace(strings.TrimLeft(t, "#"))
-		}
-	}
-	return ""
-}
-
-// plainPage wraps rendered Markdown for a file that belongs to no site.
-func plainPage(title, body string) string {
-	return "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" +
-		htmlEscape(title) + "</title><style>body{margin:0;padding:24px 28px;font:16px/1.55 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#222;background:#fff}" +
-		"main{max-width:720px}img{max-width:100%}pre{background:#f4f4f4;padding:12px;overflow:auto}code{font:13px ui-monospace,Menlo,monospace}" +
-		"blockquote{margin:0;padding-left:14px;border-left:3px solid #ccc;color:#555}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style></head><body><main>" +
-		body + "</main></body></html>"
-}
-
-func htmlEscape(s string) string {
-	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;")
-	return r.Replace(s)
 }
 
 func pathEscape(s string) string {
