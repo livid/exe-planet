@@ -31,6 +31,7 @@ type Builder interface {
 	Status(slug string) (service.Status, error)
 	Preview(slug string, post *site.Post) (string, error)
 	View(slug, post string, att service.Attachments) (string, error)
+	ViewPath(slug, rel string) (string, error)
 	RenderPath(rel, text string, att service.Attachments) (string, error)
 	PublicDir(id string) string
 	Caps(ctx context.Context) service.Caps
@@ -82,6 +83,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sites/{site}/{path...}", s.serveSite)
 	mux.HandleFunc("GET /v1/sites/{site}/avatar", s.siteAvatar)
 	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/view", s.viewPost)
+	mux.HandleFunc("GET /v1/sites/{site}/view", s.viewPath)
 	mux.HandleFunc("POST /v1/render", s.renderPath)
 	mux.HandleFunc("GET /v1/node", s.nodeCaps)
 	mux.HandleFunc("GET /v1/sites/{site}/node", s.getNode)
@@ -118,6 +120,23 @@ func (s *Server) retire(r *http.Request) {
 	if st, err := s.Store.Site(r.PathValue("site")); err == nil {
 		s.Builder.Retire(r.Context(), st.Slug, st.ID)
 	}
+}
+
+// viewPath answers any built page of a site for the page column:
+// GET /v1/sites/{site}/view?path=archive.html (index.html when empty).
+func (s *Server) viewPath(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	html, err := s.Builder.ViewPath(r.PathValue("site"), r.URL.Query().Get("path"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	io.WriteString(w, html)
 }
 
 // nodeCaps says what this node publishes with: GET /v1/node.

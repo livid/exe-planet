@@ -497,7 +497,7 @@ const current = () => posts.find(p => p.slug === post);
 const postPath = p => "Planet/" + site + "/" + KIND_DIR[p.kind] + "/" + p.slug + "/index.md";
 
 // ---- the page column: the built page with its resources folded in ----
-let pageSeq = 0;
+let pageSeq = 0, pagePath = "";
 function showPage(html, note) {
   $("#pv").srcdoc = html || "";
   const n = $("#pvnote"); n.textContent = note || ""; n.style.display = note ? "block" : "none";
@@ -515,6 +515,7 @@ async function loadPage(retry) {
   try {
     const html = await api("/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/view?" + q);
     if (seq !== pageSeq) return;
+    pagePath = p.slug + "/index.html";
     showPage(html);
   } catch (e) {
     if (seq !== pageSeq) return;
@@ -523,6 +524,42 @@ async function loadPage(retry) {
       setTimeout(() => { if (seq === pageSeq) loadPage((retry || 0) + 1); }, 1500);
     } else showPage(null, "No page: " + e.message);
   }
+}
+
+// A page of the site by its path (the index, the archive, a tag page):
+// no post is chosen while one shows.
+async function loadSitePage(rel) {
+  if (!site) return;
+  const seq = ++pageSeq;
+  post = null;
+  $$("#rows .row").forEach(r => r.classList.remove("sel"));
+  setButtons();
+  try {
+    const html = await api("/sites/" + encodeURIComponent(site) + "/view?path=" + encodeURIComponent(rel));
+    if (seq !== pageSeq) return;
+    pagePath = rel;
+    showPage(html);
+  } catch (e) {
+    if (seq !== pageSeq) return;
+    showPage(null, "No page: " + e.message);
+  }
+}
+// A link clicked in the page column: the viewed page hands it over
+// (its own base would be this window's address). A post's page picks
+// the post in the list, a feed opens in a tab, any other page of the
+// site shows in place, and an outside link opens in a tab.
+function pageLink(href, external) {
+  if (external) { window.open(href, "_blank", "noopener"); return; }
+  let rel;
+  try { rel = new URL(href, "http://site/" + (pagePath || "index.html")).pathname.replace(/^\//, ""); } catch (e) { return; }
+  if (rel === "" || rel.endsWith("/")) rel += "index.html";
+  const hit = posts.find(p => rel === p.slug + "/index.html" || rel === p.id + "/index.html");
+  if (hit) { selectPost(hit.slug); revealRow(hit.slug); return; }
+  if (/\.(xml|json|png|jpe?g|gif|webp|svg|pdf|mp3|mp4|mov|m4a|zip)$/i.test(rel)) {
+    window.open(withToken(API.replace(/\/v1$/, "") + "/sites/" + encodeURIComponent(site) + "/" + rel), "_blank", "noopener");
+    return;
+  }
+  loadSitePage(rel);
 }
 
 // ---- the status line: the site's last build, polled while shown ----
@@ -954,6 +991,8 @@ document.addEventListener("scroll", e => {
 // polling while hidden and picks up on show.
 let refreshTimer = null;
 window.addEventListener("message", e => {
+  // the page column's frame has no origin: its links come first
+  if (e.source === $("#pv").contentWindow && e.data && e.data.exe === "page-link") { pageLink(String(e.data.href || ""), !!e.data.external); return; }
   if (e.origin !== location.origin || !e.data) return;
   if (e.data.exe === "workspace-changed" && typeof e.data.path === "string") {
     const parts = e.data.path.split("/");

@@ -232,8 +232,23 @@ func TestViewAndRenderPath(t *testing.T) {
 		t.Fatalf("view folded nothing:\n%s", page)
 	}
 	page, _ = svc.View("notes", "hello", Attachments{Base: "/att/", Query: "token=T"})
-	if !strings.Contains(page, `src="/att/photo.jpg?token=T"`) {
+	if !strings.Contains(page, `src="/att/photo.jpg?token=T"`) || !strings.Contains(page, `exe:"page-link"`) {
 		t.Fatalf("view route:\n%s", page)
+	}
+	// any built page by path, the links bridged to the window around it
+	for _, rel := range []string{"", "index.html", "hello/", "hello/index.html"} {
+		page, err := svc.ViewPath("notes", rel)
+		if err != nil || !strings.Contains(page, `exe:"page-link"`) || !strings.Contains(page, "<style>") {
+			t.Fatalf("view path %q: %v\n%.200s", rel, err, page)
+		}
+	}
+	if page, _ := svc.ViewPath("notes", "hello/"); !strings.Contains(page, "base64,anBlZw==") {
+		t.Fatal("a post page by path lost its picture")
+	}
+	for _, bad := range []string{"../x", "nope.html", "assets/"} {
+		if _, err := svc.ViewPath("notes", bad); err == nil {
+			t.Errorf("%q viewed", bad)
+		}
 	}
 
 	// The Writer's render: any file's body, front matter stripped, in

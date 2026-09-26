@@ -442,12 +442,56 @@ func (s *Service) View(slug, postSlug string, att Attachments) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: the site is not built yet", site.ErrNotFound)
 	}
-	return build.Inline(string(page), build.InlineOptions{
+	return withLinkBridge(build.Inline(string(page), build.InlineOptions{
 		PageDir:       filepath.Join(pub, p.ID),
 		RootDir:       pub,
 		AssetsDir:     filepath.Join(pub, "assets"),
 		AttachmentURL: attachmentURL(att),
-	}), nil
+	})), nil
+}
+
+// ViewPath answers any page of a site's build by its path (index.html
+// when empty, a folder's index.html for a folder), its resources folded
+// in as data URIs, for the Planet window's page column.
+func (s *Service) ViewPath(slug, rel string) (string, error) {
+	st, err := s.Store.Site(slug)
+	if err != nil {
+		return "", err
+	}
+	if rel == "" {
+		rel = "index.html"
+	}
+	clean := path.Clean("/" + rel)
+	if clean == "/" || strings.HasSuffix(rel, "/") {
+		clean = strings.TrimSuffix(clean, "/") + "/index.html"
+	}
+	pub := s.PublicDir(st.ID)
+	file := filepath.Join(pub, filepath.FromSlash(clean))
+	if fi, err := os.Stat(file); err == nil && fi.IsDir() {
+		file = filepath.Join(file, "index.html")
+	}
+	page, err := os.ReadFile(file)
+	if err != nil {
+		return "", fmt.Errorf("%w: no page %s in the build", site.ErrNotFound, strings.TrimPrefix(clean, "/"))
+	}
+	return withLinkBridge(build.Inline(string(page), build.InlineOptions{
+		PageDir:   filepath.Dir(file),
+		RootDir:   pub,
+		AssetsDir: filepath.Join(pub, "assets"),
+	})), nil
+}
+
+// linkBridge is the script a viewed page carries: in the Planet window's
+// sandboxed frame a relative link would resolve against the app's own
+// address, so every link is handed to the window around it instead,
+// which shows the page or picks the post.
+const linkBridge = `<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href")||"";if(!h||h.charAt(0)==="#")return;e.preventDefault();parent.postMessage({exe:"page-link",href:h,external:/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(h)},"*")},true)})()</script>`
+
+func withLinkBridge(html string) string {
+	if i := strings.LastIndex(html, "</body>"); i >= 0 {
+		return html[:i] + linkBridge + html[i:]
+	}
+	return html + linkBridge
 }
 
 // RenderPath renders a Markdown file's text for the Writer: a post under

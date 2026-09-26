@@ -431,7 +431,17 @@ sorted column's face darker, `#888`, a 1px black line beneath), rows
 sorted newest first, arrows, Home and End, type-select, Return to edit,
 Delete asks. The page column is the built page of the chosen article,
 `GET /v1/sites/{slug}/posts/{slug}/view` with the stylesheets, scripts and
-pictures folded in so a sandboxed frame shows it without a path. A row of
+pictures folded in so a sandboxed frame shows it without a path. The
+frame's base is the app's own address, so a page's relative links would
+land on `/apps/…` (Livid saw exe's 404 from Home, 2026-09-25); every
+viewed page therefore carries a script that hands a clicked link to the
+window as `{exe:"page-link", href, external}`, and the app resolves it
+against the page's path: a post's folder picks the post in the list, a
+feed or a file opens in a tab through the relay, another page of the
+site (`GET /v1/sites/{slug}/view?path=archive.html`) shows in place with
+no post chosen, an outside link opens in a tab. The templates keep
+plain relative links; `TestPlatinumTemplate` refuses a root-relative
+one. A row of
 buttons above at the dialog guidelines' numbers (New Site…, Import…, New
 Post, Edit, Site…, Publish…), contextual menus on a site row (Settings,
 New Post, Archive, Delete) and an article row (Edit, Copy Path, Move to,

@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -95,6 +96,14 @@ func TestPlatinumTemplate(t *testing.T) {
 	rss := read("rss.xml")
 	if !strings.HasPrefix(rss, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"assets/rss.xsl\"?>\n<rss ") {
 		t.Errorf("rss.xml has no stylesheet line:\n%.200s", rss)
+	}
+	// every link a page makes to the site itself is relative, so the site
+	// works at any root and the Planet window can follow it
+	abs := regexp.MustCompile(`(?:href|src)="/`)
+	for rel, page := range map[string]string{"index.html": index, "page2.html": page2, "post-l/index.html": post, "about/index.html": about, "archive.html": archive, "tags.html": tags, "exe.html": tag} {
+		if m := abs.FindString(page); m != "" {
+			t.Errorf("%s has a root-relative link: %s", rel, m)
+		}
 	}
 	for _, f := range []string{"assets/chrome.css", "assets/style.css", "assets/rss.xsl", "rss.xml", "planet.json", "avatar.png"} {
 		if _, err := os.Stat(filepath.Join(pub, filepath.FromSlash(f))); err != nil {
