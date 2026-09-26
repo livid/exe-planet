@@ -523,7 +523,8 @@ answer.
 The day it lands: move a draft into `posts/`; a minute later the post
 is on the hub with its link card, posted by the site itself; replies
 made there show in a Replies window under the post, in the reader's
-language, arriving live; Reply on Hub… opens the thread to answer.
+language, arriving live; a holder of 10,000 $V2EX answers from the Reply
+window on the same page, signing with their wallet.
 
 ### One key per site
 
@@ -611,22 +612,56 @@ takes whole ids only, and the frame is built from it), in two places:
   back.
 - A post counts as announced when either place has its id.
 
-### The Replies window
+### The Reply and Replies windows
 
 - The builder gives the template a top-level `hub_thread` with `link`
-  (the thread page) and `frame` (`<hub>/p/<id>/replies`) when the front
-  matter has `hub:`. It stays out of `article.json` and `planet.json`, so
-  the output keeps Planet's shape, and real Planet, which never sets it,
-  draws nothing.
-- Platinum grows `modules/replies.html`: a second window, Replies, under
-  the post's window, holding an `<iframe loading="lazy">` of the frame;
-  its shape (the title bar and a one-row placeholder) is there from the
-  first paint so the post never moves, and it is the last thing on the
-  page, so its growth pushes only the footer. The frame's height comes
-  from its `{hub: "height", h}` messages, taken only from that frame's
-  window and the hub's origin. Reply on Hub… opens `link` in a tab, on
-  a row of its own (no buttons on a status line). A hub that cannot be
-  reached leaves the placeholder and the button.
+  (the thread page), `frame` (`<hub>/p/<id>/replies`), `hub` (the
+  origin) and `id` (the root) when the front matter has `hub:`. It stays
+  out of `article.json` and `planet.json`, so the output keeps Planet's
+  shape, and real Planet, which never sets it, draws nothing.
+- Platinum grows `modules/replies.html`: under the post's window a Reply
+  window (the composer), then a Replies window, as the hub's thread page
+  puts Reply above the thread. Both shapes are there from the first
+  paint, so the post never moves; the Replies window is the last thing
+  on the page, so its growth pushes only the footer.
+- **Replies** holds an `<iframe loading="lazy">` of the frame, its
+  height from the frame's `{hub: "height", h}` messages, taken only from
+  that frame's window and the hub's origin; its strip links the thread on
+  the hub. A hub that cannot be reached leaves the placeholder.
+- **Reply** is on the page itself (Livid, 2026-09-26: the composer on the
+  same page as the post). It cannot live in the frame: Phantom injects
+  its provider into no iframe and no http page, so only the top level of
+  an https page reaches every wallet. The hub's plan has the reasons in
+  full ("Answering from a blog").
+  - The hub's Reply window in the template's Platinum blocks: the field;
+    a who row when signed in (the face and name, as the hub strip draws
+    them); Sign In… or Reply (the Return default) and Sign Out on a row
+    of their own; a status line for what the hub says.
+  - `assets/replies.js`, loaded only when `hub_thread` is set: the Wallet
+    Standard handshake with the `window.solana` fallback, as the hub's
+    compose script does; `GET /v1/gate?author=` before anything is typed
+    in vain ("Replies need 10,000 $V2EX; this wallet holds 1,200", the
+    cooldown's wait); then `GET /v1/seq`, `signMessage` over
+    `exe-hub:v1\n` and the envelope (`post.create {text, reply_to}`),
+    `POST /v1/msg`. The reply comes back through the frame, live.
+  - A commenter is a 10,000 $V2EX holder, the hub's gate unchanged
+    (Livid, 2026-09-26).
+  - Reply to a reply: the page tells the frame `{hub: "signed-in", on}`,
+    the frame then shows a Reply link under each reply, and a click sends
+    `{hub: "aim", id, name, words}` up; the composer shows the hub's
+    "Replying to <name> — <words>" row with its clear button, and
+    `reply_to` is that reply instead of the root.
+  - localStorage keeps the wallet's name and address (`exe-hub-wallet`,
+    as the hub's pages do) and the unsent draft per post, every access in
+    try/catch; nothing else.
+  - The script is the template's own, fixed per build, not one the hub
+    serves: a script from the hub on this page could ask the reader's
+    wallet to sign anything if the hub were compromised. The cost is a
+    second copy of the hub's wallet posting code; the envelope is the
+    frozen `exe-hub:v1`, and one set of mock wallets tests both.
+  - No wallet (Planet's own viewer, `window.PLANET.visitedFromPlanetClient`,
+    or a browser without one): the status line says a Solana wallet is
+    needed, Sign In… is dead, and the replies still read.
 - It ships by the template routine: SiteTemplatePlatinum, then rsync into
   `templates/platinum`, then the PlanetSiteTemplates submodule and tag.
 - Nothing is baked at build: a reply never costs a rebuild, and the IPFS
@@ -640,20 +675,22 @@ takes whole ids only, and the frame is built from it), in two places:
   edit, an imported site); the builder's `hub_thread`; the envelope's
   bytes against the hub's own verifier.
 - Playwright: the publish test's sheet with the Announce row; a scratch
-  site with a hand-written `hub:` line against a scratch hub, the Replies
-  window at DPR 1, 1.5 and 2 and on a phone.
+  site with a hand-written `hub:` line against a scratch hub, the Reply
+  and Replies windows at DPR 1, 1.5 and 2 and on a phone; the composer
+  with the hub's mock Wallet Standard wallets
+  (`~/tools/playwright/exe-hub-wallet`): below the gate, signed in, a
+  reply posted and arriving in the frame, an aimed reply to a reply, the
+  cooldown, no wallet.
 - Order: the hub's invites and frame first; then the template window over
   a hand-written `hub:` line; then the key's roles, the invite, the
   profile and the announcing on a scratch daemon with a fake exe and a
   fake hub; the first live post on Livid's say.
 
-### Open
+### Later
 
-- Who may reply: the hub's token gate (10k $V2EX) applies to commenters
-  too. The plan keeps it; open replies on announced threads would change
-  the hub's gate and are Livid's call.
-- A composer inside the frame, once wallet extensions are known to
-  inject into a cross-origin frame.
+- Profile… in the Reply window, so a commenter can take a name and a
+  picture without visiting the hub.
+- Pictures in a reply from the blog (each one is another signature).
 
 ## Import
 
