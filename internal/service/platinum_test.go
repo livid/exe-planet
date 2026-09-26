@@ -85,7 +85,7 @@ func TestPlatinumTemplate(t *testing.T) {
 		`<h1 class="post-title">Post L</h1>`, `<div class="date">Sep 13, 2026`,
 		`<h1>Hello</h1>`, `<code>code</code>`, `<pre><code class="language-sh">$ exe serve`, `<img src="shot.png" alt="shot"`,
 		`<a href="../exe.html" class="tag">exe</a>`, `<a href="../desk-things.html" class="tag">Desk Things</a>`,
-		`<a class="btn default" href="../">Home</a>`, `<span><a href="../">exe</a></span>`, `fill="currentColor"`,
+		`<a class="btn default" href="../">Home</a>`, `<span><a href="../">exe</a></span>`, `<svg class="ix" viewBox="0 0 `,
 		`<meta property="og:type" content="article" />`)
 	about := read("about/index.html")
 	has("about/index.html", about, `<div class="title">About</div>`, `<h1 class="post-title">About</h1>`)

@@ -93,14 +93,14 @@ h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
 .btnrow { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; padding: 4px 12px 12px; }
 .btnrow .btn { font-family: inherit; }
 /* on a phone the words will not fit, so Archive, Tags, the Badge page and
-   RSS shrink to glyph buttons: the desk's own 1-bit pixel art in the
-   button's ink, inverting with it when pressed; Home keeps its word */
+   RSS shrink to icon buttons: the desk's own colour pixel art, black
+   outlines and flat fills, the same on the pressed face; Home keeps its
+   word */
 .btnrow .btn .ix { display: none; }
 @media (max-width: 480px) {
   .btnrow .btn.glyph { min-width: 0; width: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
   .btnrow .btn.glyph .t { display: none; }
   .btnrow .btn.glyph .ix { display: block; shape-rendering: crispEdges; }
-  .btnrow .btn.glyph .ix .k { fill: currentColor; }
 }
 /* between ratios 1 and 2 a fractional scale would drop rows of a
    crisp glyph, so it is smoothed there instead, as the crumbs' chevron is */
