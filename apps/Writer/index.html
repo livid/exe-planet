@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Writer</title>
+<style>
+/* Platinum values match the exe desktop (docs/platinum.md); the blocks
+   below are the shared ones, copied whole from Notes and the Hub app */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399; --red: #cc3333;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+  --mono: "Berkeley Mono", "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active, button.ghost.on { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+button.ghost:disabled { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
+button.ghost.default { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
+
+/* the control row: the file's name, Open…, and on a phone the Edit and
+   Preview pair, at the dialog guidelines' 12px margins */
+#bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px 0; flex: none; }
+#name { flex: 1; min-width: 0; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#name.muted { color: #777; font-weight: normal; }
+#tabs { display: none; gap: 0; }
+#tabs button { border-radius: 0; }
+#tabs button:first-child { border-radius: 3px 0 0 3px; }
+#tabs button:last-child { border-radius: 0 3px 3px 0; border-left: 0; }
+
+/* two columns, the text and the page, one seam: the field's right border
+   is the line, the grip rides astride it */
+#wrap { flex: 1; min-height: 0; display: flex; padding: 10px 12px; position: relative; }
+#left { width: 50%; min-width: 200px; flex: none; display: flex; min-height: 0; }
+#grip { width: 6px; margin: 0 -3px; flex: none; cursor: col-resize; z-index: 2; touch-action: none; }
+#right { flex: 1; min-width: 200px; display: flex; min-height: 0; }
+/* the document field, as Notes draws it: monospace, always a bar, the
+   box's own border-right is the bar's rail */
+#ed { flex: 1; min-width: 0; resize: none; margin: 0; border: 1px solid var(--black);
+  border-radius: 0; background: #fff; color: var(--black); padding: 8px 10px;
+  font: 11px/16px var(--mono); overflow-y: scroll; user-select: text; cursor: text;
+  box-shadow: -1px -1px 0 var(--g600), -1px 0 0 var(--g600), 0 -1px 0 var(--g600),
+    1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+#ed:focus { outline: none; }
+#ed:disabled { background: var(--g200); }
+#ed.drop { box-shadow: inset 0 0 0 2px var(--hl); }
+/* the page: a sunken frame around the site's own rendering */
+#pv { flex: 1; min-width: 0; border: 1px solid var(--black); border-left: 0; background: #fff;
+  box-shadow: 0 -1px 0 var(--g600), 1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+#pv.plain { border-left: 1px solid var(--black); }
+#pvnote { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  color: #777; text-align: center; padding: 0 16px; display: none; }
+
+/* 15px status bar, text only (docs/platinum.md) */
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px; flex: none;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; overflow: clip; }
+#st-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-save, #st-pv { flex: none; }
+#st-save.err { color: var(--red); }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px; touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec (Notes' copy) */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+::-webkit-scrollbar-track:disabled { background: #eee; }
+::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0;
+  border-left: 1px solid var(--black); }
+::-webkit-scrollbar-button:vertical:end:increment:disabled { border-top: 1px solid #888; }
+::-webkit-scrollbar-button:vertical:end:decrement:disabled { border-top: 1px solid #555; }
+::-webkit-scrollbar-button:vertical:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-corner { background: var(--g300); }
+
+/* dialogs and the alert on a veil: the Hub app's blocks, verbatim */
+#veil { position: fixed; inset: 0; background: rgba(0,0,0,.12); display: none;
+  align-items: center; justify-content: center; z-index: 20; }
+#veil.on { display: flex; }
+#dlg { width: 330px; background: var(--g300); border: 1px solid var(--black); padding: 14px;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 2px 2px 0 rgba(0,0,0,.25); }
+#dlg h2 { font-size: 12px; margin: 0 0 10px; }
+#dlg .row { margin: 0 0 8px; display: flex; flex-direction: column; gap: 3px; }
+#dlg label { font-size: 11px; }
+#dlg .btns { display: flex; gap: 12px; justify-content: flex-end; margin-top: 12px; }
+#dlg .btns button { min-width: 58px; }
+#dlg .err { color: var(--red); font-size: 11px; min-height: 14px; margin-top: 6px; }
+#dlg input[type=text] { width: 100%; height: 20px; padding: 2px 5px; font: 12px var(--font); color: var(--black);
+  background: #fff; border: 1px solid var(--black); border-radius: 0;
+  box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+#dlg input[type=text]:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+#veil.alert #dlg { display: none; }
+#veil:not(.alert) #alert { display: none; }
+.window { position: relative; z-index: 10; min-width: 220px; width: 100%; max-width: 380px;
+  background: var(--g400); border: 1px solid var(--black); box-shadow: 2px 2px 0 var(--black); }
+.window::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 4; box-sizing: border-box;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.5), inset -1px -1px 0 var(--g600), inset 1px 1px 0 #fff; }
+.titlebar { display: flex; align-items: center; gap: 4px; padding: 2px 4px; background: var(--g400); user-select: none; }
+.titlebar .stripe { flex: 1; height: 12px; min-width: 8px; position: relative; background-color: var(--g300);
+  background-image: linear-gradient(#fff, #fff 50%, #777 50%, #777); background-size: 100% 2px; background-repeat: repeat; }
+.titlebar .stripe::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 1px; box-sizing: border-box;
+  background-image: linear-gradient(#fff, #fff 50%, #ccc 50%, #ccc); background-size: 100% 2px; background-repeat: repeat; border-bottom: 1px solid #ccc; }
+.titlebar .stripe::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 1px; box-sizing: border-box;
+  background-image: linear-gradient(#ccc, #ccc 50%, #777 50%, #777); background-size: 100% 2px; background-repeat: repeat; }
+.titlebar.alert-bar { background: #fcc; }
+.titlebar.alert-bar .stripe { background-color: #fcc; background-image: linear-gradient(#fff, #fff 50%, #f66 50%, #f66); }
+.titlebar.alert-bar .stripe::before { background-image: linear-gradient(#fff, #fff 50%, #f99 50%, #f99); border-bottom-color: #f99; }
+.titlebar.alert-bar .stripe::after { background-image: linear-gradient(#f99, #f99 50%, #f66 50%, #f66); }
+.win-body { padding: 14px 14px 12px; }
+#alert { width: min(380px, calc(100vw - 32px)); }
+#alert .a-row { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
+#alert .a-row svg { flex: none; }
+#alert .a-text { flex: 1; min-width: 0; user-select: text; cursor: text; }
+#alert .btns { display: flex; justify-content: flex-end; }
+#alert .btns button { min-width: 58px; }
+
+/* a phone: one column at a time, the pair of push buttons picks which */
+body.mobile #tabs { display: flex; }
+body.mobile #grip { display: none; }
+body.mobile #left, body.mobile #right { width: 100%; min-width: 0; flex: 1; }
+body.mobile.show-preview #left { display: none; }
+body.mobile:not(.show-preview) #right { display: none; }
+body.mobile #pv { border-left: 1px solid var(--black); }
+body.mobile #status { padding-right: 8px; }
+body.mobile #wrap { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+</style>
+</head>
+<body>
+<div id="bar">
+  <span id="name" class="muted">No file open</span>
+  <div id="tabs"><button class="ghost on" id="tab-edit">Edit</button><button class="ghost" id="tab-pv">Preview</button></div>
+  <button class="ghost" id="open">Open…</button>
+</div>
+<div id="wrap">
+  <div id="left"><textarea id="ed" disabled spellcheck="false" placeholder="Open a Markdown file from the Workspace, or a post from Planet."></textarea></div>
+  <div id="grip"></div>
+  <div id="right"><iframe id="pv" sandbox="allow-scripts" title="Preview"></iframe></div>
+  <div id="pvnote"></div>
+</div>
+<div id="status">
+  <span id="st-path"></span>
+  <span id="st-pv"></span>
+  <span id="st-save"></span>
+</div>
+<div id="veil">
+  <div id="dlg"></div>
+  <div id="alert" class="window" role="alertdialog" aria-labelledby="a-msg" aria-describedby="a-detail">
+    <div class="titlebar alert-bar"><div class="stripe"></div></div>
+    <div class="win-body">
+      <div class="a-row">
+        <svg width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+          <path d="M16 2 L30.5 29.5 L1.5 29.5 Z" fill="#FFDD30" stroke="#000"/>
+          <path d="M16 6 L27 27 L5 27 Z" fill="#FFF3A0"/>
+          <rect x="14" y="11" width="4" height="10" fill="#000"/>
+          <rect x="14" y="23" width="4" height="3" fill="#000"/>
+        </svg>
+        <div class="a-text"><div id="a-msg"></div><div id="a-detail"></div></div>
+      </div>
+      <div class="btns"><button class="ghost default" id="a-ok">OK</button></div>
+    </div>
+  </div>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+// identifies this window's writes so the desktop's change events can be
+// echo-suppressed here but delivered to other windows
+const CLIENT = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const RENDER = "/v1/svc/planet/v1/render";
+let lastSeq = 0;
+const nextSeq = () => (lastSeq = Math.max(Date.now(), lastSeq + 1));
+
+async function api(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  opts.headers["X-Exe-Client"] = CLIENT;
+  return fetch(url, opts);
+}
+const wsURL = p => "/v1/workspace/" + p.split("/").map(encodeURIComponent).join("/");
+const withToken = u => TOKEN ? u + (u.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : u;
+
+// ---- the document ----
+let path = "";       // Workspace-relative
+let loaded = false;  // the file has been read; until then nothing saves
+let dirty = false;   // the field holds text not yet on disk
+let saving = false, again = false, exists = false;
+const ed = $("#ed"), pv = $("#pv");
+
+function setPath(p) {
+  path = p;
+  $("#name").textContent = p ? p.split("/").pop() : "No file open";
+  $("#name").classList.toggle("muted", !p);
+  $("#st-path").textContent = p;
+}
+
+function isPost(p) {
+  const m = /^Planet\/([a-z0-9-]+)\/(posts|pages|drafts)\/([a-z0-9-]+)\/index\.md$/.exec(p);
+  return m ? { site: m[1], kind: m[2], slug: m[3] } : null;
+}
+
+// where the preview's pictures come from: a post's attachment route, or
+// the file's own folder in the Workspace, each with the desk's token
+function attachmentParams() {
+  const post = isPost(path);
+  let base;
+  if (post) base = "/v1/svc/planet/v1/sites/" + post.site + "/posts/" + post.slug + "/attachments/";
+  else base = wsURL(path.split("/").slice(0, -1).join("/")) + "/";
+  const q = new URLSearchParams({ base });
+  if (TOKEN) q.set("query", "token=" + encodeURIComponent(TOKEN));
+  return q.toString();
+}
+
+async function open(p) {
+  if (dirty) await flushSave();
+  loaded = false; dirty = false; exists = false;
+  setPath(p);
+  ed.disabled = true; ed.value = "";
+  pv.srcdoc = ""; note("");
+  status("");
+  try {
+    const r = await api(wsURL(p));
+    if (r.status === 404) {
+      exists = false; ed.value = "";
+    } else if (!r.ok) {
+      throw new Error(await r.text() || ("HTTP " + r.status));
+    } else {
+      exists = true; ed.value = await r.text();
+    }
+    loaded = true;
+    ed.disabled = false;
+    if (!MOBILE || !document.body.classList.contains("show-preview")) ed.focus();
+    status(exists ? "" : "New file");
+    renderNow();
+  } catch (e) {
+    alertBox("Could not open “" + p + "”", e.message);
+    setPath("");
+  }
+}
+
+// ---- saving: debounced, serialised, flushed on the way out ----
+let saveTimer = null;
+function scheduleSave() {
+  if (!loaded) return;
+  dirty = true;
+  status("Edited");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 800);
+}
+async function save() {
+  clearTimeout(saveTimer);
+  if (!loaded || !dirty) return;
+  if (saving) { again = true; return; }
+  saving = true;
+  const text = ed.value, seq = nextSeq();
+  dirty = false;
+  status("Saving…");
+  try {
+    const r = await api(wsURL(path), { method: "PUT", body: text,
+      headers: { "Content-Type": "text/markdown; charset=utf-8", "X-Exe-Seq": String(seq) } });
+    if (!r.ok) throw new Error(await r.text() || ("HTTP " + r.status));
+    exists = true;
+    status("Saved " + clock());
+  } catch (e) {
+    dirty = true;
+    status("Not saved: " + e.message, true);
+  } finally {
+    saving = false;
+    if (again) { again = false; save(); }
+  }
+}
+// on the way out (pagehide, hide) the pending text goes with keepalive
+async function flushSave() {
+  clearTimeout(saveTimer);
+  if (!loaded || !dirty || !path) return;
+  const text = ed.value, seq = nextSeq();
+  dirty = false;
+  const headers = { "Content-Type": "text/markdown; charset=utf-8", "X-Exe-Seq": String(seq), "X-Exe-Client": CLIENT };
+  if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
+  try { await fetch(wsURL(path), { method: "PUT", body: text, headers, keepalive: true }); } catch (e) { dirty = true; }
+}
+window.addEventListener("pagehide", flushSave);
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushSave(); });
+
+function clock() {
+  const d = new Date();
+  return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+function status(s, err) { const el = $("#st-save"); el.textContent = s; el.classList.toggle("err", !!err); }
+function note(s) { const n = $("#pvnote"); n.textContent = s; n.style.display = s ? "block" : "none"; }
+
+// ---- the page: rendered by the planet daemon through exe's relay ----
+let pvTimer = null, pvSeq = 0;
+function schedulePreview() {
+  clearTimeout(pvTimer);
+  pvTimer = setTimeout(renderNow, 400);
+}
+async function renderNow() {
+  clearTimeout(pvTimer);
+  if (!loaded) return;
+  const seq = ++pvSeq;
+  $("#st-pv").textContent = "Rendering…";
+  try {
+    const r = await api(RENDER + "?" + attachmentParams(), { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, text: ed.value }) });
+    if (seq !== pvSeq) return;
+    if (!r.ok) throw new Error((await r.text()).replace(/^\{"error":"|"\}\s*$/g, "") || ("HTTP " + r.status));
+    pv.srcdoc = await r.text();
+    note("");
+    $("#st-pv").textContent = "";
+  } catch (e) {
+    if (seq !== pvSeq) return;
+    pv.srcdoc = "";
+    note("No preview: " + e.message);
+    $("#st-pv").textContent = "";
+  }
+}
+
+ed.addEventListener("input", () => { scheduleSave(); schedulePreview(); });
+document.addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
+});
+
+// ---- pictures dropped on the field land beside the file ----
+ed.addEventListener("dragover", e => { if (path && e.dataTransfer.types.includes("Files")) { e.preventDefault(); ed.classList.add("drop"); } });
+ed.addEventListener("dragleave", () => ed.classList.remove("drop"));
+ed.addEventListener("drop", async e => {
+  ed.classList.remove("drop");
+  if (!path || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  const dir = path.split("/").slice(0, -1).join("/");
+  for (const f of e.dataTransfer.files) {
+    const name = f.name.replace(/[\\/]/g, "-");
+    try {
+      const r = await api(wsURL(dir + "/" + name), { method: "PUT", body: f, headers: { "X-Exe-Seq": String(nextSeq()) } });
+      if (!r.ok) throw new Error(await r.text() || ("HTTP " + r.status));
+      const line = (/^image\//.test(f.type) ? "![" + name + "](" + name + ")" : "[" + name + "](" + name + ")");
+      insertAtCaret(line + "\n");
+    } catch (err) {
+      alertBox("Could not add “" + name + "”", err.message);
+    }
+  }
+});
+function insertAtCaret(s) {
+  const a = ed.selectionStart, b = ed.selectionEnd;
+  ed.setRangeText(s, a, b, "end");
+  ed.dispatchEvent(new Event("input"));
+}
+
+// ---- Open…: a path relative to the Workspace ----
+$("#open").addEventListener("click", () => {
+  dialog(`<h2>Open</h2>
+    <div class="row"><label for="d-path">Path in the Workspace</label><input type="text" id="d-path" placeholder="Notes/todo.md"></div>
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Open</button></div>`, () => {
+    const p = $("#d-path").value.trim().replace(/^\/+/, "");
+    if (!p || p.split("/").some(s => !s || s === "." || s === "..")) { $("#d-err").textContent = "A path relative to the Workspace, please."; return false; }
+    open(p);
+    return true;
+  });
+  $("#d-path").value = path;
+  $("#d-path").focus();
+});
+function dialog(html, ok) {
+  const veil = $("#veil"), dlg = $("#dlg");
+  dlg.innerHTML = html;
+  veil.classList.add("on");
+  const close = () => { veil.classList.remove("on"); dlg.innerHTML = ""; document.removeEventListener("keydown", onKey, true); };
+  const onKey = e => {
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+    else if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); if (ok() !== false) close(); }
+  };
+  document.addEventListener("keydown", onKey, true);
+  $("#d-cancel").addEventListener("click", close);
+  $("#d-ok").addEventListener("click", () => { if (ok() !== false) close(); });
+}
+let alertResolve = null;
+function alertBox(message, detail) {
+  const veil = $("#veil");
+  const had = veil.classList.contains("on");
+  $("#a-msg").textContent = message;
+  const d = $("#a-detail");
+  d.textContent = detail || "";
+  d.hidden = !detail;
+  veil.classList.add("on", "alert");
+  const done = () => {
+    document.removeEventListener("keydown", onKey, true);
+    veil.classList.remove("alert");
+    if (!had) veil.classList.remove("on");
+    const r = alertResolve; alertResolve = null; if (r) r();
+  };
+  const onKey = e => { if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); done(); } };
+  document.addEventListener("keydown", onKey, true);
+  $("#a-ok").onclick = done;
+  $("#a-ok").focus();
+  return new Promise(r => { alertResolve = r; });
+}
+
+// ---- the seam's grip ----
+const grip = $("#grip"), left = $("#left");
+try { const w = localStorage.getItem("writer.left"); if (w) left.style.width = w; } catch (e) {}
+grip.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grip.setPointerCapture(e.pointerId);
+  const start = e.clientX, w0 = left.getBoundingClientRect().width, total = $("#wrap").getBoundingClientRect().width;
+  const move = ev => {
+    const w = Math.min(total - 200, Math.max(200, w0 + ev.clientX - start));
+    left.style.width = w + "px";
+  };
+  const up = () => {
+    grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up);
+    try { localStorage.setItem("writer.left", left.style.width); } catch (e) {}
+  };
+  grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up);
+});
+
+// ---- a phone: Edit | Preview ----
+if (MOBILE) document.body.classList.add("mobile");
+$("#tab-edit").addEventListener("click", () => { document.body.classList.remove("show-preview"); $("#tab-edit").classList.add("on"); $("#tab-pv").classList.remove("on"); });
+$("#tab-pv").addEventListener("click", () => { document.body.classList.add("show-preview"); $("#tab-pv").classList.add("on"); $("#tab-edit").classList.remove("on"); renderNow(); });
+
+// ---- desktop window plumbing (the bridge every app speaks) ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+const grow = $("#grow");
+if (window.parent === window || MOBILE) grow.style.display = "none";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev => parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => {
+    grow.removeEventListener("pointermove", move); grow.removeEventListener("pointerup", up);
+    parent.postMessage({ exe: "grow-end" }, location.origin);
+  };
+  grow.addEventListener("pointermove", move); grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+document.addEventListener("scroll", e => {
+  const el = e.target;
+  if (!(el instanceof Element)) return;
+  el.classList.toggle("scrolled-y", el.scrollTop >= 1);
+  el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
+}, { capture: true, passive: true });
+
+// The desk opens a file in this window ({exe:"open"}), tells us when a
+// Workspace file changed on disk from elsewhere ({exe:"workspace-changed"}:
+// an agent, a synced peer, Planet), and hides or shows the window.
+window.addEventListener("message", async e => {
+  if (e.origin !== location.origin || !e.data) return;
+  if (e.data.exe === "open" && typeof e.data.path === "string") {
+    open(e.data.path);
+  } else if (e.data.exe === "workspace-changed") {
+    if (!loaded || e.data.path !== path || (e.data.client && e.data.client === CLIENT)) return;
+    if (e.data.deleted) { status("Deleted on disk", true); exists = false; return; }
+    if (dirty) { status("Changed on disk; your edit is kept"); return; }
+    try {
+      const r = await api(wsURL(path));
+      if (!r.ok) return;
+      const text = await r.text();
+      if (text !== ed.value) { ed.value = text; status("Reloaded " + clock()); renderNow(); }
+    } catch (err) {}
+  } else if (e.data.exe === "hide") {
+    flushSave();
+  }
+});
+
+// ---- boot ----
+const wanted = new URLSearchParams(location.search).get("path") || "";
+if (wanted && !wanted.split("/").some(s => !s || s === "." || s === "..")) open(wanted);
+</script>
+</body>
+</html>

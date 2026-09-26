@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/livid/exe-planet/internal/build"
+	"github.com/livid/exe-planet/internal/markdown"
 	"github.com/livid/exe-planet/internal/planet"
 	"github.com/livid/exe-planet/internal/site"
 )
@@ -357,4 +359,174 @@ func copyTree(src, dst string) error {
 		}
 		return os.WriteFile(target, b, 0o644)
 	})
+}
+
+// Attachments describes where a frame fetches an article's own files:
+// the tokenised attachment route the app names, or nothing, in which
+// case they are folded in as data URIs.
+type Attachments struct {
+	Base  string // e.g. /v1/svc/planet/v1/sites/notes/posts/hello/attachments/
+	Query string // e.g. token=…
+}
+
+func (a Attachments) url(name string) string {
+	if a.Base == "" {
+		return ""
+	}
+	u := a.Base + pathEscape(name)
+	if a.Query != "" {
+		u += "?" + a.Query
+	}
+	return u
+}
+
+func attachmentURL(a Attachments) func(string) string {
+	if a.Base == "" {
+		return nil
+	}
+	return a.url
+}
+
+// View is the built page of a post with its resources folded in, for the
+// window's page column.
+func (s *Service) View(slug, postSlug string, att Attachments) (string, error) {
+	st, err := s.Store.Site(slug)
+	if err != nil {
+		return "", err
+	}
+	p, err := s.Store.Post(slug, postSlug, "")
+	if err != nil {
+		return "", err
+	}
+	pub := s.PublicDir(st.ID)
+	page, err := os.ReadFile(filepath.Join(pub, p.ID, "index.html"))
+	if err != nil {
+		return "", fmt.Errorf("%w: the site is not built yet", site.ErrNotFound)
+	}
+	return build.Inline(string(page), build.InlineOptions{
+		PageDir:       filepath.Join(pub, p.ID),
+		RootDir:       pub,
+		AssetsDir:     filepath.Join(pub, "assets"),
+		AttachmentURL: attachmentURL(att),
+	}), nil
+}
+
+// RenderPath renders a Markdown file's text for the Writer: a post under
+// Planet/<site>/ goes through that site's template with its front matter
+// read, any other file renders as plain GitHub Markdown in a small page.
+// The path is relative to the Workspace root; the text is the field's,
+// which may not be saved yet.
+func (s *Service) RenderPath(rel, text string, att Attachments) (string, error) {
+	if !WorkspaceRel(rel) {
+		return "", fmt.Errorf("%w: path must be relative to the Workspace, with no . or .. segments", site.ErrInvalid)
+	}
+	workspace := filepath.Dir(s.Store.Root)
+	planetDir := filepath.Base(s.Store.Root)
+	parts := strings.Split(rel, "/")
+	if len(parts) == 5 && parts[0] == planetDir && parts[4] == "index.md" {
+		kind := map[string]string{"posts": site.KindPost, "pages": site.KindPage, "drafts": site.KindDraft}[parts[2]]
+		if kind != "" && site.ValidSiteSlug(parts[1]) == nil && site.ValidSlug(parts[3]) == nil {
+			return s.renderPost(parts[1], kind, parts[3], text, att)
+		}
+	}
+	m, body, err := site.ParseDoc([]byte(text))
+	if err != nil {
+		body = text
+	}
+	title := m.Title
+	if title == "" {
+		title = firstHeading(body)
+	}
+	if title == "" {
+		title = path.Base(rel)
+	}
+	page := plainPage(title, markdown.Render(body))
+	return build.Inline(page, build.InlineOptions{PageDir: filepath.Join(workspace, filepath.FromSlash(path.Dir(rel))), AttachmentURL: attachmentURL(att)}), nil
+}
+
+func (s *Service) renderPost(slug, kind, postSlug, text string, att Attachments) (string, error) {
+	st, err := s.Store.Site(slug)
+	if err != nil {
+		return "", err
+	}
+	m, body, err := site.ParseDoc([]byte(text))
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", site.ErrInvalid, err)
+	}
+	post := &site.Post{Kind: kind, Slug: postSlug, Meta: m, Body: body}
+	if existing, err := s.Store.Post(slug, postSlug, kind); err == nil {
+		post.Dir, post.Attachments = existing.Dir, existing.Attachments
+		if post.ID == "" {
+			post.ID = existing.ID
+		}
+		if post.Created.IsZero() {
+			post.Created = existing.Created
+		}
+	}
+	html, err := s.Preview(slug, post)
+	if err != nil {
+		return "", err
+	}
+	tpl, err := build.FindTemplate(s.Templates, st.Template)
+	if err != nil {
+		return "", err
+	}
+	return build.Inline(html, build.InlineOptions{
+		PageDir:       post.Dir,
+		RootDir:       s.PublicDir(st.ID),
+		AssetsDir:     filepath.Join(tpl.Dir, "assets"),
+		AttachmentURL: attachmentURL(att),
+	}), nil
+}
+
+// WorkspaceRel accepts a path relative to the Workspace root: no leading
+// slash, no backslash, no empty, "." or ".." segment.
+func WorkspaceRel(p string) bool {
+	if p == "" || len(p) > 1024 || strings.HasPrefix(p, "/") || strings.Contains(p, "\\") {
+		return false
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// firstHeading is a Markdown file's first ATX heading, its natural title.
+func firstHeading(body string) string {
+	for _, line := range strings.Split(body, "\n") {
+		if t := strings.TrimSpace(line); strings.HasPrefix(t, "#") {
+			return strings.TrimSpace(strings.TrimLeft(t, "#"))
+		}
+	}
+	return ""
+}
+
+// plainPage wraps rendered Markdown for a file that belongs to no site.
+func plainPage(title, body string) string {
+	return "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>" +
+		htmlEscape(title) + "</title><style>body{margin:0;padding:24px 28px;font:16px/1.55 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#222;background:#fff}" +
+		"main{max-width:720px}img{max-width:100%}pre{background:#f4f4f4;padding:12px;overflow:auto}code{font:13px ui-monospace,Menlo,monospace}" +
+		"blockquote{margin:0;padding-left:14px;border-left:3px solid #ccc;color:#555}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style></head><body><main>" +
+		body + "</main></body></html>"
+}
+
+func htmlEscape(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;")
+	return r.Replace(s)
+}
+
+func pathEscape(s string) string {
+	const keep = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~!$&'()*+,;=:@"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if strings.IndexByte(keep, c) >= 0 {
+			b.WriteByte(c)
+		} else {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
 }

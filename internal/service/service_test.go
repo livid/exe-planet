@@ -212,3 +212,52 @@ func TestTagKeyAndSummary(t *testing.T) {
 	}
 	_ = planet.Date(0)
 }
+
+func TestViewAndRenderPath(t *testing.T) {
+	svc, store := newService(t)
+	store.CreateSite("notes", "Notes", "", "sparkle")
+	p, _ := store.CreatePost("notes", site.KindPost, "hello", site.Meta{Title: "Hello"}, "![pic](photo.jpg)\n")
+	store.AddAttachment("notes", "hello", "", "photo.jpg", strings.NewReader("jpeg"))
+	if _, err := svc.View("notes", "hello", Attachments{}); err == nil {
+		t.Fatal("view before a build")
+	}
+	if _, err := svc.Build("notes"); err != nil {
+		t.Fatal(err)
+	}
+	page, err := svc.View("notes", "hello", Attachments{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page, "<h1>Hello</h1>") || !strings.Contains(page, `src="data:image/jpeg;base64,anBlZw=="`) {
+		t.Fatalf("view folded nothing:\n%s", page)
+	}
+	page, _ = svc.View("notes", "hello", Attachments{Base: "/att/", Query: "token=T"})
+	if !strings.Contains(page, `src="/att/photo.jpg?token=T"`) {
+		t.Fatalf("view route:\n%s", page)
+	}
+
+	// The Writer's render: a post's path goes through the site's template
+	// with the field's unsaved text; any other file is plain Markdown.
+	rel := "Planet/notes/posts/hello/index.md"
+	page, err = svc.RenderPath(rel, "---\nid: "+p.ID+"\ntitle: Draft title\n---\n\n**bold** ![pic](photo.jpg)\n", Attachments{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page, "<h1>Draft title</h1>") || !strings.Contains(page, "<strong>bold</strong>") || !strings.Contains(page, "base64,anBlZw==") {
+		t.Fatalf("post render:\n%s", page)
+	}
+	os.MkdirAll(filepath.Join(filepath.Dir(store.Root), "Notes"), 0o755)
+	os.WriteFile(filepath.Join(filepath.Dir(store.Root), "Notes", "pic.png"), []byte("png"), 0o644)
+	page, err = svc.RenderPath("Notes/todo.md", "# Todo\n\n- [ ] a ![p](pic.png)\n", Attachments{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page, "<title>Todo</title>") || !strings.Contains(page, "<h1>Todo</h1>") || !strings.Contains(page, "base64,cG5n") || !strings.Contains(page, `type="checkbox"`) {
+		t.Fatalf("plain render:\n%s", page)
+	}
+	for _, bad := range []string{"", "../x.md", "Planet/../../etc/passwd"} {
+		if _, err := svc.RenderPath(bad, "x", Attachments{}); err == nil {
+			t.Errorf("%q rendered", bad)
+		}
+	}
+}

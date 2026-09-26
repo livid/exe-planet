@@ -308,7 +308,14 @@ hundreds of golden pairs for free.
     now and answers the status; `GET /v1/sites/{slug}/status` reports the
     last build, whether one is running and whether another is queued;
     `POST /v1/sites/{slug}/publish` is phase 5
-  - `GET /v1/templates`, `GET /v1/templates/{name}`
+  - `GET /v1/sites/{slug}/avatar` (the folder's `avatar.png`, 404 without),
+    `GET /v1/sites/{slug}/posts/{slug}/view?base=&query=` (the built page
+    with its resources inlined; with a base, the article's own files are
+    fetched from `<base><name>?<query>` instead), `POST /v1/render
+    {path, text}` (a Workspace path and its text as a page: a post's
+    `index.md` through its template, anything else plain)
+  - `GET /v1/templates` (each with its `settings` from template.json),
+    `GET /v1/templates/{name}`
   - `GET /v1/import?library=<path>` lists the planets in a Planet library
     folder on this machine (or the one planet of a `My/<uuid>` folder);
     `POST /v1/import {library, id, slug}` brings one in and builds it
@@ -354,15 +361,43 @@ Built and applied on 2026-09-25 (exe commit 0454005). As shipped:
 
 ## The app
 
-`apps/Planet/` with `app.json` and one `index.html`, Mac OS 9 Platinum
-per `/www/exe/docs/platinum.md`, vanilla JS, no CDN. Two columns: a sunken
-text field for the Markdown on the left, on the right a frame showing the
-post rendered through the site's real template by `/v1/sites/{slug}/preview`,
-debounced. A sites pop-up, a posts list, New Site with slug validation,
-Site Settings (title, about, template, template settings, social),
-Publish (expose and IPFS, each off by default, with the last CID and
-hostname shown), Import. A phone shows one column at a time. Every UI
-change is screenshotted at device pixel ratios 1, 1.5 and 2.
+Two apps in `apps/`, each `app.json` plus one `index.html`, Mac OS 9
+Platinum per `/www/exe/docs/platinum.md`, vanilla JS, no CDN, every UI
+change screenshotted at device pixel ratios 1, 1.5 and 2 and on a phone.
+
+**Writer** edits any Markdown file in the Workspace, not only a post: two
+columns, the text in a field on the left and on the right a frame holding
+the page `POST /v1/render` makes of it (a post's `index.md` renders through
+its site's real template, any other file as a plain page), debounced. It
+saves the file through exe's `PUT /v1/workspace/<path>` as you type, with
+`X-Exe-Seq` and `X-Exe-Client`, and keeps an unsaved edit when the desk
+says the file changed elsewhere (a clean file reloads). A dropped picture
+lands beside the file and is inserted as `![name](name)`. A phone shows
+Edit or Preview.
+
+**Planet** is three columns like the Mac app's window. The sites sidebar
+sits on the window colour (`#ccc`), each row the site's `avatar.png` at
+24 by 24 (a pixel globe when there is none), archived sites under their
+own heading. The article list is the Finder's list view from the HIG: a
+list box (fig. 2-25: white, 16px rows, 1px black frame) under a window
+list view header (fig. 2-43: 18px face, columns Title, Date and Kind, the
+sorted column's face darker, `#888`, a 1px black line beneath), rows
+sorted newest first, arrows, Home and End, type-select, Return to edit,
+Delete asks. The page column is the built page of the chosen article,
+`GET /v1/sites/{slug}/posts/{slug}/view` with the stylesheets, scripts and
+pictures folded in so a sandboxed frame shows it without a path. A row of
+buttons above at the dialog guidelines' numbers (New Site…, Import…, New
+Post, Edit, Site…, Publish…), contextual menus on a site row (Settings,
+New Post, Archive, Delete) and an article row (Edit, Copy Path, Move to,
+Delete), sheets for New Site (slug follows the title, validated live),
+Site Settings (name, about, template, author, links, Plausible, robots,
+the template's own typed settings) and Import. The status line reports the
+last build and the article counts and polls while the window is shown.
+Editing hands the post's `index.md` to the Writer through the desk
+(`{exe:"open-app", app:"Writer", path}`); the desk forwards every
+Workspace change (`workspace-changed`) so the list follows edits made in
+the Writer, by an agent or on a peer. A phone shows one column at a time
+with a Back button.
 
 ## Publishing
 
@@ -436,7 +471,12 @@ in 0.2 s and builds in 0.2 s.
    unless the folder holds a `.git`.
 3. Importer, used first by the golden tests. Done 2026-09-25; the goldens
    are laid out as libraries, so each imports as is.
-4. The app.
+4. The app. Done 2026-09-25 (0.4.0): Writer and Planet as above; the
+   desk grew `open-app`, `open` and `workspace-changed`; the daemon grew
+   avatar, view and render routes and `internal/build.Inline`, which also
+   drops relative preloads and resolves `../avatar.png` from the site
+   root. Playwright: `exe-writer-test.js` and `exe-planet-app-test.js`
+   (the latter against a scratch daemon, `PLANET=` its address).
 5. Publishing: expose, keys, IPFS.
 6. Markdown without a dependency, gated on the corpus.
 

@@ -1,0 +1,5 @@
+{
+  "title": "Planet",
+  "icon": "icon.svg",
+  "window": { "width": 960, "height": 620, "grow": true }
+}

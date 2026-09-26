@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,6 +28,8 @@ type Builder interface {
 	Build(slug string) (service.Status, error)
 	Status(slug string) (service.Status, error)
 	Preview(slug string, post *site.Post) (string, error)
+	View(slug, post string, att service.Attachments) (string, error)
+	RenderPath(rel, text string, att service.Attachments) (string, error)
 	PublicDir(id string) string
 }
 
@@ -68,6 +71,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sites/{site}/status", s.siteStatus)
 	mux.HandleFunc("POST /v1/sites/{site}/preview", s.previewPost)
 	mux.HandleFunc("GET /sites/{site}/{path...}", s.serveSite)
+	mux.HandleFunc("GET /v1/sites/{site}/avatar", s.siteAvatar)
+	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/view", s.viewPost)
+	mux.HandleFunc("POST /v1/render", s.renderPath)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			writeErr(w, http.StatusNotFound, errors.New("no such route"))
@@ -556,4 +562,69 @@ func (s *Server) runImport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusCreated, res)
+}
+
+// siteAvatar serves the site's avatar.png for the sidebar.
+func (s *Server) siteAvatar(w http.ResponseWriter, r *http.Request) {
+	st, err := s.Store.Site(r.PathValue("site"))
+	if err != nil && st == nil {
+		fail(w, err)
+		return
+	}
+	p := filepath.Join(st.Dir, "avatar.png")
+	if fi, err := os.Stat(p); err != nil || !fi.Mode().IsRegular() {
+		writeErr(w, http.StatusNotFound, errors.New("no avatar"))
+		return
+	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeFile(w, r, p)
+}
+
+// attachmentsFrom reads how a frame should fetch an article's files:
+// ?base=<route prefix>&query=<query string>; without a base they are
+// folded into the page.
+func attachmentsFrom(r *http.Request) service.Attachments {
+	return service.Attachments{Base: r.URL.Query().Get("base"), Query: r.URL.Query().Get("query")}
+}
+
+// viewPost answers the built page of a post with its resources folded
+// in, for the window's page column.
+func (s *Server) viewPost(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	page, err := s.Builder.View(r.PathValue("site"), r.PathValue("post"), attachmentsFrom(r))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write([]byte(page))
+}
+
+// renderPath renders a Markdown file's text for the Writer:
+// POST /v1/render {path, text} with the same ?base= and ?query= as view.
+func (s *Server) renderPath(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+		Text string `json:"text"`
+	}
+	if err := decode(r, &req); err != nil {
+		fail(w, err)
+		return
+	}
+	page, err := s.Builder.RenderPath(req.Path, req.Text, attachmentsFrom(r))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write([]byte(page))
 }

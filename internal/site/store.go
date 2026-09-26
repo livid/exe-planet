@@ -131,20 +131,31 @@ type PostUpdate struct {
 	Created *time.Time `json:"created"`
 }
 
+// TemplateSetting is one of a template's settings, for the settings
+// sheet; the default is passed through as the JSON the template wrote.
+type TemplateSetting struct {
+	Name         string          `json:"name"`
+	Type         string          `json:"type"`
+	DefaultValue json.RawMessage `json:"defaultValue"`
+	Description  string          `json:"description"`
+	Advanced     bool            `json:"advanced"`
+}
+
 // Template is a template folder's template.json.
 type Template struct {
-	Slug                    string `json:"slug"`
-	Name                    string `json:"name"`
-	Description             string `json:"description"`
-	Author                  string `json:"author"`
-	AuthorWebsite           string `json:"authorWebsite"`
-	Version                 string `json:"version"`
-	BuildNumber             int    `json:"buildNumber"`
-	IdealItemsPerPage       int    `json:"idealItemsPerPage"`
-	GenerateIndexPagination bool   `json:"generateIndexPagination"`
-	GenerateTagPages        bool   `json:"generateTagPages"`
-	GenerateArchive         bool   `json:"generateArchive"`
-	Error                   string `json:"error,omitempty"`
+	Slug                    string                     `json:"slug"`
+	Name                    string                     `json:"name"`
+	Description             string                     `json:"description"`
+	Author                  string                     `json:"author"`
+	AuthorWebsite           string                     `json:"authorWebsite"`
+	Version                 string                     `json:"version"`
+	BuildNumber             int                        `json:"buildNumber"`
+	IdealItemsPerPage       int                        `json:"idealItemsPerPage"`
+	GenerateIndexPagination bool                       `json:"generateIndexPagination"`
+	GenerateTagPages        bool                       `json:"generateTagPages"`
+	GenerateArchive         bool                       `json:"generateArchive"`
+	Settings                map[string]TemplateSetting `json:"settings,omitempty"`
+	Error                   string                     `json:"error,omitempty"`
 }
 
 // Store is the Planet folder. Every method reads the disk afresh; the

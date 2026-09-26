@@ -1,0 +1,5 @@
+{
+  "title": "Writer",
+  "icon": "icon.svg",
+  "window": { "width": 900, "height": 600, "grow": true }
+}

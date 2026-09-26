@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planet</title>
+<link rel="stylesheet" href="/platinum/popup.css">
+<style>
+/* Platinum values match the exe desktop (docs/platinum.md); shared blocks
+   copied whole from Notes, the Hub app and Blue Pencil */
+:root {
+  --black: #262626;
+  --g200: #eee; --g300: #ddd; --g400: #ccc; --g500: #bbb; --g600: #999;
+  --hl: #333399; --red: #cc3333;
+  --font: "Charcoal", "Chicago", "Geneva", "Lucida Grande", "Lucida Sans", Geneva, Verdana, sans-serif;
+  --mono: "Berkeley Mono", "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 12px/1.45 var(--font); color: var(--black); background: var(--g200);
+  user-select: none; cursor: default; overflow: hidden; display: flex; flex-direction: column; }
+
+button { font: inherit; cursor: default; }
+button.ghost { background: var(--g300); color: var(--black);
+  border: 1px solid var(--black); border-radius: 3px;
+  padding: 2px 13px; font-size: 12px; line-height: 14px; font-weight: bold; height: 20px;
+  box-shadow: inset 1px 1px 0 var(--g300), inset -1px -1px 0 #777,
+    inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+button.ghost:active { background: #666; color: #fff;
+  box-shadow: inset 1px 1px 0 #444, inset -1px -1px 0 #888,
+    inset 2px 2px 0 #555, inset -2px -2px 0 #777; }
+button.ghost:disabled { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
+button.ghost.default { outline: 2px solid var(--black); outline-offset: 1px; border-radius: 4px; }
+button.ghost.danger { color: #7a1010; }
+
+/* the control row at the dialog guidelines' numbers */
+#bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; flex: none; }
+#bar .sp { flex: 1; }
+
+/* three columns: the sites on the window colour, the articles as the
+   Finder's list view, the page; each seam one line, a grip astride it */
+#cols { flex: 1; min-height: 0; display: flex; border-top: 1px solid var(--black); }
+#sites { width: 180px; flex: none; background: var(--g400); border-right: 1px solid var(--black);
+  overflow-y: auto; overflow-x: hidden; padding: 4px 0; }
+.sec { font-size: 11px; color: #555; padding: 6px 8px 2px; }
+.site { height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; }
+.site .av { width: 24px; height: 24px; flex: none; display: block; }
+.site .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site.sel { background: var(--hl); color: #fff; }
+.site.dim .nm { color: #666; }
+.site.sel.dim .nm { color: #ddd; }
+.grip { width: 6px; margin: 0 -3px; flex: none; cursor: col-resize; z-index: 2; touch-action: none; }
+
+#articles { width: 300px; flex: none; display: flex; flex-direction: column; min-height: 0; background: #fff; }
+/* the window list view header (HIG fig. 2-43): 18px face, the sorted
+   column darker, a 1px black line under it that is also the list's top */
+.lvh { height: 19px; display: flex; padding-right: 14px; background: var(--g300); border-bottom: 1px solid var(--black); border-right: 1px solid var(--black); flex: none;
+  box-shadow: inset 0 1px 0 #fff; font-size: 11px; }
+.lvh .col { padding: 0 6px; line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border-right: 1px solid var(--black); }
+.lvh .col:last-child { border-right: 1px solid var(--black); }
+.lvh .col.on { background: #888; box-shadow: inset 0 1px 0 #aaa; }
+.col.t { flex: 1; min-width: 0; }
+.col.d { width: 96px; flex: none; }
+.col.k { width: 44px; flex: none; }
+/* the list box (HIG fig. 2-25): white, 16px rows, the frame's right line
+   is the bar's rail; the focus ring sits outside the frame */
+#rows { flex: 1; min-height: 0; overflow-y: scroll; overflow-x: hidden; outline: none; border-right: 1px solid var(--black); }
+#rows:focus-visible { box-shadow: inset 2px 0 0 #6666cc, inset -2px 0 0 #6666cc; }
+#rows .row { height: 16px; display: flex; align-items: center; white-space: nowrap; }
+#rows .row .col { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; line-height: 16px; }
+#rows .row .col.d { color: #444; }
+#rows .row .col.k { color: #666; font-size: 11px; }
+#rows .row.untitled .col.t { color: #555; }
+#rows .row.sel { background: var(--hl); color: #fff; }
+#rows .row.sel .col.d, #rows .row.sel .col.k, #rows .row.sel.untitled .col.t { color: #fff; }
+#empty { padding: 12px 10px; color: #777; }
+
+#page { flex: 1; min-width: 200px; display: flex; position: relative; background: #fff; }
+#pv { flex: 1; min-width: 0; border: 0; background: #fff; }
+#pvnote { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #777; text-align: center; padding: 0 16px; display: none; }
+
+/* 15px status bar, text only */
+#status { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--black);
+  background: var(--g300); font-size: 11px; color: #333; padding: 0 20px 0 8px; height: 15px; flex: none;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; overflow: clip; }
+#st-build { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#st-build.err { color: var(--red); }
+#st-count { flex: none; }
+
+#grow { position: fixed; right: 0; bottom: 0; width: 15px; height: 15px; touch-action: none; z-index: 6; }
+
+/* Mac OS 9 scrollbars — the desktop's pixel-sampled spec (Notes' copy) */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black);
+  background: linear-gradient(to right, #777 0, #777 1px, #888 1px, #888 2px, #aaa 2px, #aaa 12px, #bbb 12px, #bbb 13px, #ccc 13px, #ccc 14px); }
+::-webkit-scrollbar-thumb:vertical { border: 1px solid var(--black); border-right: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="0" width="6" height="1" fill="%23ccccff"/><rect x="4" y="1" width="7" height="1" fill="%23333399"/><rect x="3" y="2" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="2" width="6" height="1" fill="%23ccccff"/><rect x="4" y="3" width="7" height="1" fill="%23333399"/><rect x="3" y="4" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="4" width="6" height="1" fill="%23ccccff"/><rect x="4" y="5" width="7" height="1" fill="%23333399"/><rect x="3" y="6" width="1" height="1" fill="%23eeeeee"/><rect x="4" y="6" width="6" height="1" fill="%23ccccff"/><rect x="4" y="7" width="7" height="1" fill="%23333399"/></svg>') center no-repeat,
+    linear-gradient(to right, #ccccff 0 1px, #9999ff 1px 13px, #6666cc 13px 14px);
+  box-shadow: inset 0 1px 0 #ccccff, inset 0 -1px 0 #6666cc; }
+::-webkit-scrollbar-thumb:vertical:active {
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="8" shape-rendering="crispEdges"><rect x="3" y="0" width="1" height="1" fill="%23ccccff"/><rect x="4" y="0" width="6" height="1" fill="%239999ff"/><rect x="4" y="1" width="7" height="1" fill="%23000066"/><rect x="3" y="2" width="1" height="1" fill="%23ccccff"/><rect x="4" y="2" width="6" height="1" fill="%239999ff"/><rect x="4" y="3" width="7" height="1" fill="%23000066"/><rect x="3" y="4" width="1" height="1" fill="%23ccccff"/><rect x="4" y="4" width="6" height="1" fill="%239999ff"/><rect x="4" y="5" width="7" height="1" fill="%23000066"/><rect x="3" y="6" width="1" height="1" fill="%23ccccff"/><rect x="4" y="6" width="6" height="1" fill="%239999ff"/><rect x="4" y="7" width="7" height="1" fill="%23000066"/></svg>') center no-repeat,
+    linear-gradient(to right, #9999ff 0 1px, #6666cc 1px 13px, #333399 13px 14px);
+  box-shadow: inset 0 1px 0 #9999ff, inset 0 -1px 0 #333399; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical {
+  border-top-color: #ccccff; box-shadow: inset 0 -1px 0 #6666cc; }
+:not(.scrolled-y)::-webkit-scrollbar-thumb:vertical:active {
+  border-top-color: #9999ff; box-shadow: inset 0 -1px 0 #333399; }
+.at-y-end::-webkit-scrollbar-thumb:vertical {
+  border-bottom-color: #6666cc; box-shadow: inset 0 1px 0 #ccccff; }
+.at-y-end::-webkit-scrollbar-thumb:vertical:active {
+  border-bottom-color: #333399; box-shadow: inset 0 1px 0 #9999ff; }
+::-webkit-scrollbar-button { display: block; width: 16px; height: 16px;
+  background: #ddd; border: 1px solid var(--black);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb;
+  background-position: center; background-repeat: no-repeat; }
+::-webkit-scrollbar-button:vertical { border-right: 0; }
+::-webkit-scrollbar-button:vertical:end:increment:enabled { height: 14px; border-top: 0; border-bottom: 0; }
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="black" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-button:active { background-color: #777;
+  box-shadow: inset 1px 1px 0 #555, inset -1px -1px 0 #999; }
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment { display: none; }
+::-webkit-scrollbar-track:disabled { background: #eee; }
+::-webkit-scrollbar-button:disabled { background-color: #eee; box-shadow: none; border: 0;
+  border-left: 1px solid var(--black); }
+::-webkit-scrollbar-button:vertical:end:increment:disabled { border-top: 1px solid #888; }
+::-webkit-scrollbar-button:vertical:end:decrement:disabled { border-top: 1px solid #555; }
+::-webkit-scrollbar-button:vertical:decrement:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M3 0h2v1h-2z M2 1h4v1h-4z M1 2h6v1h-6z M0 3h8v1h-8z"/></svg>'); }
+::-webkit-scrollbar-button:vertical:increment:disabled {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4" shape-rendering="crispEdges"><path fill="%23888888" d="M0 0h8v1h-8z M1 1h6v1h-6z M2 2h4v1h-4z M3 3h2v1h-2z"/></svg>'); }
+::-webkit-scrollbar-corner { background: var(--g300); }
+/* the sidebar's own bar keeps the window colour under it */
+#sites::-webkit-scrollbar-track:vertical { border-left: 1px solid var(--black); }
+
+/* a contextual menu, the desktop's Finder one (Blue Pencil's block) */
+.dropdown { position: fixed; z-index: 30; min-width: 170px; background: var(--g300);
+  border: 1px solid var(--black); padding: 2px 1px;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 var(--g500), 2px 2px 0 rgba(38,38,38,.85); }
+.dd-item { padding: 3px 22px 3px 18px; line-height: 18px; white-space: nowrap; }
+.dd-item:hover { background: var(--hl); color: #fff; }
+.dd-item.dis { color: #888; }
+.dd-item.dis:hover { background: none; color: #888; }
+.dd-sep { height: 2px; margin: 3px 2px; border-top: 1px solid var(--g600); border-bottom: 1px solid #fff; }
+
+/* dialogs and the alert on a veil: the Hub app's blocks */
+#veil { position: fixed; inset: 0; background: rgba(0,0,0,.12); display: none;
+  align-items: center; justify-content: center; z-index: 20; }
+#veil.on { display: flex; }
+#dlg { width: 440px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto;
+  background: var(--g300); border: 1px solid var(--black); padding: 14px;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 2px 2px 0 rgba(0,0,0,.25); }
+#dlg h2 { font-size: 12px; margin: 0 0 10px; }
+#dlg .row { margin: 0 0 8px; display: flex; flex-direction: column; gap: 3px; }
+#dlg .row.h { flex-direction: row; align-items: center; gap: 5px; }
+#dlg .row.f { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
+#dlg .row.f label { width: 84px; flex: none; text-align: right; }
+#dlg .row.f input[type=text], #dlg .row.f .popup, #dlg .row.f textarea { flex: 1; width: auto; min-width: 0; }
+#dlg .row.f .hint { flex-basis: 100%; margin-left: 92px; }
+#dlg label { font-size: 11px; }
+#dlg p { margin: 0 0 8px; line-height: 16px; }
+#dlg .btns { display: flex; gap: 12px; justify-content: flex-end; margin-top: 12px; }
+#dlg .btns .left { margin-right: auto; }
+#dlg .btns button { min-width: 58px; }
+#dlg .err { color: var(--red); font-size: 11px; min-height: 14px; margin-top: 6px; }
+#dlg .hint { color: #666; font-size: 11px; }
+#dlg .group { border-top: 1px solid var(--g600); box-shadow: 0 1px 0 #fff inset; margin: 16px 0 0; padding-top: 10px; }
+#dlg .group h3 { font-size: 12px; margin: 0 0 8px; }
+#dlg input[type=text], #dlg textarea { width: 100%; padding: 2px 5px; font: 12px/16px var(--font); color: var(--black);
+  background: #fff; border: 1px solid var(--black); border-radius: 0; user-select: text; cursor: text;
+  box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+#dlg input[type=text] { height: 20px; }
+#dlg textarea { height: 64px; resize: none; }
+#dlg input[type=text]:focus, #dlg textarea:focus { outline: 2px solid #9999fe; outline-offset: 0; }
+#dlg input[type=checkbox] { appearance: none; width: 12px; height: 12px; margin: 0; border: 1px solid var(--black);
+  background: #fff; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb; }
+#dlg input[type=checkbox]:checked { background: #fff url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" shape-rendering="crispEdges"><path fill="black" d="M0 0h2v2H0zM2 2h2v2H2zM4 4h2v2H4zM6 2h2v2H6zM8 0h2v2H8zM2 6h2v2H2zM6 6h2v2H6zM0 8h2v2H0zM8 8h2v2H8z"/></svg>') center no-repeat; }
+#dlg input[type=checkbox]:disabled { border-color: #888; }
+#dlg .popup { width: 100%; }
+#dlg .list { background: #fff; border: 1px solid var(--black); max-height: 140px; overflow-y: auto;
+  box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+#dlg .list div { padding: 0 6px; line-height: 16px; height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dlg .list div.sel { background: var(--hl); color: #fff; }
+#veil.alert #dlg { display: none; }
+#veil:not(.alert) #alert { display: none; }
+.window { position: relative; z-index: 10; min-width: 220px; width: 100%; max-width: 380px;
+  background: var(--g400); border: 1px solid var(--black); box-shadow: 2px 2px 0 var(--black); }
+.window::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 4; box-sizing: border-box;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.5), inset -1px -1px 0 var(--g600), inset 1px 1px 0 #fff; }
+.titlebar { display: flex; align-items: center; gap: 4px; padding: 2px 4px; background: var(--g400); user-select: none; }
+.titlebar .stripe { flex: 1; height: 12px; min-width: 8px; position: relative; background-color: var(--g300);
+  background-image: linear-gradient(#fff, #fff 50%, #777 50%, #777); background-size: 100% 2px; background-repeat: repeat; }
+.titlebar .stripe::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 1px; box-sizing: border-box;
+  background-image: linear-gradient(#fff, #fff 50%, #ccc 50%, #ccc); background-size: 100% 2px; background-repeat: repeat; border-bottom: 1px solid #ccc; }
+.titlebar .stripe::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 1px; box-sizing: border-box;
+  background-image: linear-gradient(#ccc, #ccc 50%, #777 50%, #777); background-size: 100% 2px; background-repeat: repeat; }
+.titlebar.alert-bar { background: #fcc; }
+.titlebar.alert-bar .stripe { background-color: #fcc; background-image: linear-gradient(#fff, #fff 50%, #f66 50%, #f66); }
+.titlebar.alert-bar .stripe::before { background-image: linear-gradient(#fff, #fff 50%, #f99 50%, #f99); border-bottom-color: #f99; }
+.titlebar.alert-bar .stripe::after { background-image: linear-gradient(#f99, #f99 50%, #f66 50%, #f66); }
+.win-body { padding: 14px 14px 12px; }
+#alert { width: min(380px, calc(100vw - 32px)); }
+#alert .a-row { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
+#alert .a-row svg { flex: none; }
+#alert .a-text { flex: 1; min-width: 0; user-select: text; cursor: text; }
+#alert .btns { display: flex; justify-content: flex-end; gap: 12px; }
+#alert .btns button { min-width: 58px; }
+
+/* a phone: one column at a time, the row above it holds what fits */
+body.mobile .grip { display: none; }
+body.mobile #sites, body.mobile #articles, body.mobile #page { display: none; width: 100%; min-width: 0; flex: 1; }
+body.mobile[data-screen="sites"] #sites { display: block; }
+body.mobile[data-screen="articles"] #articles { display: flex; }
+body.mobile[data-screen="page"] #page { display: flex; }
+body.mobile #sites { border-right: 0; }
+body.mobile .site { height: 36px; }
+body.mobile #rows .row { height: 28px; }
+body.mobile #rows .row .col { line-height: 28px; }
+body.mobile #status { padding-right: 8px; }
+body.mobile #cols { padding-bottom: env(safe-area-inset-bottom); }
+#back { display: none; }
+body.mobile #back { display: inline-block; }
+body.mobile[data-screen="sites"] #back { display: none; }
+body.mobile[data-screen="sites"] .for-article, body.mobile[data-screen="sites"] .for-site { display: none; }
+body.mobile[data-screen="articles"] .for-page, body.mobile[data-screen="articles"] .for-sites { display: none; }
+body.mobile[data-screen="page"] .for-site, body.mobile[data-screen="page"] .for-sites { display: none; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <button class="ghost" id="back">Back</button>
+  <button class="ghost for-sites" id="b-newsite">New Site…</button>
+  <button class="ghost for-sites" id="b-import">Import…</button>
+  <button class="ghost for-site" id="b-newpost" disabled>New Post</button>
+  <button class="ghost for-article for-page" id="b-edit" disabled>Edit</button>
+  <button class="ghost for-site" id="b-site" disabled>Site…</button>
+  <button class="ghost for-site" id="b-publish" disabled>Publish…</button>
+  <span class="sp"></span>
+</div>
+<div id="cols">
+  <div id="sites"><div id="site-list"></div></div>
+  <div class="grip" data-for="sites"></div>
+  <div id="articles">
+    <div class="lvh">
+      <span class="col t" data-k="title">Title</span>
+      <span class="col d on" data-k="created">Date</span>
+      <span class="col k" data-k="kind">Kind</span>
+    </div>
+    <div id="rows" tabindex="0"></div>
+  </div>
+  <div class="grip" data-for="articles"></div>
+  <div id="page"><iframe id="pv" sandbox="allow-scripts" title="Page"></iframe><div id="pvnote"></div></div>
+</div>
+<div id="status">
+  <span id="st-build"></span>
+  <span id="st-count"></span>
+</div>
+<div id="veil">
+  <div id="dlg"></div>
+  <div id="alert" class="window" role="alertdialog" aria-labelledby="a-msg" aria-describedby="a-detail">
+    <div class="titlebar alert-bar"><div class="stripe"></div></div>
+    <div class="win-body">
+      <div class="a-row">
+        <svg width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+          <path d="M16 2 L30.5 29.5 L1.5 29.5 Z" fill="#FFDD30" stroke="#000"/>
+          <path d="M16 6 L27 27 L5 27 Z" fill="#FFF3A0"/>
+          <rect x="14" y="11" width="4" height="10" fill="#000"/>
+          <rect x="14" y="23" width="4" height="3" fill="#000"/>
+        </svg>
+        <div class="a-text"><div id="a-msg"></div><div id="a-detail"></div></div>
+      </div>
+      <div class="btns"><button class="ghost" id="a-cancel" hidden>Cancel</button><button class="ghost default" id="a-ok">OK</button></div>
+    </div>
+  </div>
+</div>
+<!-- grow box sampled pixel-for-pixel from Mac OS 9 (Infinite Mac) -->
+<svg id="grow" width="15" height="15" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect width="15" height="15" fill="#ccc"/>
+  <path fill="#000" d="M0 0h15v1H0zM0 1h1v14H0z"/>
+  <path fill="#fff" d="M1 1h14v1H1zM1 2h1v13H1z"/>
+  <path fill="#fff" d="M9 4h2v1H9zM8 5h1v1H8zM7 6h1v1H7zM6 7h1v1H6zM5 8h1v1H5zM4 9h1v1H4zM11 6h2v1h-2zM10 7h1v1h-1zM9 8h1v1H9zM8 9h1v1H8zM7 10h1v1H7zM6 11h1v1H6zM13 8h2v1h-2zM12 9h1v1h-1zM11 10h1v1h-1zM10 11h1v1h-1zM9 12h1v1H9zM8 13h1v1H8z"/>
+  <path fill="#777" d="M10 5h1v1h-1zM9 6h1v1H9zM8 7h1v1H8zM7 8h1v1H7zM6 9h1v1H6zM5 10h1v1H5zM12 7h1v1h-1zM11 8h1v1h-1zM10 9h1v1h-1zM9 10h1v1H9zM8 11h1v1H8zM7 12h1v1H7zM14 9h1v1h-1zM13 10h1v1h-1zM12 11h1v1h-1zM11 12h1v1h-1zM10 13h1v1h-1zM9 14h1v1H9z"/>
+  <path fill="#aaa" d="M4 10h1v1H4zM6 12h1v1H6zM8 14h1v1H8z"/>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const MOBILE = new URLSearchParams(location.search).has("mobile");
+const API = "/v1/svc/planet/v1";
+const SLUG = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const RESERVED = new Set(["templates", "archived"]);
+const KIND_DIR = { post: "posts", page: "pages", draft: "drafts" };
+const KIND_LABEL = { post: "", page: "Page", draft: "Draft" };
+const PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" shape-rendering="crispEdges"><path fill="#000" d="M8 3h8v1H8zM6 4h2v1H6zM16 4h2v1h-2zM5 5h1v1H5zM18 5h1v1h-1zM4 6h1v2H4zM19 6h1v2h-1zM3 8h1v8H3zM20 8h1v8h-1zM4 16h1v2H4zM19 16h1v2h-1zM5 18h1v1H5zM18 18h1v1h-1zM6 19h2v1H6zM16 19h2v1h-2zM8 20h8v1H8z"/><path fill="#3366cc" d="M8 4h8v1H8zM6 5h12v1H6zM5 6h14v2H5zM4 8h16v8H4zM5 16h14v2H5zM6 18h12v1H6zM8 19h8v1H8z"/><path fill="#fff" d="M8 5h3v1H8zM6 7h2v1H6zM5 9h1v2H5z"/><path fill="#55aa55" d="M10 8h5v1h-5zM9 9h7v2H9zM10 11h4v1h-4zM13 13h5v2h-5zM7 14h3v1H7z"/></svg>');
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    let msg = "HTTP " + r.status;
+    try { const j = await r.json(); if (j && j.error) msg = j.error; } catch (e) {}
+    throw new Error(msg);
+  }
+  const ct = r.headers.get("content-type") || "";
+  return ct.includes("json") ? r.json() : r.text();
+}
+const json = (method, path, body) => api(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const withToken = u => TOKEN ? u + (u.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN) : u;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); };
+const clock = () => { const d = new Date(); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
+
+// ---- state ----
+let sites = [], archived = [], templates = [];
+let site = null;     // the selected site's slug
+let posts = [];      // the selected site's posts, as listed
+let post = null;     // the selected post's slug
+let sortKey = "created", sortDir = -1;
+let lastBuilt = "";
+
+// ---- sites ----
+async function loadSites(keep) {
+  const [live, arch] = await Promise.all([api("/sites"), api("/sites?archived=1")]);
+  sites = live; archived = arch;
+  renderSites();
+  if (keep && site && sites.some(s => s.slug === site)) return;
+  if (sites.length) selectSite(sites[0].slug); else selectSite(null);
+}
+function siteRow(s, dim) {
+  const d = document.createElement("div");
+  d.className = "site" + (s.slug === site ? " sel" : "") + (dim ? " dim" : "") + (s.error ? " dim" : "");
+  d.dataset.slug = s.slug; d.dataset.archived = dim ? "1" : "";
+  const img = document.createElement("img");
+  img.className = "av"; img.alt = ""; img.draggable = false;
+  img.src = withToken(API + "/sites/" + encodeURIComponent(s.slug) + "/avatar");
+  img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER; };
+  const nm = document.createElement("span");
+  nm.className = "nm"; nm.textContent = s.name || s.slug;
+  nm.title = s.error ? s.error : "";
+  d.append(img, nm);
+  return d;
+}
+function renderSites() {
+  const box = $("#site-list");
+  box.innerHTML = "";
+  for (const s of sites) box.append(siteRow(s, false));
+  if (archived.length) {
+    const h = document.createElement("div"); h.className = "sec"; h.textContent = "Archived"; box.append(h);
+    for (const s of archived) box.append(siteRow(s, true));
+  }
+  if (!sites.length && !archived.length) {
+    const h = document.createElement("div"); h.className = "sec"; h.textContent = "No sites yet"; box.append(h);
+  }
+}
+$("#site-list").addEventListener("click", e => {
+  const row = e.target.closest(".site");
+  if (!row) return;
+  if (row.dataset.archived) { selectArchived(row.dataset.slug); return; }
+  selectSite(row.dataset.slug);
+  if (MOBILE) screen("articles");
+});
+function selectArchived(slug) {
+  $$(".site").forEach(r => r.classList.toggle("sel", r.dataset.slug === slug && !!r.dataset.archived));
+  site = null; posts = []; post = null;
+  renderRows(); showPage(null);
+  setButtons();
+  $("#st-build").textContent = "An archived site: restore it to work on it";
+}
+async function selectSite(slug) {
+  site = slug; post = null; posts = []; lastBuilt = "";
+  $$(".site").forEach(r => r.classList.toggle("sel", r.dataset.slug === slug && !r.dataset.archived));
+  renderRows(); showPage(null); setButtons();
+  if (!slug) { $("#st-build").textContent = ""; $("#st-count").textContent = ""; return; }
+  await loadPosts();
+  pollStatus();
+}
+function setButtons() {
+  const s = !!site, p = !!post;
+  $("#b-newpost").disabled = !s; $("#b-site").disabled = !s; $("#b-publish").disabled = !s;
+  $("#b-edit").disabled = !p;
+}
+
+// ---- articles: the list view ----
+async function loadPosts() {
+  if (!site) return;
+  const slug = site;
+  try {
+    const list = await api("/sites/" + encodeURIComponent(slug) + "/posts");
+    if (slug !== site) return;
+    posts = list;
+    if (post && !posts.some(p => p.slug === post)) post = null;
+    renderRows();
+    const n = { post: 0, page: 0, draft: 0 };
+    for (const p of posts) n[p.kind] = (n[p.kind] || 0) + 1;
+    $("#st-count").textContent = [n.post + " post" + (n.post === 1 ? "" : "s"), n.page ? n.page + " page" + (n.page === 1 ? "" : "s") : "", n.draft ? n.draft + " draft" + (n.draft === 1 ? "" : "s") : ""].filter(Boolean).join(" · ");
+    if (!post && posts.length && !MOBILE) selectPost(sorted()[0].slug);
+  } catch (e) {
+    $("#st-build").textContent = "Could not list posts: " + e.message; $("#st-build").classList.add("err");
+  }
+}
+function sorted() {
+  const kindOrder = { post: 0, page: 1, draft: 2 };
+  return [...posts].sort((a, b) => {
+    let x, y;
+    if (sortKey === "title") { x = (a.title || firstLine(a)).toLowerCase(); y = (b.title || firstLine(b)).toLowerCase(); }
+    else if (sortKey === "kind") { x = kindOrder[a.kind]; y = kindOrder[b.kind]; }
+    else { x = a.created; y = b.created; }
+    if (x < y) return -sortDir; if (x > y) return sortDir;
+    if (a.created !== b.created) return a.created < b.created ? 1 : -1;
+    return a.slug < b.slug ? -1 : 1;
+  });
+}
+const firstLine = p => (p.body || "").split("\n").map(l => l.trim()).find(l => l) || p.slug;
+function renderRows() {
+  const box = $("#rows");
+  box.innerHTML = "";
+  if (!site) { box.innerHTML = '<div id="empty">' + (sites.length ? "" : "Make a site to begin.") + "</div>"; return; }
+  if (!posts.length) { box.innerHTML = '<div id="empty">No posts yet.</div>'; return; }
+  for (const p of sorted()) {
+    const r = document.createElement("div");
+    r.className = "row" + (p.slug === post ? " sel" : "") + (p.title ? "" : " untitled");
+    r.dataset.slug = p.slug; r.dataset.kind = p.kind;
+    r.innerHTML = '<span class="col t"></span><span class="col d"></span><span class="col k"></span>';
+    r.children[0].textContent = p.title || firstLine(p);
+    r.children[1].textContent = fmtDate(p.created);
+    r.children[2].textContent = KIND_LABEL[p.kind] || "";
+    box.append(r);
+  }
+  $$(".lvh .col").forEach(c => c.classList.toggle("on", c.dataset.k === sortKey));
+}
+$("#rows").addEventListener("click", e => {
+  const row = e.target.closest(".row");
+  if (!row) return;
+  selectPost(row.dataset.slug);
+  if (MOBILE) screen("page");
+});
+$("#rows").addEventListener("dblclick", e => { if (e.target.closest(".row")) editPost(); });
+$(".lvh").addEventListener("click", e => {
+  const c = e.target.closest(".col");
+  if (!c) return;
+  if (sortKey === c.dataset.k) sortDir = -sortDir; else { sortKey = c.dataset.k; sortDir = sortKey === "created" ? -1 : 1; }
+  renderRows();
+});
+// the keyboard in a list box: arrows move, Home and End jump, typing the
+// first letters selects, Return edits, Delete asks
+let typed = "", typedAt = 0;
+$("#rows").addEventListener("keydown", e => {
+  const list = sorted();
+  if (!list.length) return;
+  const i = list.findIndex(p => p.slug === post);
+  const go = n => { const p = list[Math.max(0, Math.min(list.length - 1, n))]; selectPost(p.slug); revealRow(p.slug); };
+  if (e.key === "ArrowDown") { e.preventDefault(); go(i < 0 ? 0 : i + 1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); go(i < 0 ? 0 : i - 1); }
+  else if (e.key === "Home") { e.preventDefault(); go(0); }
+  else if (e.key === "End") { e.preventDefault(); go(list.length - 1); }
+  else if (e.key === "Enter") { e.preventDefault(); editPost(); }
+  else if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); deletePost(); }
+  else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const now = Date.now();
+    typed = (now - typedAt < 800 ? typed : "") + e.key.toLowerCase(); typedAt = now;
+    const hit = list.find(p => (p.title || firstLine(p)).toLowerCase().startsWith(typed));
+    if (hit) { selectPost(hit.slug); revealRow(hit.slug); }
+  }
+});
+function revealRow(slug) {
+  const r = $$("#rows .row").find(r => r.dataset.slug === slug);
+  if (r) r.scrollIntoView({ block: "nearest" });
+}
+function selectPost(slug) {
+  post = slug;
+  $$("#rows .row").forEach(r => r.classList.toggle("sel", r.dataset.slug === slug));
+  setButtons();
+  loadPage();
+}
+const current = () => posts.find(p => p.slug === post);
+const postPath = p => "Planet/" + site + "/" + KIND_DIR[p.kind] + "/" + p.slug + "/index.md";
+
+// ---- the page column: the built page with its resources folded in ----
+let pageSeq = 0;
+function showPage(html, note) {
+  $("#pv").srcdoc = html || "";
+  const n = $("#pvnote"); n.textContent = note || ""; n.style.display = note ? "block" : "none";
+}
+async function loadPage(retry) {
+  const p = current();
+  if (!p) { showPage(null, site ? (posts.length ? "" : "") : ""); return; }
+  const seq = ++pageSeq;
+  const base = API + "/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/attachments/";
+  const q = new URLSearchParams({ base });
+  const extra = new URLSearchParams();
+  if (p.kind !== "post") extra.set("kind", p.kind);
+  if (TOKEN) extra.set("token", TOKEN);
+  if ([...extra].length) q.set("query", extra.toString());
+  try {
+    const html = await api("/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/view?" + q);
+    if (seq !== pageSeq) return;
+    showPage(html);
+  } catch (e) {
+    if (seq !== pageSeq) return;
+    if (/not built/.test(e.message) && (retry || 0) < 10) {
+      showPage(null, "Building…");
+      setTimeout(() => { if (seq === pageSeq) loadPage((retry || 0) + 1); }, 1500);
+    } else showPage(null, "No page: " + e.message);
+  }
+}
+
+// ---- the status line: the site's last build, polled while shown ----
+let pollTimer = null, hidden = false;
+async function pollStatus() {
+  clearTimeout(pollTimer);
+  if (!site || hidden) return;
+  const slug = site;
+  try {
+    const st = await api("/sites/" + encodeURIComponent(slug) + "/status");
+    if (slug !== site) return;
+    const el = $("#st-build");
+    el.classList.toggle("err", !!st.error);
+    const built = st.built && !st.built.startsWith("0001") ? st.built : "";
+    if (st.building) el.textContent = "Building…";
+    else if (st.error) el.textContent = "Build failed: " + st.error;
+    else if (built) el.textContent = "Built " + fmtTime(built) + " · " + st.files + " file" + (st.files === 1 ? "" : "s");
+    else el.textContent = "Not built yet";
+    if (built && built !== lastBuilt) {
+      const first = !lastBuilt;
+      lastBuilt = built;
+      if (!first) { loadPosts(); loadPage(); }
+    }
+  } catch (e) {
+    $("#st-build").textContent = "Daemon unreachable: " + e.message; $("#st-build").classList.add("err");
+  }
+  pollTimer = setTimeout(pollStatus, 3000);
+}
+const fmtTime = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
+
+// ---- actions ----
+function editPost() {
+  const p = current();
+  if (!p) return;
+  if (window.parent === window) { alertBox("Open the Writer from the desk", "This window is not on the desk, so it cannot ask for the Writer."); return; }
+  parent.postMessage({ exe: "open-app", app: "Writer", path: postPath(p) }, location.origin);
+}
+$("#b-edit").addEventListener("click", editPost);
+$("#b-newpost").addEventListener("click", () => {
+  if (!site) return;
+  dialog(`<h2>New Post</h2>
+    <div class="row"><label for="d-title">Title</label><input type="text" id="d-title"></div>
+    <div class="row"><label for="d-slug">Slug (the folder and the address)</label><input type="text" id="d-slug"></div>
+    <div class="row"><label>Kind</label><span class="popup"><select id="d-kind"><option value="post">Post</option><option value="page">Page</option><option value="draft">Draft</option></select><span class="well"><i><b></b></i></span></span></div>
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Create</button></div>`, async () => {
+    const title = $("#d-title").value.trim(), slug = $("#d-slug").value.trim(), kind = $("#d-kind").value;
+    if (!SLUG.test(slug)) { $("#d-err").textContent = "A slug is lowercase letters, digits and hyphens, at most 63."; return false; }
+    try {
+      const p = await json("POST", "/sites/" + encodeURIComponent(site) + "/posts", { title, slug, kind, body: "" });
+      await loadPosts(); selectPost(p.slug); revealRow(p.slug);
+      parent.postMessage({ exe: "open-app", app: "Writer", path: postPath(p) }, location.origin);
+      return true;
+    } catch (e) { $("#d-err").textContent = e.message; return false; }
+  });
+  let slugTouched = false;
+  $("#d-title").addEventListener("input", () => { if (!slugTouched) $("#d-slug").value = slugify($("#d-title").value); });
+  $("#d-slug").addEventListener("input", () => { slugTouched = $("#d-slug").value !== ""; });
+  $("#d-title").focus();
+});
+function slugify(s) {
+  s = s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return s.slice(0, 63).replace(/-+$/, "");
+}
+async function movePost(kind) {
+  const p = current(); if (!p || p.kind === kind) return;
+  try {
+    await json("POST", "/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/move?kind=" + p.kind, { kind });
+    await loadPosts();
+  } catch (e) { alertBox("Could not move “" + (p.title || p.slug) + "”", e.message); }
+}
+async function deletePost() {
+  const p = current(); if (!p) return;
+  const ok = await confirmBox("Delete “" + (p.title || p.slug) + "”?", "Its folder, with any attachments, goes with it. This cannot be undone.", "Delete");
+  if (!ok) return;
+  try {
+    await api("/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "?kind=" + p.kind, { method: "DELETE" });
+    post = null; await loadPosts();
+  } catch (e) { alertBox("Could not delete", e.message); }
+}
+function copyPath() {
+  const p = current(); if (!p) return;
+  navigator.clipboard.writeText(postPath(p)).catch(() => {});
+}
+
+// ---- sites: new, settings, archive, delete ----
+$("#b-newsite").addEventListener("click", async () => {
+  await loadTemplates();
+  dialog(`<h2>New Site</h2>
+    <div class="row"><label for="d-title">Title</label><input type="text" id="d-title"></div>
+    <div class="row"><label for="d-slug">Slug (the folder, and the address once exposed)</label><input type="text" id="d-slug"></div>
+    <div class="row"><label>Template</label><span class="popup"><select id="d-tpl">${templates.map(t => `<option value="${esc(t.slug)}">${esc(t.name || t.slug)}</option>`).join("")}</select><span class="well"><i><b></b></i></span></span></div>
+    <div class="row"><label for="d-about">About</label><textarea id="d-about"></textarea></div>
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Create</button></div>`, async () => {
+    const title = $("#d-title").value.trim(), slug = $("#d-slug").value.trim();
+    if (!title) { $("#d-err").textContent = "A title, please."; return false; }
+    if (!SLUG.test(slug) || RESERVED.has(slug)) { $("#d-err").textContent = RESERVED.has(slug) ? "That name is reserved." : "A slug is lowercase letters, digits and hyphens, at most 63."; return false; }
+    try {
+      const s = await json("POST", "/sites", { title, slug, template: $("#d-tpl").value, about: $("#d-about").value });
+      await loadSites(true); selectSite(s.slug);
+      return true;
+    } catch (e) { $("#d-err").textContent = e.message; return false; }
+  });
+  if ($("#d-tpl").querySelector('option[value="plain"]')) $("#d-tpl").value = "plain";
+  let slugTouched = false;
+  $("#d-title").addEventListener("input", () => { if (!slugTouched) $("#d-slug").value = slugify($("#d-title").value); });
+  $("#d-slug").addEventListener("input", () => { slugTouched = $("#d-slug").value !== ""; });
+  $("#d-slug").addEventListener("input", () => { const v = $("#d-slug").value; $("#d-err").textContent = v && !SLUG.test(v) ? "A slug is lowercase letters, digits and hyphens, at most 63." : (RESERVED.has(v) ? "That name is reserved." : ""); });
+  $("#d-title").focus();
+});
+async function loadTemplates() {
+  try { templates = await api("/templates"); } catch (e) { templates = []; }
+}
+$("#b-site").addEventListener("click", siteSettings);
+async function siteSettings() {
+  if (!site) return;
+  let s;
+  try { [s] = await Promise.all([api("/sites/" + encodeURIComponent(site)), loadTemplates()]); }
+  catch (e) { alertBox("Could not read the site", e.message); return; }
+  const tpl = templates.find(t => t.slug === s.template);
+  const settings = tpl && tpl.settings ? Object.entries(tpl.settings).sort((a, b) => (a[1].advanced ? 1 : 0) - (b[1].advanced ? 1 : 0) || a[0].localeCompare(b[0])) : [];
+  const cur = s.template_settings || {};
+  const val = k => cur[k] != null ? String(cur[k]) : "";
+  const settingRows = settings.map(([k, d]) => {
+    const dv = d.defaultValue == null ? "" : String(d.defaultValue);
+    if (d.type === "boolean") return `<div class="row h" style="margin-left: 92px"><input type="checkbox" id="ts-${esc(k)}" data-key="${esc(k)}" ${(val(k) || dv) === "true" ? "checked" : ""}><label for="ts-${esc(k)}">${esc(d.name || k)}</label></div>`;
+    return `<div class="row f"><label for="ts-${esc(k)}">${esc(d.name || k)}</label><input type="text" id="ts-${esc(k)}" data-key="${esc(k)}" value="${esc(val(k) || dv)}"></div>`;
+  }).join("");
+  dialog(`<h2>Site Settings</h2>
+    <div class="row f"><label for="d-name">Name</label><input type="text" id="d-name" value="${esc(s.name || "")}"></div>
+    <div class="row f"><label for="d-about">About</label><textarea id="d-about">${esc(s.about || "")}</textarea></div>
+    <div class="row f"><label>Template</label><span class="popup"><select id="d-tpl">${templates.map(t => `<option value="${esc(t.slug)}" ${t.slug === s.template ? "selected" : ""}>${esc(t.name || t.slug)}</option>`).join("")}</select><span class="well"><i><b></b></i></span></span></div>
+    <div class="row f"><label for="d-author">Author</label><input type="text" id="d-author" value="${esc(s.author || "")}"></div>
+    <div class="group"><h3>Links</h3>
+      <div class="row f"><label for="d-tw">Twitter</label><input type="text" id="d-tw" value="${esc(s.social && s.social.twitter || "")}"></div>
+      <div class="row f"><label for="d-gh">GitHub</label><input type="text" id="d-gh" value="${esc(s.social && s.social.github || "")}"></div>
+      <div class="row f"><label for="d-tg">Telegram</label><input type="text" id="d-tg" value="${esc(s.social && s.social.telegram || "")}"></div>
+      <div class="row f"><label for="d-md">Mastodon</label><input type="text" id="d-md" value="${esc(s.social && s.social.mastodon || "")}"></div>
+      <div class="row f"><label for="d-dc">Discord</label><input type="text" id="d-dc" value="${esc(s.social && s.social.discord || "")}"></div>
+    </div>
+    <div class="group"><h3>Plausible</h3>
+      <div class="row h" style="margin-left: 92px"><input type="checkbox" id="d-pl" ${s.plausible && s.plausible.enabled ? "checked" : ""}><label for="d-pl">Enabled</label></div>
+      <div class="row f"><label for="d-pld">Domain</label><input type="text" id="d-pld" value="${esc(s.plausible && s.plausible.domain || "")}"></div>
+      <div class="row f"><label for="d-pls">Server</label><input type="text" id="d-pls" value="${esc(s.plausible && s.plausible.server || "")}" placeholder="plausible.io"></div>
+    </div>
+    <div class="group"><h3>Search engines</h3>
+      <div class="row h" style="margin-left: 92px"><input type="checkbox" id="d-noindex" ${s.noindex ? "checked" : ""}><label for="d-noindex">Ask search engines to stay away (robots.txt)</label></div>
+    </div>
+    ${settings.length ? `<div class="group" id="d-ts"><h3>${esc(tpl.name || tpl.slug)} settings</h3>${settingRows}</div>` : ""}
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Save</button></div>`, async () => {
+    const name = $("#d-name").value.trim();
+    if (!name) { $("#d-err").textContent = "A name, please."; return false; }
+    const ts = {};
+    $$("#d-ts [data-key]").forEach(el => { ts[el.dataset.key] = el.type === "checkbox" ? (el.checked ? "true" : "false") : el.value; });
+    const upd = { name, about: $("#d-about").value, template: $("#d-tpl").value, author: $("#d-author").value.trim(),
+      social: { twitter: $("#d-tw").value.trim(), github: $("#d-gh").value.trim(), telegram: $("#d-tg").value.trim(), mastodon: $("#d-md").value.trim(), discord: $("#d-dc").value.trim() },
+      plausible: { enabled: $("#d-pl").checked, domain: $("#d-pld").value.trim(), server: $("#d-pls").value.trim() },
+      noindex: $("#d-noindex").checked };
+    if (settings.length && $("#d-tpl").value === s.template) upd.template_settings = ts;
+    try {
+      await json("PUT", "/sites/" + encodeURIComponent(site), upd);
+      await loadSites(true);
+      return true;
+    } catch (e) { $("#d-err").textContent = e.message; return false; }
+  });
+  $("#d-name").focus();
+}
+async function archiveSite(slug, restore) {
+  try {
+    await api("/sites/" + encodeURIComponent(slug) + (restore ? "/unarchive" : "/archive"), { method: "POST" });
+    await loadSites(true);
+    if (restore) selectSite(slug);
+  } catch (e) { alertBox("Could not " + (restore ? "restore" : "archive"), e.message); }
+}
+async function deleteSite(slug) {
+  const ok = await confirmBox("Delete the site “" + slug + "”?", "Its whole folder in the Workspace goes, every post and picture with it. This cannot be undone.", "Delete");
+  if (!ok) return;
+  try { await api("/sites/" + encodeURIComponent(slug), { method: "DELETE" }); await loadSites(); }
+  catch (e) { alertBox("Could not delete", e.message); }
+}
+$("#b-publish").addEventListener("click", () => {
+  dialog(`<h2>Publish</h2>
+    <p>Where this site is published from this node. Both are off, and both come in phase 5.</p>
+    <div class="row h"><input type="checkbox" disabled><label>Expose at <b>${esc(site)}</b>.&lt;your domain&gt; through exe</label></div>
+    <div class="row h"><input type="checkbox" disabled><label>Publish to IPFS and keep an IPNS name</label></div>
+    <div class="btns"><button class="ghost default" id="d-ok">OK</button></div>`, () => true);
+});
+
+// ---- import ----
+$("#b-import").addEventListener("click", () => {
+  let planets = [], picked = null, library = "";
+  dialog(`<h2>Import a Planet</h2>
+    <p class="hint">A copy of a Planet library on this machine: the folder holding My/ and Public/, or one My/&lt;id&gt; folder.</p>
+    <div class="row"><label for="d-lib">Library path</label><input type="text" id="d-lib" placeholder="/home/livid/planet-library"></div>
+    <div class="row"><label>Planets</label><div class="list" id="d-list"><div class="hint">Type a path and press List.</div></div></div>
+    <div class="row"><label for="d-slug">Slug for the new site</label><input type="text" id="d-slug"></div>
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost left" id="d-listbtn">List</button><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok" disabled>Import</button></div>`, async () => {
+    if (!picked) return false;
+    const slug = $("#d-slug").value.trim();
+    if (!SLUG.test(slug) || RESERVED.has(slug)) { $("#d-err").textContent = "A slug is lowercase letters, digits and hyphens, at most 63."; return false; }
+    $("#d-ok").disabled = true; $("#d-err").textContent = "Importing…";
+    try {
+      const r = await json("POST", "/import", { library, id: picked, slug });
+      await loadSites(true); selectSite(slug);
+      if (r.warnings && r.warnings.length) alertBox("Imported with " + r.warnings.length + " warning" + (r.warnings.length === 1 ? "" : "s"), r.warnings.slice(0, 8).join("\n"));
+      return true;
+    } catch (e) { $("#d-err").textContent = e.message; $("#d-ok").disabled = false; return false; }
+  });
+  const list = async () => {
+    $("#d-err").textContent = ""; picked = null; $("#d-ok").disabled = true;
+    try {
+      const r = await api("/import?library=" + encodeURIComponent($("#d-lib").value.trim()));
+      library = r.library; planets = r.planets;
+      const box = $("#d-list"); box.innerHTML = "";
+      if (!planets.length) { box.innerHTML = '<div class="hint">No planets there.</div>'; return; }
+      for (const p of planets) {
+        const d = document.createElement("div");
+        d.textContent = (p.name || p.id) + (p.template ? " · " + p.template : "") + " · " + p.articles + " article" + (p.articles === 1 ? "" : "s") + (p.public ? "" : " · no Public folder") + (p.archived ? " · archived" : "");
+        d.dataset.id = p.id;
+        d.addEventListener("click", () => {
+          picked = p.id; $$("#d-list div").forEach(x => x.classList.toggle("sel", x === d));
+          if (!$("#d-slug").value) $("#d-slug").value = slugify(p.name || "");
+          $("#d-ok").disabled = false;
+        });
+        box.append(d);
+      }
+    } catch (e) { $("#d-err").textContent = e.message; }
+  };
+  $("#d-listbtn").addEventListener("click", list);
+  $("#d-lib").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); list(); } });
+  $("#d-lib").focus();
+});
+
+// ---- contextual menus ----
+function menu(x, y, items) {
+  closeMenu();
+  const m = document.createElement("div");
+  m.className = "dropdown"; m.id = "ctx";
+  for (const it of items) {
+    if (it === "-") { const s = document.createElement("div"); s.className = "dd-sep"; m.append(s); continue; }
+    const d = document.createElement("div");
+    d.className = "dd-item" + (it.dis ? " dis" : ""); d.textContent = it.label;
+    if (!it.dis) d.addEventListener("click", () => { closeMenu(); it.run(); });
+    m.append(d);
+  }
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.min(x, window.innerWidth - r.width - 4) + "px";
+  m.style.top = Math.min(y, window.innerHeight - r.height - 4) + "px";
+}
+function closeMenu() { const m = $("#ctx"); if (m) m.remove(); }
+document.addEventListener("pointerdown", e => { if (!e.target.closest("#ctx")) closeMenu(); }, true);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
+$("#site-list").addEventListener("contextmenu", e => {
+  const row = e.target.closest(".site");
+  e.preventDefault();
+  if (!row) return;
+  const slug = row.dataset.slug, arch = !!row.dataset.archived;
+  if (arch) { menu(e.clientX, e.clientY, [{ label: "Restore", run: () => archiveSite(slug, true) }, "-", { label: "Delete Site…", run: () => deleteSite(slug) }]); return; }
+  selectSite(slug);
+  menu(e.clientX, e.clientY, [
+    { label: "Site Settings…", run: siteSettings },
+    { label: "New Post…", run: () => $("#b-newpost").click() },
+    "-",
+    { label: "Archive", run: () => archiveSite(slug, false) },
+    { label: "Delete Site…", run: () => deleteSite(slug) },
+  ]);
+});
+$("#rows").addEventListener("contextmenu", e => {
+  e.preventDefault();
+  const row = e.target.closest(".row");
+  if (!row) { if (site) menu(e.clientX, e.clientY, [{ label: "New Post…", run: () => $("#b-newpost").click() }]); return; }
+  selectPost(row.dataset.slug);
+  const p = current();
+  const moves = ["post", "page", "draft"].filter(k => k !== p.kind).map(k => ({ label: "Move to " + { post: "Posts", page: "Pages", draft: "Drafts" }[k], run: () => movePost(k) }));
+  menu(e.clientX, e.clientY, [
+    { label: "Edit", run: editPost },
+    { label: "Copy Path", run: copyPath },
+    "-", ...moves, "-",
+    { label: "Delete…", run: deletePost },
+  ]);
+});
+
+// ---- dialogs, alerts, confirms (the Hub app's blocks) ----
+function dialog(html, ok) {
+  const veil = $("#veil"), dlg = $("#dlg");
+  dlg.innerHTML = html;
+  veil.classList.add("on");
+  const close = () => { veil.classList.remove("on"); dlg.innerHTML = ""; document.removeEventListener("keydown", onKey, true); };
+  const submit = async () => { if (await ok() !== false) close(); };
+  const onKey = e => {
+    if (veil.classList.contains("alert")) return;
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+    else if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); submit(); }
+  };
+  document.addEventListener("keydown", onKey, true);
+  const c = $("#d-cancel"); if (c) c.addEventListener("click", close);
+  $("#d-ok").addEventListener("click", submit);
+}
+let alertResolve = null;
+function alertBox(message, detail, cancelLabel, okLabel) {
+  const veil = $("#veil");
+  const had = veil.classList.contains("on");
+  $("#a-msg").textContent = message;
+  const d = $("#a-detail"); d.textContent = detail || ""; d.hidden = !detail;
+  $("#a-ok").textContent = okLabel || "OK";
+  $("#a-cancel").hidden = !cancelLabel; $("#a-cancel").textContent = cancelLabel || "Cancel";
+  veil.classList.add("on", "alert");
+  const done = v => {
+    document.removeEventListener("keydown", onKey, true);
+    veil.classList.remove("alert");
+    if (!had) veil.classList.remove("on");
+    const r = alertResolve; alertResolve = null; if (r) r(v);
+  };
+  const onKey = e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); done(true); } else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); done(false); } };
+  document.addEventListener("keydown", onKey, true);
+  $("#a-ok").onclick = () => done(true);
+  $("#a-cancel").onclick = () => done(false);
+  $("#a-ok").focus();
+  return new Promise(r => { alertResolve = r; });
+}
+const confirmBox = (message, detail, okLabel) => alertBox(message, detail, "Cancel", okLabel);
+
+// ---- the seams' grips, remembered per browser ----
+for (const g of $$(".grip")) {
+  const target = $("#" + g.dataset.for);
+  try { const w = localStorage.getItem("planet." + g.dataset.for); if (w) target.style.width = w; } catch (e) {}
+  g.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    g.setPointerCapture(e.pointerId);
+    const start = e.clientX, w0 = target.getBoundingClientRect().width;
+    const move = ev => { target.style.width = Math.min(520, Math.max(120, w0 + ev.clientX - start)) + "px"; };
+    const up = () => { g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up); try { localStorage.setItem("planet." + g.dataset.for, target.style.width); } catch (e) {} };
+    g.addEventListener("pointermove", move); g.addEventListener("pointerup", up);
+  });
+}
+
+// ---- a phone: one screen at a time ----
+function screen(name) { document.body.dataset.screen = name; if (name === "page") loadPage(); }
+$("#back").addEventListener("click", () => screen(document.body.dataset.screen === "page" ? "articles" : "sites"));
+if (MOBILE) { document.body.classList.add("mobile"); screen("sites"); }
+
+// ---- desktop window plumbing ----
+window.addEventListener("pointerdown", () => {
+  if (window.parent !== window) parent.postMessage({ exe: "focus" }, location.origin);
+}, { capture: true, passive: true });
+const grow = $("#grow");
+if (window.parent === window || MOBILE) grow.style.display = "none";
+grow.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  grow.setPointerCapture(e.pointerId);
+  const sx = e.clientX, sy = e.clientY;
+  const move = ev => parent.postMessage({ exe: "grow", dx: ev.clientX - sx, dy: ev.clientY - sy }, location.origin);
+  const up = () => { grow.removeEventListener("pointermove", move); grow.removeEventListener("pointerup", up); parent.postMessage({ exe: "grow-end" }, location.origin); };
+  grow.addEventListener("pointermove", move); grow.addEventListener("pointerup", up);
+  parent.postMessage({ exe: "grow-start" }, location.origin);
+});
+document.addEventListener("scroll", e => {
+  const el = e.target;
+  if (!(el instanceof Element)) return;
+  el.classList.toggle("scrolled-y", el.scrollTop >= 1);
+  el.classList.toggle("at-y-end", el.scrollTop >= 1 && el.scrollTop >= el.scrollHeight - el.clientHeight - 1);
+}, { capture: true, passive: true });
+// A Workspace change under Planet/ refreshes what it touched: a site's
+// folder its posts, the Planet root the sites. The window pauses its
+// polling while hidden and picks up on show.
+let refreshTimer = null;
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data) return;
+  if (e.data.exe === "workspace-changed" && typeof e.data.path === "string") {
+    const parts = e.data.path.split("/");
+    if (parts[0] !== "Planet") return;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => { if (parts.length <= 2 || parts[1] !== site) loadSites(true); else loadPosts(); }, 500);
+  } else if (e.data.exe === "hide") {
+    hidden = true; clearTimeout(pollTimer);
+  } else if (e.data.exe === "show") {
+    hidden = false; pollStatus();
+  }
+});
+
+// ---- boot ----
+loadSites().catch(e => { $("#st-build").textContent = "Daemon unreachable: " + e.message; $("#st-build").classList.add("err"); renderRows(); });
+</script>
+</body>
+</html>
