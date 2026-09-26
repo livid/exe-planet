@@ -72,6 +72,11 @@ h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
 .content hr { border: 0; border-top: 1px solid #262626; margin: 12px 0; }
 .content img, .content video { max-width: 100%; height: auto; }
 .content p > img:only-child { display: block; margin: 12px 0; border: 1px solid #262626; background: #ccf; box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
+/* pixel art keeps its pixels at every ratio: an image with class
+   "pixel", or an 88 by 31 one, which is a badge and never a picture on
+   a field, so it also loses the sunken frame and sits inline in a row */
+.content img.pixel, .content img[width="88"][height="31"] { image-rendering: pixelated; image-rendering: crisp-edges; }
+.content p > img[width="88"][height="31"]:only-child, .content p > img.pixel:only-child { display: inline-block; margin: 0; border: 0; background: none; box-shadow: none; }
 .content table { border-collapse: collapse; font-size: 11px; line-height: 1.4; margin: 8px 0; max-width: 100%; }
 .content th, .content td { border: 1px solid var(--cell); padding: 3px 6px; text-align: left; vertical-align: top; }
 .content th { background: var(--head); font-weight: bold; white-space: nowrap; }
