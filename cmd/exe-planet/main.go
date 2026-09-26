@@ -18,25 +18,27 @@ import (
 	"time"
 
 	"github.com/livid/exe-planet/internal/api"
+	"github.com/livid/exe-planet/internal/service"
 	"github.com/livid/exe-planet/internal/site"
 	"github.com/livid/exe-planet/internal/watch"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	home, _ := os.UserHomeDir()
 	listen := flag.String("listen", "127.0.0.1:7799", "address to serve the API on")
 	workspace := flag.String("workspace", filepath.Join(home, ".exe", "workspace", "Planet"), "the Planet folder in the Workspace: sites, templates, archived sites")
 	state := flag.String("state", filepath.Join(home, ".exe", "planet"), "per-node state: build output, node settings, keys")
+	templates := flag.String("templates", "templates", "the shipped templates, installed into the Workspace's Planet/Templates")
 	flag.Parse()
 
-	if err := run(*listen, *workspace, *state); err != nil {
+	if err := run(*listen, *workspace, *state, *templates); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(listen, workspace, state string) error {
+func run(listen, workspace, state, templates string) error {
 	if err := os.MkdirAll(state, 0o700); err != nil {
 		return err
 	}
@@ -44,20 +46,27 @@ func run(listen, workspace, state string) error {
 	if err := store.Init(); err != nil {
 		return err
 	}
+	if err := service.InstallTemplates(templates, filepath.Join(workspace, site.TemplatesDir)); err != nil {
+		log.Printf("templates: %v", err)
+	}
+	svc := service.New(store, state, time.Local)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	poller := &watch.Poller{Root: workspace, OnChange: func(paths []string) {
-		if len(paths) > 6 {
-			paths = append(paths[:6], fmt.Sprintf("… %d more", len(paths)-6))
+		shown := paths
+		if len(shown) > 6 {
+			shown = append(shown[:6:6], fmt.Sprintf("… %d more", len(paths)-6))
 		}
-		log.Printf("workspace changed: %s", strings.Join(paths, ", "))
+		log.Printf("workspace changed: %s", strings.Join(shown, ", "))
+		svc.OnChange(paths)
 	}}
 	go poller.Run(ctx)
+	go svc.BuildAll()
 
 	srv := &http.Server{
 		Addr:              listen,
-		Handler:           (&api.Server{Store: store, Version: version, Started: time.Now(), Generation: poller.Generation}).Handler(),
+		Handler:           (&api.Server{Store: store, Builder: svc, Version: version, Started: time.Now(), Generation: poller.Generation}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errc := make(chan error, 1)

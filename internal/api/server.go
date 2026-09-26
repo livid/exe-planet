@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/livid/exe-planet/internal/service"
 	"github.com/livid/exe-planet/internal/site"
 )
 
@@ -19,9 +21,18 @@ import (
 // editor says.
 const maxUpload = 256 << 20
 
+// Builder is what the daemon's build service offers the API.
+type Builder interface {
+	Build(slug string) (service.Status, error)
+	Status(slug string) (service.Status, error)
+	Preview(slug string, post *site.Post) (string, error)
+	PublicDir(id string) string
+}
+
 // Server serves the API for one store.
 type Server struct {
 	Store      *site.Store
+	Builder    Builder
 	Version    string
 	Started    time.Time
 	Generation func() uint64
@@ -48,6 +59,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/attachments/{name}", s.getAttachment)
 	mux.HandleFunc("DELETE /v1/sites/{site}/posts/{post}/attachments/{name}", s.deleteAttachment)
 	mux.HandleFunc("GET /v1/templates", s.listTemplates)
+	mux.HandleFunc("POST /v1/sites/{site}/build", s.buildSite)
+	mux.HandleFunc("GET /v1/sites/{site}/status", s.siteStatus)
+	mux.HandleFunc("POST /v1/sites/{site}/preview", s.previewPost)
+	mux.HandleFunc("GET /sites/{site}/{path...}", s.serveSite)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			writeErr(w, http.StatusNotFound, errors.New("no such route"))
@@ -365,4 +380,108 @@ func (s *Server) listTemplates(w http.ResponseWriter, r *http.Request) {
 		ts = []*site.Template{}
 	}
 	writeJSON(w, http.StatusOK, ts)
+}
+
+func (s *Server) buildSite(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	st, err := s.Builder.Build(r.PathValue("site"))
+	if err != nil {
+		if st.Site != "" {
+			writeJSON(w, http.StatusInternalServerError, st)
+			return
+		}
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+func (s *Server) siteStatus(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	st, err := s.Builder.Status(r.PathValue("site"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+// previewPost renders a body through the site's template without saving
+// it and answers with the page. The app puts it in a frame with a base
+// of the site's served folder so the template's assets resolve.
+func (s *Server) previewPost(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	var req struct {
+		Kind    string     `json:"kind"`
+		Slug    string     `json:"slug"`
+		ID      string     `json:"id"`
+		Title   string     `json:"title"`
+		Body    string     `json:"body"`
+		Tags    []string   `json:"tags"`
+		Hero    string     `json:"hero"`
+		Link    string     `json:"link"`
+		Created *time.Time `json:"created"`
+	}
+	if err := decode(r, &req); err != nil {
+		fail(w, err)
+		return
+	}
+	post := &site.Post{Kind: req.Kind, Slug: req.Slug, Body: req.Body}
+	post.ID, post.Title, post.Tags, post.Hero, post.Link = req.ID, req.Title, req.Tags, req.Hero, req.Link
+	if req.Created != nil {
+		post.Created = *req.Created
+	}
+	if post.Slug == "" {
+		post.Slug = site.Slugify(post.Title)
+	}
+	if post.Slug != "" {
+		if p, err := s.Store.Post(r.PathValue("site"), post.Slug, ""); err == nil {
+			// An existing post keeps its id and attachments in the preview.
+			if post.ID == "" {
+				post.ID = p.ID
+			}
+			post.Dir, post.Attachments = p.Dir, p.Attachments
+			if post.Created.IsZero() {
+				post.Created = p.Created
+			}
+		}
+	}
+	html, err := s.Builder.Preview(r.PathValue("site"), post)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write([]byte(html))
+}
+
+// serveSite serves a site's built folder, for the preview frame and for
+// exe's route to a local backend.
+func (s *Server) serveSite(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	st, err := s.Store.Site(r.PathValue("site"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	dir := s.Builder.PublicDir(st.ID)
+	if _, err := os.Stat(dir); err != nil {
+		writeErr(w, http.StatusNotFound, errors.New("site is not built yet"))
+		return
+	}
+	prefix := "/sites/" + r.PathValue("site") + "/"
+	http.StripPrefix(prefix, http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
 }

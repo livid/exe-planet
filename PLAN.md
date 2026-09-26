@@ -7,7 +7,7 @@ RSS that Planet itself emits. Each site can, per node and off by default,
 be exposed through exe's proxy under a hostname and published to IPFS
 through the host's Kubo. The editor is an exe desktop app kept in this repo.
 
-Status: phases 0 and 1 done 2026-09-25; phase 2 built the same day: the template engine and the builder reproduce Planet 0.22.4 byte for byte on the Sparkle and Memories goldens (four planets, every page, feed and JSON). The Plain and Sepia goldens on the Mac were rendered with template versions the Mac no longer holds and wait for a rebuild there. The builder is not yet wired into the daemon; no app or publishing yet.
+Status: phases 0 to 2 done 2026-09-25. The template engine and the builder reproduce Planet 0.22.4 byte for byte on the Sparkle and Memories goldens (four planets, every page, feed and JSON); the Plain and Sepia goldens on the Mac were rendered with template versions the Mac no longer holds and wait for a rebuild there. The daemon builds a site when its files change, on request, and at start, serves each build under `/sites/<slug>/`, and renders previews. No importer, app or publishing yet.
 
 **This file is the single source of truth for the project design.** Update
 it whenever a decision changes; code follows the plan, not the other way
@@ -303,8 +303,11 @@ hundreds of golden pairs for free.
     `?kind=post|page|draft`, `POST …/move`
   - `POST /v1/sites/{slug}/posts/{slug}/attachments`, `DELETE …/{name}`
   - `POST /v1/sites/{slug}/preview` renders a body through the site's
-    template without saving; `POST /v1/sites/{slug}/build`;
-    `POST /v1/sites/{slug}/publish`; `GET /v1/sites/{slug}/status`
+    template without saving and answers text/html (an existing slug
+    lends its id and attachments); `POST /v1/sites/{slug}/build` builds
+    now and answers the status; `GET /v1/sites/{slug}/status` reports the
+    last build, whether one is running and whether another is queued;
+    `POST /v1/sites/{slug}/publish` is phase 5
   - `GET /v1/templates`, `GET /v1/templates/{name}`
   - `POST /v1/import` from a Planet library folder
   - `GET /sites/{slug}/…` serves `public/` for the preview frame; a request
@@ -406,10 +409,17 @@ keeps its `ipns` value only when the key is imported too, which needs a
    watcher, systemd unit, tests. Done 2026-09-25: `make install` put the
    unit in place, `make restart` is the loop.
 2. Template engine and builder to golden parity, template by template.
-   Built 2026-09-25: Sparkle and Memories match; Plain and Sepia wait
-   for a rebuild on the Mac; 8-bit has no current golden. Still to wire:
-   the daemon's build on change, `/v1/sites/{slug}/build` and serving
-   `/sites/{slug}/`.
+   Done 2026-09-25: Sparkle and Memories match; Plain and Sepia wait
+   for a rebuild on the Mac; 8-bit has no current golden. The daemon
+   side is in `internal/service`: Workspace files projected onto
+   Planet's model (a page is an article of type 1 in the navigation, a
+   draft is left out, tags are keyed by Planet's normalizedTag rule, a
+   summary is the rendered text cut at 280), one build per site in flight
+   with one more queued, a build made beside the live folder and swapped
+   in, the watcher's changes mapped to sites (a template change rebuilds
+   every site), every live site built at start, and the shipped
+   templates installed into `Workspace/Planet/Templates` by buildNumber
+   unless the folder holds a `.git`.
 3. Importer, used first by the golden tests.
 4. The app.
 5. Publishing: expose, keys, IPFS.

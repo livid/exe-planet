@@ -269,16 +269,6 @@ func (b *builder) articlePath(a *planet.MyArticle) string {
 
 // articles renders every article folder, as savePublicInternal does.
 func (b *builder) articles() error {
-	p := b.in.Planet
-	nav := b.siteNavigation()
-	aboutHTML := markdown.Render(p.About)
-	anyAudio := false
-	for _, a := range b.in.Articles {
-		if a.HasAudio() {
-			anyAudio = true
-		}
-	}
-	planetCtx := planet.ForTemplate(planet.TemplatePlanet(p, nil))
 	for _, a := range b.in.Articles {
 		src := ""
 		if b.in.Attachments != nil {
@@ -304,49 +294,7 @@ func (b *builder) articles() error {
 		if err := b.write(filepath.Join(a.ID, "article.md"), []byte(a.Title+"\n\n"+a.Content)); err != nil {
 			return err
 		}
-		if a.ContentRendered == nil && a.Content != "" {
-			r := markdown.Render(a.Content)
-			a.ContentRendered = &r
-		}
-		hero := detectHero(a, dir, b.base+b.articlePath(a)+"/")
-		pub := planet.PublicArticle(a, hero, nil, nil)
-		b.pubs = append(b.pubs, pub)
-
-		contentHTML := markdown.Render(a.Content)
-		summary := ""
-		if a.Summary != nil {
-			summary = *a.Summary
-		}
-		social := b.ogImageURL()
-		if hero != nil {
-			social = hero.URL
-		}
-		ctx := map[string]any{
-			"page_description_html": aboutHTML,
-			"planet":                planetCtx,
-			"site_navigation":       nav,
-			"has_avatar":            b.hasAvatar,
-			"has_podcast":           anyAudio,
-			"planet_ipns":           p.IPNS,
-			"assets_prefix":         "../",
-			"template_settings":     b.tsettings,
-			"user_settings":         b.user,
-			"article_id":            a.ID,
-			"article":               planet.ForTemplate(pub),
-			"article_type":          a.Type(),
-			"article_title":         a.Title,
-			"article_summary":       summary,
-			"page_title":            a.Title,
-			"content_html":          contentHTML,
-			"build_timestamp":       int(b.now.Unix()),
-			"style_css_sha256":      b.tpl.StyleCSSHash,
-			"current_item_type":     "blog",
-			"social_image_url":      social,
-		}
-		for k, v := range b.customCode(ctx) {
-			ctx[k] = v
-		}
-		html, err := b.env.Render("blog.html", ctx)
+		html, err := b.renderArticle(a, dir)
 		if err != nil {
 			return fmt.Errorf("%s: %w", a.ID, err)
 		}
@@ -354,7 +302,7 @@ func (b *builder) articles() error {
 			return err
 		}
 		if b.tpl.HasSimple {
-			simple, err := b.env.Render("simple.html", ctx)
+			simple, err := b.renderArticleWith("simple.html", a, dir)
 			if err != nil {
 				return fmt.Errorf("%s: %w", a.ID, err)
 			}
@@ -362,7 +310,7 @@ func (b *builder) articles() error {
 				return err
 			}
 		}
-		if err := b.write(filepath.Join(a.ID, "article.json"), planet.MarshalFoundation(pub)); err != nil {
+		if err := b.write(filepath.Join(a.ID, "article.json"), planet.MarshalFoundation(b.pubs[len(b.pubs)-1])); err != nil {
 			return err
 		}
 		if a.Slug != nil && *a.Slug != "" {
@@ -375,6 +323,95 @@ func (b *builder) articles() error {
 		}
 	}
 	return nil
+}
+
+// renderArticle renders blog.html for one article whose files are in
+// dir, recording its projection for the planet-level pages.
+func (b *builder) renderArticle(a *planet.MyArticle, dir string) (string, error) {
+	return b.renderArticleWith("blog.html", a, dir)
+}
+
+func (b *builder) renderArticleWith(file string, a *planet.MyArticle, dir string) (string, error) {
+	p := b.in.Planet
+	if a.ContentRendered == nil && a.Content != "" {
+		r := markdown.Render(a.Content)
+		a.ContentRendered = &r
+	}
+	hero := detectHero(a, dir, b.base+b.articlePath(a)+"/")
+	pub := planet.PublicArticle(a, hero, nil, nil)
+	if file == "blog.html" {
+		b.pubs = append(b.pubs, pub)
+	}
+	anyAudio := false
+	for _, other := range b.in.Articles {
+		if other.HasAudio() {
+			anyAudio = true
+		}
+	}
+	summary := ""
+	if a.Summary != nil {
+		summary = *a.Summary
+	}
+	social := b.ogImageURL()
+	if hero != nil {
+		social = hero.URL
+	}
+	ctx := map[string]any{
+		"page_description_html": markdown.Render(p.About),
+		"planet":                planet.ForTemplate(planet.TemplatePlanet(p, nil)),
+		"site_navigation":       b.siteNavigation(),
+		"has_avatar":            b.hasAvatar,
+		"has_podcast":           anyAudio,
+		"planet_ipns":           p.IPNS,
+		"assets_prefix":         "../",
+		"template_settings":     b.tsettings,
+		"user_settings":         b.user,
+		"article_id":            a.ID,
+		"article":               planet.ForTemplate(pub),
+		"article_type":          a.Type(),
+		"article_title":         a.Title,
+		"article_summary":       summary,
+		"page_title":            a.Title,
+		"content_html":          markdown.Render(a.Content),
+		"build_timestamp":       int(b.now.Unix()),
+		"style_css_sha256":      b.tpl.StyleCSSHash,
+		"current_item_type":     "blog",
+		"social_image_url":      social,
+	}
+	for k, v := range b.customCode(ctx) {
+		ctx[k] = v
+	}
+	return b.env.Render(file, ctx)
+}
+
+// Preview renders one article's page to a string without writing
+// anything: the same context as a build, for the editor's live view.
+func Preview(in Input, a *planet.MyArticle) (string, error) {
+	if in.Planet == nil || in.Template == nil {
+		return "", fmt.Errorf("preview: planet and template are required")
+	}
+	b := &builder{in: in, tpl: in.Template, loc: in.Location, now: in.Now, res: &Result{}}
+	if b.loc == nil {
+		b.loc = time.Local
+	}
+	if b.now.IsZero() {
+		b.now = time.Now()
+	}
+	b.env = stencil.NewEnv(stencil.DirLoader(b.tpl.TemplatesDir()))
+	registerPlanetFilters(b.env, b.loc)
+	b.dwg = domainWithGateway(in.Planet.Domain)
+	if b.dwg != "" {
+		b.base = "https://" + b.dwg + "/"
+	} else {
+		b.base = "https://" + in.Planet.IPNS + ".eth.sucks/"
+	}
+	b.hasAvatar = in.AvatarPath != ""
+	b.prepareSettings()
+	src := ""
+	if in.Attachments != nil {
+		src = in.Attachments(a)
+	}
+	return b.renderArticle(a, src)
 }
 
 // pages renders the index, tags, archive, feeds and planet.json, as
