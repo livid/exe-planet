@@ -640,6 +640,11 @@ async function deletePost() {
     post = null; await loadPosts();
   } catch (e) { alertBox("Could not delete", e.message); }
 }
+async function announcePost() {
+  const p = current(); if (!p || p.kind !== "post" || p.hub) return;
+  try { await api("/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/announce", { method: "POST" }); }
+  catch (e) { alertBox("Could not announce “" + (p.title || p.slug) + "”", e.message); }
+}
 function copyPath() {
   const p = current(); if (!p) return;
   navigator.clipboard.writeText(postPath(p)).catch(() => {});
@@ -750,9 +755,13 @@ async function publishSheet() {
   try { [caps, node] = await Promise.all([api("/node"), api("/sites/" + encodeURIComponent(slug) + "/node")]); }
   catch (e) { alertBox("Could not read the node", e.message); return; }
   const canExpose = caps.exe && !!caps.domain, canIPFS = caps.kubo && !caps.kubo_error;
+  // Announce can be switched on in this same sheet with Expose and the
+  // hub's address; only a node without exe, or a site whose IPNS key is
+  // not here, cannot at all
+  const hubBlock = !caps.exe || /does not hold/.test(node.hub_reason || "") ? node.hub_reason : "";
   let poll = null;
   dialog(`<h2>Publish</h2>
-    <p class="hint">Where this site is served from this node. Both are off until you turn them on.</p>
+    <p class="hint">Where this site is served from this node, and where it is heard. All three are off until you turn them on.</p>
     <div class="group"><h3>Web</h3>
       <div class="row h"><input type="checkbox" id="d-expose" ${canExpose ? "" : "disabled"} ${node.expose ? "checked" : ""}><label for="d-expose" class="${canExpose ? "" : "dis"}">Expose through exe, with its DNS record and tunnel</label></div>
       <div class="row f"><label for="d-sub">Address</label><input type="text" id="d-sub" value="${esc(node.subdomain || "")}" placeholder="${esc(slug)}" ${canExpose ? "" : "disabled"}><span class="suffix">.${esc(caps.domain || "…")}</span></div>
@@ -763,10 +772,17 @@ async function publishSheet() {
       <div class="row f"><label>IPNS</label><span class="val mono" id="d-ipns"></span></div>
       <div class="row f"><label>Last</label><span class="val" id="d-cid"></span></div>
     </div>
+    <div class="group"><h3>Hub</h3>
+      <div class="row h"><input type="checkbox" id="d-announce" ${hubBlock ? "disabled" : ""} ${node.announce ? "checked" : ""}><label for="d-announce" class="${hubBlock ? "dis" : ""}">Announce each new post on the hub, with its replies under it</label></div>
+      <div class="row f"><label for="d-hub">Hub</label><input type="text" id="d-hub" value="${esc(node.hub || "")}" placeholder="https://hub.example.com" ${hubBlock ? "disabled" : ""}><span class="hint">The site posts there under its own key; turning this on has this node's key invite it past the hub's gate.</span></div>
+      <div class="row f"><label>Id</label><span class="val mono" id="d-hubid"></span></div>
+      <div class="row f"><label>Now</label><span class="val" id="d-hubnow"></span></div>
+    </div>
     <div class="err" id="d-err"></div>
     <div class="btns"><button class="ghost left" id="d-export">Export…</button><button class="ghost left" id="d-pubnow" ${node.ipfs ? "" : "disabled"}>Publish Now</button><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Save</button></div>`, async () => {
-    const upd = { expose: $("#d-expose").checked, subdomain: $("#d-sub").value.trim(), ipfs: $("#d-ipfs").checked };
-    $("#d-err").textContent = upd.expose && !node.expose ? "Adding the route…" : "";
+    const upd = { expose: $("#d-expose").checked, subdomain: $("#d-sub").value.trim(), ipfs: $("#d-ipfs").checked,
+      announce: $("#d-announce").checked, hub: $("#d-hub").value.trim() };
+    $("#d-err").textContent = upd.expose && !node.expose ? "Adding the route…" : upd.announce && !node.announce ? "Inviting the site on the hub…" : "";
     $("#d-ok").disabled = true;
     try {
       node = await json("PUT", "/sites/" + encodeURIComponent(slug) + "/node", upd);
@@ -788,6 +804,13 @@ async function publishSheet() {
     else if (node.cid) { const a = document.createElement("a"); a.href = node.cid_url; a.target = "_blank"; a.className = "mono"; a.textContent = node.cid; cid.append(fmtTime(node.published) + " · "); cid.append(a); if (node.built_hash && node.built_hash !== node.published_hash) cid.append(" · a newer build waits"); }
     else cid.textContent = node.ipfs ? "Not published yet" : "Never published";
     $("#d-pubnow").disabled = !node.ipfs || node.publishing;
+    // the site's key in its hub and Solana spellings, once it has one
+    $("#d-hubid").textContent = node.hub_id ? node.hub_id + " · " + node.address : "Made when Announce or IPFS is first turned on";
+    $("#d-hubnow").textContent = hubBlock ? hubBlock
+      : node.announcing ? "Announcing…"
+      : node.announce_error ? "Failed: " + node.announce_error
+      : node.announce ? "On: each post published from now on goes to " + node.hub
+      : "Off";
   };
   show();
   const refresh = async () => {
@@ -895,6 +918,8 @@ $("#rows").addEventListener("contextmenu", e => {
   menu(e.clientX, e.clientY, [
     { label: "Edit", run: editPost },
     { label: "Copy Path", run: copyPath },
+    // a post published before Announce was on goes to the hub by hand
+    { label: "Announce on Hub", run: announcePost, dis: p.kind !== "post" || !!p.hub },
     "-", ...moves, "-",
     { label: "Delete…", run: deletePost },
   ]);
