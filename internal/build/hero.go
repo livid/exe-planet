@@ -1,6 +1,7 @@
 package build
 
 import (
+	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -74,7 +75,7 @@ func detectHero(a *planet.MyArticle, dir, base string) *planet.Hero {
 	if name == "" {
 		return nil
 	}
-	hero := &planet.Hero{Filename: name, URL: base + name, Width: a.HeroImageWidth, Height: a.HeroImageHeight}
+	hero := &planet.Hero{Filename: name, URL: base + pathEscape(name), Width: a.HeroImageWidth, Height: a.HeroImageHeight}
 	if dir != "" {
 		if w, h, ok := imageSize(filepath.Join(dir, name)); ok {
 			hero.Width, hero.Height = &w, &h
@@ -90,4 +91,21 @@ func hasPDF(a *planet.MyArticle) bool {
 		}
 	}
 	return false
+}
+
+// pathEscape percent-encodes a path component as Foundation's
+// appendingPathComponent does: everything outside the unreserved set,
+// the sub-delimiters, ":" and "@" is encoded, a space included.
+func pathEscape(s string) string {
+	const keep = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~!$&'()*+,;=:@"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if strings.IndexByte(keep, c) >= 0 {
+			b.WriteByte(c)
+		} else {
+			b.WriteString(fmt.Sprintf("%%%02X", c))
+		}
+	}
+	return b.String()
 }

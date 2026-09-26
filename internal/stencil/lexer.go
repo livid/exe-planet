@@ -143,13 +143,67 @@ func smartSplit(s string, sep byte) []string {
 }
 
 // components splits a tag on spaces the way Stencil's token.components
-// does: quoted strings stay whole, runs of spaces make no empty parts.
+// does (smartSplit and appendWord in its Tokenizer): quoted strings stay
+// whole, a component ending in "," "|" or ":" absorbs the next word, a
+// lone special character joins the previous component, and a bracket at
+// the edge of a word splits off. So `a == 0, b > 0` is four components
+// with "0,b" as one of them, which is what Stencil then compares.
 func components(s string) []string {
-	var out []string
-	for _, c := range smartSplit(s, ' ') {
-		if c != "" {
-			out = append(out, c)
+	var comps []string
+	var word []rune
+	separate := ' '
+	single, double := 0, 0
+	for _, ch := range s {
+		if ch == '\'' {
+			single++
+		} else if ch == '"' {
+			double++
+		}
+		if ch == separate {
+			if separate != ' ' {
+				word = append(word, separate)
+			} else if (single%2 == 0 || double%2 == 0) && len(word) > 0 {
+				appendWord(string(word), &comps)
+				word = word[:0]
+			}
+			separate = ' '
+		} else {
+			if separate == ' ' && (ch == '\'' || ch == '"') {
+				separate = ch
+			}
+			word = append(word, ch)
 		}
 	}
-	return out
+	if len(word) > 0 {
+		appendWord(string(word), &comps)
+	}
+	return comps
+}
+
+func appendWord(word string, comps *[]string) {
+	const special = ",|:"
+	n := len(*comps)
+	if n == 0 {
+		*comps = append(*comps, word)
+		return
+	}
+	last := (*comps)[n-1]
+	switch {
+	case last != "" && strings.ContainsRune(special, rune(last[len(last)-1])):
+		if n == 1 && word == "for" {
+			*comps = append(*comps, word)
+		} else {
+			(*comps)[n-1] += word
+		}
+	case len(word) == 1 && strings.Contains(special, word):
+		(*comps)[n-1] += word
+	case word != "(" && strings.HasPrefix(word, "(") || word != ")" && strings.HasPrefix(word, ")"):
+		*comps = append(*comps, word[:1])
+		appendWord(word[1:], comps)
+	case word != "(" && strings.HasSuffix(word, "(") || word != ")" && strings.HasSuffix(word, ")"):
+		appendWord(word[:len(word)-1], comps)
+		*comps = append(*comps, word[len(word)-1:])
+	default:
+		*comps = append(*comps, word)
+	}
 }

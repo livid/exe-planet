@@ -57,6 +57,31 @@ func TestVariablesAndPrinting(t *testing.T) {
 	}
 }
 
+func TestSwiftDouble(t *testing.T) {
+	for f, want := range map[float64]string{
+		1: "1.0", 1.5: "1.5", 2: "2.0", 0.1: "0.1", 100: "100.0", -3.25: "-3.25", 0: "0.0",
+		1755923353.044244: "1755923353.044244", 1790355600: "1790355600.0",
+		1e15: "1000000000000000.0", 1e16: "1e+16", 1.5e16: "1.5e+16", 0.0001: "0.0001", 0.00001: "1e-05", 123456789.125: "123456789.125", 2.5e-07: "2.5e-07",
+	} {
+		if got := swiftDouble(f); got != want {
+			t.Errorf("swiftDouble(%v) = %q, want %q", f, got, want)
+		}
+	}
+}
+
+func TestGraphemes(t *testing.T) {
+	for in, want := range map[string]int{
+		"abc": 3, "": 0, "é": 1, "e\u0301": 1, "🇯🇵🇺🇸": 2, "👨‍👩‍👧": 1, "👍🏽": 1, "☺️": 1, "a\r\nb": 3, "数据 图表": 5, "🏴\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F": 1,
+	} {
+		if got := len(graphemes(in)); got != want {
+			t.Errorf("graphemes(%q) = %d, want %d", in, got, want)
+		}
+	}
+	if got := render(t, "{{ s.count }}{{ s.first }}{{ s.last }}", map[string]any{"s": "e\u0301👍🏽x"}); got != "3e\u0301x" {
+		t.Fatalf("string words on clusters gave %q", got)
+	}
+}
+
 func TestIfSemantics(t *testing.T) {
 	ctx := map[string]any{
 		"s": "x", "e": "", "n0": 0, "n1": 1, "neg": -1, "f": false, "tr": true,
@@ -114,7 +139,7 @@ func TestForLoop(t *testing.T) {
 		"{% for i in items where forloop.counter <= 2 %}{{ i }}{% endfor %}":                                                     "",
 		"{% for i in items where i != 'b' %}{{ i }}{% endfor %}":                                                                 "ac",
 		"{% for k, v in dict %}{{ k }}={{ v }};{% endfor %}":                                                                     "a=1;b=2;",
-		"{% for kv in dict %}{{ kv }}{% endfor %}":                                                                               `["a", 1]["b", 2]`,
+		"{% for kv in dict %}{{ kv }}{% endfor %}":                                                                               "ab",
 		"{% for i in none %}x{% empty %}empty{% endfor %}":                                                                       "empty",
 		"{% for i in nope %}x{% endfor %}":                                                                                       "",
 		"{% for i in items %}{% for j in items %}{{ forloop.parentloop.counter }}{{ forloop.counter }} {% endfor %}{% endfor %}": "11 12 13 21 22 23 31 32 33 ",
@@ -162,6 +187,31 @@ func TestInheritanceAndInclude(t *testing.T) {
 	}
 }
 
+func TestComponents(t *testing.T) {
+	for in, want := range map[string]string{
+		`if a == 0, b > 0`:             "if|a|==|0,b|>|0",
+		`for a, b in dict`:             "for|a,b|in|dict",
+		`include "x y.html" ctx`:       `include|"x y.html"|ctx`,
+		`if x | default: "a, b"`:       `if|x|default:"a, b"`,
+		`if (a or b) and c`:            "if|(|a|or|b|)|and|c",
+		`if user_settings['k'] == 1`:   "if|user_settings['k']|==|1",
+		`for item in  site_navigation`: "for|item|in|site_navigation",
+	} {
+		if got := strings.Join(components(in), "|"); got != want {
+			t.Errorf("components(%q) = %q, want %q", in, got, want)
+		}
+	}
+	// Stencil compares "0,b" as a variable, which resolves to nothing, so
+	// the comma condition is false rather than an error.
+	ctx := map[string]any{"a": map[string]any{"count": 0}, "b": []any{1}}
+	if got := render(t, "{% if a.count == 0, b.count > 0 %}y{% else %}n{% endif %}", ctx); got != "n" {
+		t.Fatalf("comma condition rendered %q", got)
+	}
+	if got := render(t, "{% if (a.count == 0 or nope) and b %}y{% endif %}", ctx); got != "y" {
+		t.Fatalf("brackets rendered %q", got)
+	}
+}
+
 func TestTrimAndErrors(t *testing.T) {
 	if got := render(t, "a  {%- if 1 -%}  b  {%- endif -%}  c", nil); got != "abc" {
 		t.Fatalf("trim gave %q", got)
@@ -177,3 +227,10 @@ func TestTrimAndErrors(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+// testDate is a TimeValue holding a raw double, as a Planet date does.
+type testDate float64
+
+func (d testDate) Time() time.Time                     { return time.Unix(0, int64(float64(d)*1e9)) }
+func (d testDate) IntervalSince1970() float64          { return float64(d) }
+func (d testDate) IntervalSinceReferenceDate() float64 { return float64(d) }

@@ -135,9 +135,10 @@ func TemplatePlanet(p *MyPlanet, articles []map[string]any) map[string]any {
 	return m
 }
 
-// ForTemplate converts a projection for the template engine: dates
-// become time.Time so the date filters work, typed collections become
-// the engine's generic ones.
+// ForTemplate converts a projection for the template engine: typed
+// collections become the engine's generic ones. Dates stay Dates, which
+// the engine and the filters both read, so the double Swift would print
+// is the double printed.
 func ForTemplate(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
 	for k, v := range m {
@@ -148,8 +149,6 @@ func ForTemplate(m map[string]any) map[string]any {
 
 func forTemplate(v any) any {
 	switch x := v.(type) {
-	case Date:
-		return x.Time()
 	case []string:
 		items := make([]any, len(x))
 		for i, s := range x {

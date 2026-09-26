@@ -40,3 +40,10 @@ func (d Date) String() string {
 func formatNumber(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
+
+// IntervalSince1970 is Swift's Date.timeIntervalSince1970: the reference
+// interval plus the 2001 offset, in double arithmetic.
+func (d Date) IntervalSince1970() float64 { return float64(d) + 978307200.0 }
+
+// IntervalSinceReferenceDate is the number itself.
+func (d Date) IntervalSinceReferenceDate() float64 { return float64(d) }

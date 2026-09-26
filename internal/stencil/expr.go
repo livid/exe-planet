@@ -23,6 +23,12 @@ func (e *varExpr) eval(c *Context) (bool, error) {
 	return truthy(val), nil
 }
 
+// groupExpr is a bracketed sub-expression; like an operator, it is never
+// a plain variable, so a comparison against it is false.
+type groupExpr struct{ x expr }
+
+func (e *groupExpr) eval(c *Context) (bool, error) { return e.x.eval(c) }
+
 type notExpr struct{ x expr }
 
 func (e *notExpr) eval(c *Context) (bool, error) {
@@ -181,6 +187,18 @@ func (p *exprParser) parse(power int) (expr, error) {
 	p.pos++
 	var left expr
 	switch {
+	case tok == "(":
+		inner, err := p.parse(0)
+		if err != nil {
+			return nil, err
+		}
+		if close, ok := p.peek(); !ok || close != ")" {
+			return nil, fmt.Errorf("missing closing bracket")
+		}
+		p.pos++
+		left = &groupExpr{inner}
+	case tok == ")":
+		return nil, fmt.Errorf("missing opening bracket")
 	case tok == "not":
 		x, err := p.parse(notPower)
 		if err != nil {
@@ -202,7 +220,7 @@ func (p *exprParser) parse(power int) (expr, error) {
 			return left, nil
 		}
 		bp := infixPower[op]
-		if bp == 0 || bp <= power {
+		if op == ")" || bp == 0 || bp <= power {
 			return left, nil
 		}
 		p.pos++

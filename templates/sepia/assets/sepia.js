@@ -173,8 +173,6 @@ const setTime = (item) => {
   const articleCreated = Math.round(item.dataset.articleCreated * 1000);
   const pageType = item.dataset.pageType;
   const pinned = item.dataset.pinned;
-  const showRef = item.dataset.showRef === 'true';
-  const articleReference = item.dataset.articleReference;
 
   // Set item time
   let time = item.querySelector('.time');
@@ -203,9 +201,6 @@ const setTime = (item) => {
     }
     if (pinned) {
       s = '📌' + '  ' + s;
-    }
-    if ((pageType == "blog" || pageType == "index") && showRef && articleReference) {
-      s = s + ' · ' + articleReference;
     }
     if (pageType == "blog") {
       time.textContent = s;

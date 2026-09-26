@@ -32,9 +32,12 @@ type Input struct {
 	Attachments func(a *planet.MyArticle) string
 	AvatarPath  string
 	FaviconPath string
-	Now         time.Time
-	Location    *time.Location
-	Out         string
+	// AssetsDir replaces the template's assets/ folder, for a golden test
+	// whose site was built with an older copy of the template.
+	AssetsDir string
+	Now       time.Time
+	Location  *time.Location
+	Out       string
 }
 
 // Result reports what was written.
@@ -137,6 +140,10 @@ func (b *builder) warn(format string, args ...any) {
 // static copies the template's assets, the avatar and the favicon.
 func (b *builder) static() error {
 	assets := filepath.Join(b.tpl.Dir, "assets")
+	if b.in.AssetsDir != "" {
+		assets = b.in.AssetsDir
+		b.tpl.StyleCSSHash = styleHash(filepath.Join(assets, "style.css"))
+	}
 	if fi, err := os.Stat(assets); err == nil && fi.IsDir() {
 		dst := filepath.Join(b.in.Out, "assets")
 		os.RemoveAll(dst)
@@ -540,7 +547,12 @@ func (b *builder) pages() error {
 	if err := b.write("robots.txt", []byte(robots)); err != nil {
 		return err
 	}
-	return b.write("templateSettings.json", planet.MarshalFoundation(b.settings))
+	// Planet writes the settings file only for a template that has
+	// settings, and otherwise copies the site's own file when it has one.
+	if len(b.tpl.DefaultSettings()) > 0 || b.in.Settings != nil {
+		return b.write("templateSettings.json", planet.MarshalFoundation(b.settings))
+	}
+	return nil
 }
 
 // renderIndex is Template.renderIndex: the base context, then the

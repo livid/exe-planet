@@ -21,15 +21,16 @@ restart: build
 
 # Goldens: real Planet builds on Livid's Mac, one planet per template,
 # fetched into testdata/goldens/<name>/{My,Public} (gitignored). My/
-# holds planet.json with API tokens: read here, never committed.
+# holds planet.json with API tokens: read here, never committed. Only a
+# planet rebuilt by the current Planet is a golden: its planet.json is
+# pretty-printed and carries articleNumber; older builds are stale.
 GOLDEN_HOST = livid@192.168.1.99
 GOLDEN_ROOT = ~/Library/Containers/xyz.planetable.Planet/Data/Documents/Planet
 GOLDENS = sparkle-release:7AB9F0C5-BCAE-4952-A670-18A416D1C968 \
           sparkle-insider:68D9FFF2-0CB2-4790-BFBC-4626B4EEA8ED \
-          plain-codelauncher:4107BAAD-A4B5-48A0-8EED-BC57264E513D \
-          sepia-drafts:EA6FE2AB-D0BE-47D5-B8C3-E5BF99F082B1 \
-          memories-charts:4D65E2EA-076C-434B-AB9D-00582F48CEB4 \
-          gamedb-gamedb:A13385B6-D70D-4574-984C-A015C859B33C
+          plain-v2ex-agents:120D354C-25B0-4061-81A4-876666637F70 \
+          sepia-codex:719C1A3B-9F8C-4097-8480-719D01DA181D \
+          memories-planet-local:05410410-D326-42CE-9CF8-50E43A919A6C
 
 goldens:
 	@for g in $(GOLDENS); do \

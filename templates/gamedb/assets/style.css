@@ -418,7 +418,6 @@ span.prev {
 
 .archive-list-header {
   display: block;
-  break-after: avoid;
   font-size: 1.1em;
   font-weight: 500;
   margin-bottom: 10px;

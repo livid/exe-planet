@@ -34,7 +34,7 @@ func TestDateFilters(t *testing.T) {
 		"{{ s|escape }}":                          "&#x26;",
 		"{{ nope|escapejs }}":                     "",
 		"{{ md|md2html }}":                        "<p><em>x</em></p>\n",
-		`{{ h|absoluteImageURL:"https://s",id }}`: `<p><img src="https://s/ID/a.png"><img src="https://x/b.png"></p>`,
+		`{{ h|absoluteImageURL:"https://s",id }}`: `<p><img src="https://s/ID/a.png" /><img src="https://x/b.png" /></p>`,
 	} {
 		got, err := env.RenderString(src, map[string]any{"d": when, "n": 3665, "s": "&", "md": "*x*", "h": `<p><img src="a.png"><img src='https://x/b.png'></p>`, "id": "ID"})
 		if err != nil {
@@ -62,10 +62,11 @@ func TestColorFilterSolver(t *testing.T) {
 
 // The feed description is the parsed tree serialised as jsoup does:
 // entities in text, quoted attributes, boolean attributes bare, void
-// elements without a slash, stray structural tags dropped.
+// elements always closed with a slash, stray structural tags dropped,
+// and a stray </p> making the empty paragraph HTML5 says it makes.
 func TestSoupImageURLs(t *testing.T) {
-	in := `<p>a & b <img src='x.png' alt="q&quot;t"/> <br/> <input disabled="" type="checkbox" /> after </head><body> `+"`</body>`"+` c</p>`
-	want := `<p>a &amp; b <img src="https://s/ID/x.png" alt="q&quot;t"> <br> <input disabled type="checkbox"> after  `+"``"+` c</p>`
+	in := `<p>a & b <img src='x.png' alt="q&quot;t"/> <br/> <input disabled="" type="checkbox" /> after </head><body> ` + "`</body>`" + ` c<hr><img src="y.png"></p>`
+	want := `<p>a &amp; b <img src="https://s/ID/x.png" alt="q&quot;t" /> <br /> <input disabled type="checkbox" /> after  ` + "``" + ` c</p><hr /><img src="https://s/ID/y.png" /><p></p>`
 	if got := soupImageURLs(in, "https://s/ID/"); got != want {
 		t.Fatalf("\n got %q\nwant %q", got, want)
 	}

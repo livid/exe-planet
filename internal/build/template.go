@@ -16,11 +16,39 @@ import (
 
 // Setting is one entry of template.json's settings.
 type Setting struct {
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	DefaultValue string `json:"defaultValue"`
-	Description  string `json:"description"`
-	Advanced     *bool  `json:"advanced"`
+	Name         string       `json:"name"`
+	Type         string       `json:"type"`
+	DefaultValue DefaultValue `json:"defaultValue"`
+	Description  string       `json:"description"`
+	Advanced     *bool        `json:"advanced"`
+}
+
+// DefaultValue is a setting's default as Planet decodes it: a string, or
+// a boolean or number written as one, since Sepia's template.json holds
+// `"defaultValue": false`.
+type DefaultValue string
+
+func (d *DefaultValue) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*d = DefaultValue(s)
+		return nil
+	}
+	var v bool
+	if err := json.Unmarshal(b, &v); err == nil {
+		if v {
+			*d = "true"
+		} else {
+			*d = "false"
+		}
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err == nil {
+		*d = DefaultValue(n.String())
+		return nil
+	}
+	return fmt.Errorf("defaultValue %s is not a string, boolean or number", b)
 }
 
 // Template is a template folder: template.json and what is in templates/
@@ -63,11 +91,17 @@ func LoadTemplate(dir string) (*Template, error) {
 	}
 	exists := func(name string) bool { _, err := os.Stat(t.file(name)); return err == nil }
 	t.HasSimple, t.HasTags, t.HasArchive, t.HasIndex = exists("simple.html"), exists("tags.html"), exists("archive.html"), exists("index.html")
-	if css, err := os.ReadFile(filepath.Join(dir, "assets", "style.css")); err == nil {
-		sum := sha256.Sum256(css)
-		t.StyleCSSHash = hex.EncodeToString(sum[:])
-	}
+	t.StyleCSSHash = styleHash(filepath.Join(dir, "assets", "style.css"))
 	return t, nil
+}
+
+func styleHash(path string) string {
+	css, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(css)
+	return hex.EncodeToString(sum[:])
 }
 
 func (t *Template) file(name string) string { return filepath.Join(t.Dir, "templates", name) }
@@ -89,7 +123,7 @@ func flag(b *bool) bool { return b != nil && *b }
 func (t *Template) DefaultSettings() map[string]string {
 	out := map[string]string{}
 	for k, s := range t.Settings {
-		out[k] = s.DefaultValue
+		out[k] = string(s.DefaultValue)
 	}
 	return out
 }
@@ -102,7 +136,7 @@ func (t *Template) SettingsContext() map[string]any {
 		if s.Advanced != nil {
 			adv = *s.Advanced
 		}
-		out[k] = map[string]any{"name": s.Name, "type": s.Type, "defaultValue": s.DefaultValue, "description": s.Description, "advanced": adv}
+		out[k] = map[string]any{"name": s.Name, "type": s.Type, "defaultValue": string(s.DefaultValue), "description": s.Description, "advanced": adv}
 	}
 	return out
 }

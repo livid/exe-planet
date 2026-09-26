@@ -12,10 +12,11 @@ import (
 // serialised again, which rewrites the image sources and, as a side
 // effect, normalises the markup. A feed reader therefore gets the parsed
 // tree, not the author's bytes: bare ampersands become &amp;, stray
-// structural tags vanish, void elements lose their slash. This file does
-// the same with Go's HTML5 parser and a serialiser that writes entities
-// and attributes as jsoup does. jsoup also re-indents; only whitespace
-// differs from Planet's output, and a feed reader collapses it anyway.
+// structural tags vanish, and every void element ends in " />". This
+// file does the same with Go's HTML5
+// parser and a serialiser that writes entities and attributes as jsoup
+// does. jsoup also re-indents; only whitespace differs from Planet's
+// output, and a feed reader collapses it anyway.
 
 // booleanAttributes are written without a value, as jsoup writes them.
 var booleanAttributes = map[string]bool{
@@ -40,12 +41,16 @@ func soupImageURLs(fragment, prefix string) string {
 	if err != nil {
 		return fragment
 	}
-	var b strings.Builder
+	w := &writer{}
 	for _, n := range nodes {
 		rewriteImages(n, prefix)
-		serialize(&b, n)
+		w.serialize(n)
 	}
-	return b.String()
+	return w.b.String()
+}
+
+type writer struct {
+	b strings.Builder
 }
 
 func rewriteImages(n *html.Node, prefix string) {
@@ -61,7 +66,8 @@ func rewriteImages(n *html.Node, prefix string) {
 	}
 }
 
-func serialize(b *strings.Builder, n *html.Node) {
+func (w *writer) serialize(n *html.Node) {
+	b := &w.b
 	switch n.Type {
 	case html.TextNode:
 		if p := n.Parent; p != nil && p.Type == html.ElementNode && (p.DataAtom == atom.Script || p.DataAtom == atom.Style) {
@@ -84,17 +90,20 @@ func serialize(b *strings.Builder, n *html.Node) {
 			b.WriteString(escapeAttr(a.Val))
 			b.WriteByte('"')
 		}
-		b.WriteByte('>')
 		if voidElements[n.DataAtom] {
+			// SwiftSoup closes every void element with a slash, whichever
+			// way it was written.
+			b.WriteString(" />")
 			return
 		}
+		b.WriteByte('>')
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			serialize(b, c)
+			w.serialize(c)
 		}
 		b.WriteString("</" + n.Data + ">")
 	default:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			serialize(b, c)
+			w.serialize(c)
 		}
 	}
 }

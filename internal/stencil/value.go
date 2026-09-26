@@ -7,12 +7,20 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
-// Values are nil, string, bool, int, float64, time.Time, []any or
-// map[string]any. The planet and article contexts are maps keyed by
-// their JSON names, which is how Stencil sees Planet's structs too.
+// Values are nil, string, bool, int, float64, time.Time, a TimeValue,
+// []any or map[string]any. The planet and article contexts are maps keyed
+// by their JSON names, which is how Stencil sees Planet's structs too.
+
+// TimeValue is a date that knows its own seconds as Foundation holds
+// them, so a template printing article.created.timeIntervalSince1970
+// gets the same double arithmetic Swift does.
+type TimeValue interface {
+	Time() time.Time
+	IntervalSince1970() float64
+	IntervalSinceReferenceDate() float64
+}
 
 // Filter transforms a value, with the arguments written after the colon.
 type Filter func(value any, args []any) (any, error)
@@ -209,6 +217,14 @@ func (v *variable) resolveBare(c *Context) (any, error) {
 // maps, strings and arrays; first, last and an index on strings and arrays.
 func lookupIn(v any, key string) any {
 	switch x := v.(type) {
+	case pair:
+		switch key {
+		case "key", "0":
+			return x.key
+		case "value", "1":
+			return x.value
+		}
+		return nil
 	case map[string]any:
 		if key == "count" {
 			if _, has := x["count"]; !has {
@@ -219,11 +235,26 @@ func lookupIn(v any, key string) any {
 	case []any:
 		return collectionWord(key, len(x), func(i int) any { return x[i] })
 	case string:
-		if key == "count" {
-			return utf8.RuneCountInString(x)
+		// Swift's String is a collection of grapheme clusters, so count,
+		// first, last and an index all work on clusters.
+		g := graphemes(x)
+		return collectionWord(key, len(g), func(i int) any { return g[i] })
+	case TimeValue:
+		// Stencil reaches a Date's properties through Key-Value Coding on
+		// the bridged NSDate, which answers with an NSNumber.
+		switch key {
+		case "timeIntervalSince1970":
+			return nsNumber(x.IntervalSince1970())
+		case "timeIntervalSinceReferenceDate":
+			return nsNumber(x.IntervalSinceReferenceDate())
 		}
-		runes := []rune(x)
-		return collectionWord(key, len(runes), func(i int) any { return string(runes[i]) })
+	case time.Time:
+		switch key {
+		case "timeIntervalSince1970":
+			return nsNumber(float64(x.UnixMicro()) / 1e6)
+		case "timeIntervalSinceReferenceDate":
+			return nsNumber(float64(x.UnixMicro()-978307200*1e6) / 1e6)
+		}
 	}
 	return nil
 }
@@ -249,6 +280,20 @@ func collectionWord(key string, n int, at func(int) any) any {
 	return nil
 }
 
+// nsNumber is a number that came back from Key-Value Coding, as a Date's
+// timeIntervalSince1970 does: Stencil prints it through NSNumber's
+// description, which shows sixteen significant digits, not Swift's
+// shortest round trip.
+type nsNumber float64
+
+// pair is a dictionary entry as a for loop sees it: Swift's (key, value)
+// tuple, reachable as .key and .value or .0 and .1, and printing as
+// nothing on its own, as a tuple does in Stencil.
+type pair struct {
+	key   string
+	value any
+}
+
 // stringify prints a value as Stencil does: strings bare, numbers and
 // booleans in Swift's description form, a date as Foundation prints it,
 // an array as Swift's array description, nil as nothing.
@@ -269,8 +314,12 @@ func stringify(v any) string {
 		return strconv.FormatInt(x, 10)
 	case float64:
 		return swiftDouble(x)
+	case nsNumber:
+		return strconv.FormatFloat(float64(x), 'g', 16, 64)
 	case time.Time:
 		return x.UTC().Format("2006-01-02 15:04:05 +0000")
+	case TimeValue:
+		return x.Time().UTC().Format("2006-01-02 15:04:05 +0000")
 	case []any:
 		parts := make([]string, len(x))
 		for i, e := range x {
@@ -303,15 +352,46 @@ func describe(v any) string {
 	return stringify(v)
 }
 
+// swiftDouble prints a float64 as Swift's Double.description does: the
+// shortest digits that round-trip, in plain decimal from 1e-4 up to 1e16
+// with at least one digit after the point, and otherwise in exponent form.
 func swiftDouble(f float64) string {
 	if math.IsInf(f, 0) || math.IsNaN(f) {
 		return fmt.Sprint(f)
 	}
-	s := strconv.FormatFloat(f, 'g', -1, 64)
-	if !strings.ContainsAny(s, ".eE") {
-		s += ".0"
+	if f == 0 {
+		if math.Signbit(f) {
+			return "-0.0"
+		}
+		return "0.0"
 	}
-	return s
+	e := strconv.FormatFloat(f, 'e', -1, 64) // d.ddddde±XX
+	mant, expStr, _ := strings.Cut(e, "e")
+	exp, _ := strconv.Atoi(expStr)
+	neg := strings.HasPrefix(mant, "-")
+	mant = strings.TrimPrefix(mant, "-")
+	digits := strings.Replace(mant, ".", "", 1)
+	var out string
+	switch {
+	case exp < -4 || exp >= 16:
+		out = mant
+		sign := "+"
+		if exp < 0 {
+			sign = "-"
+			exp = -exp
+		}
+		out += fmt.Sprintf("e%s%02d", sign, exp)
+	case exp < 0:
+		out = "0." + strings.Repeat("0", -exp-1) + digits
+	case exp+1 >= len(digits):
+		out = digits + strings.Repeat("0", exp+1-len(digits)) + ".0"
+	default:
+		out = digits[:exp+1] + "." + digits[exp+1:]
+	}
+	if neg {
+		out = "-" + out
+	}
+	return out
 }
 
 // truthy follows Stencil: non-empty collections and strings, true, and
@@ -343,6 +423,8 @@ func toNumber(v any) (float64, bool) {
 		return float64(x), true
 	case float64:
 		return x, true
+	case nsNumber:
+		return float64(x), true
 	}
 	return 0, false
 }

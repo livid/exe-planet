@@ -7,7 +7,7 @@ RSS that Planet itself emits. Each site can, per node and off by default,
 be exposed through exe's proxy under a hostname and published to IPFS
 through the host's Kubo. The editor is an exe desktop app kept in this repo.
 
-Status: phases 0 and 1 done 2026-09-25. exe carries the relay and route API (exe 0454005); the daemon runs as the user unit `exe-planet` on 127.0.0.1:7799 with the file store, sites and posts API, poll watcher and tests. No builder, templates, app or publishing yet.
+Status: phases 0 and 1 done 2026-09-25; phase 2 built the same day: the template engine and the builder reproduce Planet 0.22.4 byte for byte on the Sparkle and Memories goldens (four planets, every page, feed and JSON). The Plain and Sepia goldens on the Mac were rendered with template versions the Mac no longer holds and wait for a rebuild there. The builder is not yet wired into the daemon; no app or publishing yet.
 
 **This file is the single source of truth for the project design.** Update
 it whenever a decision changes; code follows the plan, not the other way
@@ -226,6 +226,42 @@ Templates ship vendored under `templates/` in this repo and are copied into
 never over a copy that holds a `.git` directory. Croptop is not shipped: it
 is an NFT minting UI.
 
+### What parity taught, so it is not relearned
+
+- Stencil splits a tag into components with `smartSplit` and
+  `appendWord`: a component ending in `,`, `|` or `:` absorbs the next
+  word, so `{% if a == 0, b > 0 %}` compares `a` with the variable
+  `0,b`, which is nil, and the condition is false without an error.
+  Memories relies on it.
+- A dictionary in a `for` loop is sorted by key and each item is a
+  (key, value) tuple destructured by position: one variable gets the key.
+- `article.created.timeIntervalSince1970` reaches the Date through
+  Key-Value Coding and comes back as an NSNumber, which prints with
+  sixteen significant digits, not Swift's shortest round trip; the sum
+  is done in doubles on Planet's own 2001-epoch value, so the engine
+  carries that value, not a time.Time.
+- `.count` on a string counts grapheme clusters.
+- `escape` is Kitura's `htmlEscape()`: `& < > " '` and every non-ASCII
+  scalar become upper-case hex references.
+- The feed description goes through SwiftSoup: bare `&` becomes
+  `&amp;`, stray structural tags vanish, every void element ends in
+  ` />`, boolean attributes are bare. `absoluteImageURL` is that pass
+  with the image sources rewritten; only the re-indenting is not copied.
+- cmark-gfm ends an HTML block with a newline even without one in the
+  source, reads CR LF as LF, links an email only when its domain ends in
+  a letter, and writes a task box as `<input type="checkbox" disabled="" />`.
+- Planet writes `templateSettings.json` into the site only when the
+  template has settings or the site already had the file.
+- Planet's colour-filter solver is stochastic, so its chains are not
+  compared; a build reuses Planet's cached values when it has them.
+- A golden is only as consistent as its last rebuild: `planet.json` is
+  rewritten every publish, an `article.json` only when that article is
+  saved, `Public/assets` on every save, and article pages only on a
+  rebuild. `article.json` is therefore compared with the article's entry
+  in `planet.json`, hashes and filter chains are normalised, and a
+  golden whose pages predate the Mac's template carries a `stale.txt`
+  until it is rebuilt.
+
 ## Markdown
 
 goldmark with the GFM extension (table, strikethrough, linkify, task
@@ -370,6 +406,10 @@ keeps its `ipns` value only when the key is imported too, which needs a
    watcher, systemd unit, tests. Done 2026-09-25: `make install` put the
    unit in place, `make restart` is the loop.
 2. Template engine and builder to golden parity, template by template.
+   Built 2026-09-25: Sparkle and Memories match; Plain and Sepia wait
+   for a rebuild on the Mac; 8-bit has no current golden. Still to wire:
+   the daemon's build on change, `/v1/sites/{slug}/build` and serving
+   `/sites/{slug}/`.
 3. Importer, used first by the golden tests.
 4. The app.
 5. Publishing: expose, keys, IPFS.

@@ -106,16 +106,23 @@ func (n *forNode) render(c *Context, w *strings.Builder) error {
 	return nil
 }
 
+// bind names the loop variables. A map's item is a (key, value) pair
+// that Stencil destructures by position, so one variable gets the key,
+// two get key and value; anything else is bound whole to the first.
 func (n *forNode) bind(it any) map[string]any {
 	m := map[string]any{}
-	if len(n.vars) == 1 {
-		m[n.vars[0]] = it
+	if p, ok := it.(pair); ok {
+		parts := []any{p.key, p.value}
+		for i, v := range n.vars {
+			if i < len(parts) && v != "_" {
+				m[v] = parts[i]
+			}
+		}
 		return m
 	}
-	pair, _ := it.([]any)
 	for i, v := range n.vars {
-		if i < len(pair) {
-			m[v] = pair[i]
+		if i == 0 {
+			m[v] = it
 		} else {
 			m[v] = nil
 		}
@@ -123,8 +130,8 @@ func (n *forNode) bind(it any) map[string]any {
 	return m
 }
 
-// iterate lists what a for loop walks: an array's items, a map's sorted
-// (key, value) pairs, a string's characters.
+// iterate lists what a for loop walks: an array's items, a map's pairs
+// sorted by key, a string's characters.
 func iterate(v any) []any {
 	switch x := v.(type) {
 	case []any:
@@ -133,7 +140,7 @@ func iterate(v any) []any {
 		keys := sortedKeys(x)
 		out := make([]any, len(keys))
 		for i, k := range keys {
-			out[i] = []any{k, x[k]}
+			out[i] = pair{k, x[k]}
 		}
 		return out
 	case string:
