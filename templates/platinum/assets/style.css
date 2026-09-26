@@ -114,3 +114,61 @@ h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
 .statusbar a { color: #333399; text-decoration: none; }
 .statusbar a:hover { text-decoration: underline; }
 .foot { max-width: 720px; margin: 0 auto; text-align: center; font-size: 11px; color: #333; }
+
+/* Replies from the exe hub, under a post the site announced there: a
+   Reply window, then a Replies window holding the hub's own replies
+   frame, which draws the rows (and says how tall they are) inside this
+   window's sunken frame. The Reply window is the hub's composer, copied:
+   signed out, a line and Sign in with Solana; signed in, who is replying
+   and Sign Out, the field, and a status line beside the Reply button.
+   The head script classes <html> js (the window is all script) and
+   wallet (a wallet signed in here before), so the window has its final
+   shape before layout and never jumps while the wallet reconnects. */
+.composer { display: none; }
+.js .composer { display: block; }
+.compose { padding: 8px 12px; background: #ddd;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.6), inset -1px -1px 0 #aaa; }
+.compose [hidden] { display: none !important; }
+.compose .in, .wallet .compose .out { display: none; }
+.wallet .compose .in { display: block; }
+.compose .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.compose .grow { flex: 1 1 12em; min-width: 0; font-size: 11px; color: #333; }
+.compose .who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compose .who-row { flex-wrap: nowrap; }
+.compose .who-wrap { flex: 1 1 0; display: flex; align-items: center; gap: 5px; }
+.compose .who-wrap .who { flex: 1 1 0; min-width: 0; }
+.compose .me-av { flex: none; box-sizing: border-box; width: 20px; height: 20px; border: 1px solid #262626; background: #ddd; }
+.compose .me-av img { display: block; width: 18px; height: 18px; image-rendering: pixelated; }
+/* no picture of their own: the face the hub draws from the id, its
+   size the pattern's and the pale ground padding it out to the box */
+.compose img.idn { box-sizing: content-box; background: #e6e6f5; }
+.compose .me-av img.idn { width: 10px; height: 10px; padding: 4px; }
+.compose .who b { font-size: 12px; color: #262626; }
+.compose .mono { font-family: Monaco, "Courier New", monospace; font-size: 11px; }
+.compose button { font-family: inherit; cursor: default; margin: 0; }
+.compose .btn:disabled { color: #999; }
+.compose .btn:disabled:active { background: #ddd; color: #999;
+  box-shadow: inset 1px 1px 0 #ddd, inset -1px -1px 0 #777, inset 2px 2px 0 #fff, inset -2px -2px 0 #aaa; }
+.compose .wbtn { display: inline-flex; align-items: center; gap: 5px; }
+.compose .wbtn img { width: 14px; height: 14px; display: block; }
+/* Reply wears no default ring: Return in the field is a newline
+   (Command or Control with Return replies). */
+.compose textarea { display: block; box-sizing: border-box; margin: 0; padding: 2px 5px;
+  font: inherit; line-height: 16px; color: #262626; background: #fff; border: 1px solid #262626; border-radius: 0;
+  box-shadow: -1px -1px 0 #999, -1px 0 0 #999, 0 -1px 0 #999, 1px 1px 0 #fff, 1px 0 0 #fff, 0 1px 0 #fff; }
+.compose .field { position: relative; margin: 8px 0; }
+.compose textarea { width: 100%; height: 56px; resize: vertical; }
+.compose textarea:focus { outline: none; }
+/* the line naming the reply being answered, between who is replying and
+   the field: "Replying to Name — its first words", ellipsized, and a
+   20px bevel button whose cross lets it go */
+.compose .re-row { flex-wrap: nowrap; margin-top: 8px; }
+.compose .re-q { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compose .re-q b { font-size: 12px; color: #262626; }
+.compose .re-clear { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; min-width: 0; padding: 0; }
+.compose .re-clear .x { display: block; width: 8px; height: 8px; shape-rendering: crispEdges; }
+.compose .re-clear .x .k { fill: currentColor; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) { .compose .re-clear .x { shape-rendering: geometricPrecision; } }
+/* the replies: the hub's frame fills the sunken frame edge to edge, as
+   tall as its rows say; before it says, the height of its empty line */
+.replies iframe.thread { display: block; width: 100%; height: 42px; border: 0; background: #fff; }

@@ -36,6 +36,7 @@
         <div class="statusbar">{% block status %}<span>{{ planet.name|escape }}</span>{% endblock %}</div>
       </div>
     </div>
+    {% block after %}{% endblock %}
     <p class="foot">Built with <a href="https://exe.v2core.com/" target="_blank" rel="noopener">exe</a> and its Planet.</p>
     {% if custom_code_body_end.count > 0 %}{{ custom_code_body_end }}{% endif %}
   </body>

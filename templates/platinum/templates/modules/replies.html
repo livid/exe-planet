@@ -1,0 +1,23 @@
+<div class="window composer" id="reply">
+  <div class="titlebar"><div class="stripe"></div><div class="title">Reply</div><div class="stripe"></div></div>
+  <div class="frame"><div class="compose" id="compose" data-hub="{{ hub_thread.hub }}" data-root="{{ hub_thread.id }}">
+    <div class="out">
+      <div class="row pick-off"><span class="grow note">Reply from a Solana wallet: one signature a reply, never a transaction.</span><button type="button" class="btn signin">Sign in with Solana</button></div>
+      <div class="row picker" hidden></div>
+    </div>
+    <div class="in">
+      <div class="row who-row"><span class="grow who-wrap"><a class="me-av" target="_blank" rel="noopener" hidden><img alt=""></a><span class="who"><b class="name">…</b> <span class="mono id"></span></span></span><button type="button" class="btn signout">Sign Out</button></div>
+      <div class="row re-row" hidden><span class="grow re-q"></span><button type="button" class="btn re-clear" aria-label="Answer the post instead">{% include 'modules/glyph_cross.html' %}</button></div>
+      <div class="field"><textarea class="text" placeholder="Write a reply" aria-label="Your reply"></textarea></div>
+      <div class="row"><span class="grow status">Checking this address…</span><button type="button" class="btn send" disabled>Reply</button></div>
+    </div>
+  </div></div>
+</div>
+<div class="window replies" id="replies">
+  <div class="titlebar"><div class="stripe"></div><div class="title">Replies</div><div class="stripe"></div></div>
+  <div class="frame">
+    <iframe class="thread" src="{{ hub_thread.frame }}" title="Replies on {{ hub_thread.host }}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+    <div class="statusbar"><span>On <a href="{{ hub_thread.link }}" target="_blank" rel="noopener">{{ hub_thread.host }}</a></span></div>
+  </div>
+</div>
+<script defer src="{{ assets_prefix }}assets/replies.js"></script>
