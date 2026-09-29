@@ -1,0 +1,310 @@
+/* Paper, the site template: one quiet column of Noto Serif on grey paper.
+   The ground is a sheet's grain, xuan paper's (宣纸) more than any
+   other, drawn by an SVG noise filter so it stays fine
+   at every pixel ratio, and everything on it is ink: no boxes, no
+   shadows, a hairline only where a line says something. The site's
+   Language setting is the page's lang, and the type follows it: Noto
+   Serif SC, TC or JP first on a Chinese or Japanese site, so full-width
+   punctuation and the long dash come from the CJK face, and Noto Serif
+   first on an English one. */
+:root {
+    --ground: #e3e2de;
+    --ink: #22211f;
+    --quiet: #6f6c66;
+    --faint: #9a968f;
+    --rule: rgba(34, 33, 31, .16);
+    --line: rgba(34, 33, 31, .34);
+    --wash: rgba(34, 33, 31, .05);
+    --field: rgba(255, 255, 255, .38);
+    --idn: #e6e6f5;
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix values='2.2 0 0 0 -.6 0 2.2 0 0 -.6 0 0 2.2 0 -.6 0 0 0 0 .13'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+    --serif: "Noto Serif SC", "Noto Serif", "Songti SC", "STSong", "SimSun", serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    color-scheme: light dark;
+}
+:root:lang(zh-Hant) { --serif: "Noto Serif TC", "Noto Serif", "Songti TC", "PMingLiU", serif; }
+:root:lang(ja) { --serif: "Noto Serif JP", "Noto Serif", "Hiragino Mincho ProN", "Yu Mincho", serif; }
+:root:lang(en) { --serif: "Noto Serif", "Noto Serif SC", Georgia, serif; }
+/* the same sheet at night: ink-stone ground, the grain lighter than it */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ground: #1d1d1b;
+        --ink: #dddad3;
+        --quiet: #9a968e;
+        --faint: #6e6b65;
+        --rule: rgba(221, 218, 211, .15);
+        --line: rgba(221, 218, 211, .35);
+        --wash: rgba(221, 218, 211, .06);
+        --field: rgba(0, 0, 0, .2);
+        --idn: #3a3a48;
+        --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix values='2.2 0 0 0 -.6 0 2.2 0 0 -.6 0 0 2.2 0 -.6 0 0 0 0 .07'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
+    }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html {
+    font-size: 112.5%;
+    background: var(--ground) var(--grain);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+body {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-weight: 400;
+    line-height: 1.9;
+    font-kerning: normal;
+    /* a thin space where a Han character meets a Latin letter or a
+       figure, and CJK line-breaking rules held strictly */
+    text-autospace: normal;
+    line-break: strict;
+    hanging-punctuation: allow-end;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+}
+:root:lang(en) body { line-height: 1.7; }
+/* a block in Latin letters on a CJK site (the page script marks it
+   lang="en"): English type, whatever the site's language */
+.content :is(p, li, blockquote, h1, h2, h3, h4, th, td):lang(en), .post-title:lang(en), .list .t:lang(en) { font-family: "Noto Serif", var(--serif); }
+/* figures: Noto Serif's, which has tabular ones, so a column of dates
+   lines up; and no thin space between a figure and 年 or 月 inside one */
+.list .d, .pager .at, .tag-list .n, .date, .month h2 { font-family: "Noto Serif", var(--serif); font-variant-numeric: tabular-nums; text-autospace: no-autospace; }
+::selection { background: rgba(120, 110, 90, .22); }
+a { color: inherit; }
+a:focus-visible, button:focus-visible, textarea:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
+
+/* the column: about 34 characters of Chinese a line, or 70 of English */
+.page {
+    max-width: calc(34rem + 48px);
+    margin: 0 auto;
+    padding: clamp(40px, 11vh, 112px) 24px 48px;
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+}
+@media (max-width: 480px) {
+    html { font-size: 106.25%; }
+    .page { padding-top: 36px; }
+}
+
+/* the head of every page: the site's name and its few ways around, in
+   the quiet ink; on the home page the name is the page's title, with
+   its about under it */
+.mast {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .25rem 1.5rem;
+    margin: 0 0 4.5rem;
+    font-size: .875rem;
+}
+.mast .site { margin: 0; font-size: inherit; font-weight: 600; letter-spacing: .04em; text-decoration: none; }
+.mast .site a { text-decoration: none; }
+.nav { display: flex; flex-wrap: wrap; gap: 0 1.1rem; }
+.nav a { color: var(--quiet); text-decoration: none; }
+.nav a:hover, .nav a[aria-current] { color: var(--ink); }
+.mast.home { display: block; margin-bottom: 4rem; font-size: 1rem; }
+.mast.home .site { font-size: 1.75rem; line-height: 1.4; font-weight: 700; letter-spacing: .06em; }
+.mast.home .site:lang(en) { letter-spacing: .01em; }
+.mast.home .about { margin: .6rem 0 0; color: var(--quiet); font-size: .9rem; }
+.mast.home .about p { margin: 0; }
+.mast.home .about a { text-decoration-color: var(--line); text-underline-offset: .22em; }
+.mast.home .nav { margin-top: 1.4rem; font-size: .875rem; }
+
+/* a list of posts: the title, and the day at the far end in figures */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: baseline; gap: 1.5rem; padding: .4rem 0; }
+.list .t { flex: 1 1 auto; min-width: 0; text-decoration: none; }
+a.t:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .25em; text-decoration-color: var(--line); }
+.list .d {
+    flex: none;
+    margin-left: auto;
+    font-size: .75rem;
+    color: var(--faint);
+    text-decoration: none;
+    letter-spacing: .03em;
+    white-space: nowrap;
+}
+/* a post with no title is its own words in the list, the day under them */
+.list li.untitled { display: block; padding: .9rem 0; }
+.list li.untitled .content > :last-child { margin-bottom: 0; }
+.list li.untitled .d { display: inline-block; margin-top: .3rem; }
+/* in the archive, one line of it */
+.list .t.snip { color: var(--quiet); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.list .t.snip > * { display: inline; margin: 0; }
+.list .t.snip img, .list .t.snip pre, .list .t.snip table { display: none; }
+.list li.untitled:has(.snip) { display: flex; padding: .4rem 0; }
+.list li.untitled:has(.snip) .d { margin-top: 0; }
+
+.page-title { margin: 0 0 2.5rem; font-size: 1.5rem; line-height: 1.45; font-weight: 700; letter-spacing: .05em; }
+.hash { color: var(--faint); font-weight: 400; margin-right: .12em; }
+.month { margin: 0 0 2.25rem; }
+.month h2 { margin: 0 0 .4rem; font-size: .8rem; font-weight: 400; color: var(--quiet); letter-spacing: .1em; }
+
+.tag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.75rem; }
+.tag-list a { text-decoration: none; }
+.tag-list a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .25em; text-decoration-color: var(--line); }
+.tag-list .n { margin-left: .35em; font-size: .7rem; color: var(--faint); }
+
+.pager {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: 1rem;
+    margin: 3.5rem 0 0;
+    font-size: .85rem;
+}
+.pager a { color: var(--quiet); text-decoration: none; }
+.pager a:hover { color: var(--ink); }
+.pager .newer { justify-self: start; }
+.pager .at { color: var(--faint); letter-spacing: .08em; }
+.pager .older { justify-self: end; }
+
+/* a post */
+.post-title { margin: 0 0 .5rem; font-size: 1.75rem; line-height: 1.45; font-weight: 700; letter-spacing: .04em; }
+.post-title:lang(en), .page-title:lang(en) { letter-spacing: 0; }
+.date { margin: 0 0 3rem; font-size: .8rem; color: var(--faint); letter-spacing: .05em; }
+.content > :first-child { margin-top: 0; }
+.content p { margin: 0 0 1.2em; text-align: justify; }
+.content :is(p, li):lang(en) { text-align: left; }
+.content h1, .content h2, .content h3, .content h4 { font-weight: 700; line-height: 1.5; letter-spacing: .03em; }
+.content h1 { margin: 2.2em 0 .8em; font-size: 1.3rem; }
+.content h2 { margin: 2.2em 0 .8em; font-size: 1.15rem; }
+.content h3, .content h4 { margin: 1.8em 0 .6em; font-size: 1rem; }
+.content h4 { color: var(--quiet); }
+.content a { text-decoration-thickness: 1px; text-underline-offset: .22em; text-decoration-color: var(--line); }
+.content a:hover { text-decoration-color: currentColor; }
+.content strong, .content b { font-weight: 700; }
+/* emphasis the way the script has it: dots under the characters in
+   Chinese (着重号), sesame dots over them in Japanese, italic in English */
+.content em:lang(zh) { font-style: normal; text-emphasis: filled dot; text-emphasis-position: under right; }
+.content em:lang(ja) { font-style: normal; text-emphasis: filled sesame; text-emphasis-position: over right; }
+/* a quotation set in from both sides, as a printed book sets one */
+.content blockquote { margin: 1.8em 2em; color: var(--quiet); }
+.content blockquote > :last-child { margin-bottom: 0; }
+@media (max-width: 480px) { .content blockquote { margin: 1.6em 0 1.6em 1.5em; } }
+.content ul, .content ol { margin: 0 0 1.2em; padding: 0 0 0 1.6em; }
+.content li { margin: .25em 0; }
+.content li > p { margin: 0 0 .5em; }
+.content li::marker { color: var(--faint); }
+/* a break between sections: three dots, centred */
+.content hr { height: auto; margin: 2.8em 0; border: 0; text-align: center; overflow: visible; color: var(--faint); }
+.content hr::after { content: "·\2003·\2003·"; font-size: .9rem; }
+.content code { font-family: var(--mono); font-size: .82em; background: var(--wash); padding: .1em .3em; }
+.content pre {
+    margin: 1.6em 0;
+    padding: 1em 1.2em;
+    background: var(--wash);
+    font-size: .75rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 4;
+}
+.content pre code { background: none; padding: 0; font-size: inherit; }
+.content img, .content video { max-width: 100%; height: auto; }
+.content p > img:only-child { display: block; margin: 2.2em auto; }
+/* pixel art keeps its pixels: an image with class "pixel", or an 88 by
+   31 one, which is a badge, inline in its row */
+.content img.pixel, .content img[width="88"][height="31"] { image-rendering: pixelated; image-rendering: crisp-edges; }
+.content p > img[width="88"][height="31"]:only-child, .content p > img.pixel:only-child { display: inline-block; margin: 0; }
+.content table { display: block; max-width: 100%; overflow-x: auto; margin: 1.6em 0; border-collapse: collapse; font-size: .85rem; line-height: 1.6; }
+.content th, .content td { padding: .45em 1.2em .45em 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+.content th { font-weight: 700; }
+.content input[type=checkbox] { vertical-align: -1px; }
+.content sup { line-height: 0; }
+.content sup a, .content .footnote-backref { text-decoration: none; color: var(--quiet); }
+.content .footnotes { margin: 3.5em 0 0; font-size: .8rem; line-height: 1.8; color: var(--quiet); }
+.content .footnotes hr { width: 3rem; margin: 0 0 1.2em; border-top: 1px solid var(--rule); text-align: left; }
+.content .footnotes hr::after { content: none; }
+.content .footnotes ol { padding-left: 1.4em; }
+.video-container, .audio-container { margin: 0 0 1.6em; }
+.video-container video, .audio-container audio { display: block; width: 100%; }
+.tags { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: 3rem 0 0; font-size: .85rem; }
+.tags a { color: var(--quiet); text-decoration: none; }
+.tags a:hover { color: var(--ink); }
+
+.colophon { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: 6rem 0 0; font-size: .75rem; color: var(--faint); }
+.colophon a { color: var(--quiet); text-decoration: none; }
+.colophon a:hover { color: var(--ink); }
+
+/* Replies from the exe hub, under a post the site announced there: the
+   composer, then the hub's replies page for the post in a frame, which
+   the hub draws on this same paper (?look=paper, named for this
+   template: no ground of its own,
+   Noto Serif, hairlines) and sizes to its rows. The composer is the
+   hub's, copied, its words in the site's language: signed out, a line
+   and Sign in with Solana; signed in, who is replying and Sign Out, the
+   field, and a status line beside the Reply button. The head script
+   classes <html> js (the composer is all script) and wallet (a wallet
+   signed in here before), so it has its final shape before layout. */
+.replies { margin: 5rem 0 0; }
+.replies-title { margin: 0 0 1.5rem; font-size: .8rem; font-weight: 400; color: var(--quiet); letter-spacing: .12em; }
+.replies-title::before { content: ""; display: block; width: 2rem; margin: 0 0 1.5rem; border-top: 1px solid var(--line); }
+.composer { display: none; }
+.js .composer { display: block; }
+.compose { margin: 0 0 1.25rem; font-size: .85rem; line-height: 1.7; }
+.compose [hidden] { display: none !important; }
+.compose .in, .wallet .compose .out { display: none; }
+.wallet .compose .in { display: block; }
+.compose .row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+.compose .grow { flex: 1 1 14em; min-width: 0; color: var(--quiet); }
+.compose .who-row { flex-wrap: nowrap; }
+.compose .who-wrap { flex: 1 1 0; display: flex; align-items: center; gap: .5rem; }
+.compose .who { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compose .who b { color: var(--ink); font-weight: 600; }
+.compose .mono { font-family: var(--mono); font-size: .72rem; color: var(--faint); }
+.compose .me-av { flex: none; display: block; width: 20px; height: 20px; }
+.compose .me-av img { display: block; width: 20px; height: 20px; image-rendering: pixelated; }
+/* no picture of their own: the face the hub draws from the id, two
+   pixels a cell, on its pale ground */
+.compose img.idn { box-sizing: content-box; background: var(--idn); }
+.compose .me-av img.idn { width: 10px; height: 10px; padding: 5px; }
+.btn {
+    font: inherit;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    margin: 0;
+    padding: .2em 1.1em;
+    line-height: 1.7;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.btn:hover { border-color: var(--ink); }
+.btn:disabled, .btn:disabled:hover { color: var(--faint); border-color: var(--rule); cursor: default; }
+.compose .wbtn { display: inline-flex; align-items: center; gap: .4em; }
+.compose .wbtn img { display: block; width: 14px; height: 14px; }
+.compose .field { margin: .75rem 0; }
+.compose textarea {
+    display: block;
+    width: 100%;
+    height: 7.2em;
+    margin: 0;
+    padding: .55em .8em;
+    resize: vertical;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--rule);
+    border-radius: 0;
+}
+.compose textarea::placeholder { color: var(--faint); }
+.compose textarea:focus { outline: none; border-color: var(--line); }
+@media (pointer: coarse) { .compose textarea { font-size: max(1rem, 16px); } }
+/* the line naming the reply being answered, and the cross that lets it go */
+.compose .re-row { flex-wrap: nowrap; margin-top: .75rem; }
+.compose .re-q { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compose .re-q b { color: var(--ink); font-weight: 600; }
+.compose .re-clear { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 2em; height: 2em; padding: 0; border-color: transparent; }
+.compose .re-clear:hover { border-color: var(--line); }
+.compose .re-clear .x { display: block; width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.2; }
+.replies iframe.thread { display: block; width: 100%; height: 56px; border: 0; background: transparent; color-scheme: light dark; }
+.via { margin: .5rem 0 0; font-size: .72rem; text-align: right; letter-spacing: .03em; }
+.via a { color: var(--faint); text-decoration: none; }
+.via a:hover { color: var(--ink); }

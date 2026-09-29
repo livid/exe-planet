@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}{% include 'modules/w_archive.html' %} · {{ planet.name|escape }}{% endblock %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% endblock %}
+{% block main %}
+<h1 class="page-title">{% include 'modules/w_archive.html' %}</h1>
+{% for item in archive_sections %}
+<section class="month">
+  <h2><time data-f="month">{{ item }}</time></h2>
+  <ol class="list">
+    {% for article in archive[item] %}
+    <li{% if article.title.count == 0 %} class="untitled"{% endif %}>{% if article.title.count > 0 %}<a class="t" href=".{{ article.link }}">{{ article.title|escape }}</a>{% else %}<div class="t snip">{{ article.contentRendered }}</div>{% endif %}<a class="d" href=".{{ article.link }}"><time datetime="{{ article.created|formatDateC }}" data-f="num">{{ article.created|ymd }}</time></a></li>
+    {% endfor %}
+  </ol>
+</section>
+{% endfor %}
+{% endblock %}

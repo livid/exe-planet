@@ -1,0 +1,33 @@
+<script>
+  (() => {
+    const lang = document.documentElement.lang || "zh-Hans";
+    // Dates in the site's language. Each <time> carries the date as the
+    // site wrote it (datetime, in the site's own zone); the words the
+    // builder put inside are the fallback. The day is read off that
+    // string, never through the reader's clock, so a post written late
+    // in the evening keeps its day in every zone. data-f: "long" for a
+    // post, "num" (2026.09.28) for a list, "month" for an archive
+    // heading, which reads the first date listed under it.
+    const day = s => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(s || ""); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null; };
+    const fmt = o => { o.timeZone = "UTC"; try { return new Intl.DateTimeFormat(lang, o); } catch (e) { return new Intl.DateTimeFormat("en", o); } };
+    const long = fmt({ year: "numeric", month: "long", day: "numeric" }), month = fmt({ year: "numeric", month: "long" });
+    const two = n => String(n).padStart(2, "0");
+    for (const t of document.querySelectorAll("time[data-f]")) {
+      const f = t.dataset.f, src = f === "month" ? t.closest("section").querySelector("time[datetime]") : t;
+      const d = day(src && src.getAttribute("datetime"));
+      if (!d) continue;
+      t.textContent = f === "num" ? d.getUTCFullYear() + "." + two(d.getUTCMonth() + 1) + "." + two(d.getUTCDate())
+        : (f === "month" ? month : long).format(d);
+    }
+    // On a Chinese or Japanese site, a block written in Latin letters
+    // alone is English as far as type goes: marked lang="en", it is set
+    // in Noto Serif, ragged right, with italics, instead of justified
+    // CJK rules that open rivers between its words.
+    if (/^en\b/.test(lang)) return;
+    const cjk = /[぀-ヿ㐀-鿿豈-﫿＀-￯]/, latin = /[A-Za-z]{2}/;
+    for (const el of document.querySelectorAll(".content :is(p, li, blockquote, h1, h2, h3, h4, th, td), .post-title, .list .t")) {
+      const s = el.textContent;
+      if (latin.test(s) && !cjk.test(s)) el.lang = "en";
+    }
+  })();
+</script>

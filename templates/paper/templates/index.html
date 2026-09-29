@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}{% if tag_key %}{{ tag_value|escape }} · {{ planet.name|escape }}{% else %}{{ page_title|escape }}{% endif %}{% endblock %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% if previous_page %}<link rel="prev" href="./{{ previous_page }}">{% endif %}
+{% if next_page %}<link rel="next" href="./{{ next_page }}">{% endif %}
+{% endblock %}
+{% block mastclass %}{% if not tag_key %} home{% endif %}{% endblock %}
+{% block mast %}{% if tag_key %}<a class="site" href="{{ assets_prefix }}">{{ planet.name|escape }}</a>{% else %}<h1 class="site"><a href="{{ assets_prefix }}">{{ planet.name|escape }}</a></h1>{% if page_description_html.count > 0 %}<div class="about">{{ page_description_html }}</div>{% endif %}{% endif %}{% endblock %}
+{% block main %}
+{% if tag_key %}<h1 class="page-title"><span class="hash">#</span>{{ tag_value|escape }}</h1>{% endif %}
+<ol class="list">
+  {% for article in articles %}
+  <li{% if article.title.count == 0 %} class="untitled"{% endif %}>
+    {% if article.title.count > 0 %}<a class="t" href=".{{ article.link }}">{{ article.title|escape }}</a>{% else %}<div class="content">{{ article.contentRendered }}</div>{% endif %}
+    <a class="d" href=".{{ article.link }}"><time datetime="{{ article.created|formatDateC }}" data-f="num">{{ article.created|ymd }}</time></a>
+  </li>
+  {% endfor %}
+</ol>
+{% if total_pages > 1 %}
+<nav class="pager">
+  {% if previous_page %}<a class="newer" href="./{{ previous_page }}" rel="prev">← {% include 'modules/w_newer.html' %}</a>{% else %}<span></span>{% endif %}
+  <span class="at">{{ current_page }} / {{ total_pages }}</span>
+  {% if next_page %}<a class="older" href="./{{ next_page }}" rel="next">{% include 'modules/w_older.html' %} →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="{% if user_settings['language'] %}{{ user_settings['language']|escape }}{% else %}zh-Hans{% endif %}">
+  <head>
+    <meta charset="UTF-8">
+    <meta content="True" name="HandheldFriendly">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#e3e2de" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1d1d1b" media="(prefers-color-scheme: dark)">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,100..900;1,100..900&amp;family=Noto+Serif+{% if user_settings['language'] == 'zh-Hant' %}TC{% else %}{% if user_settings['language'] == 'ja' %}JP{% else %}SC{% endif %}{% endif %}:wght@200..900&amp;display=swap">
+    <link rel="stylesheet" href="{{ assets_prefix }}assets/style.css?sha256={{ style_css_sha256 }}">
+    <link rel="alternate" type="application/rss+xml" title="{{ planet.name|escape }}" href="{{ assets_prefix }}rss.xml">
+    <link rel="preload" href="{{ assets_prefix }}planet.json" as="fetch" type="application/json" crossorigin="anonymous">
+    <title>{% block title %}{{ page_title|escape }}{% endblock %}</title>
+    <script>
+      window.PLANET = {
+        visitedFromPlanetClient: !!navigator.userAgent.match(/Planet\/\S*/),
+        assetsPrefix: '{{ assets_prefix }}',
+      };
+    </script>
+    {% if has_avatar %}
+    <link rel="icon" href="{{ assets_prefix }}avatar.png" sizes="144x144">
+    <link rel="shortcut icon" href="{{ assets_prefix }}favicon.ico" type="image/png">
+    {% endif %}
+    {% block head %}{% endblock %}
+    {% if planet.plausibleEnabled %}
+    <script defer data-domain="{{ planet.plausibleDomain }}" src="https://{{ planet.plausibleAPIServer }}/js/plausible.local.js"></script>
+    {% endif %}
+    {% if custom_code_head.count > 0 %}{{ custom_code_head }}{% endif %}
+  </head>
+  <body>
+    {% if custom_code_body_start.count > 0 %}{{ custom_code_body_start }}{% endif %}
+    <div class="page">
+      <header class="mast{% block mastclass %}{% endblock %}">
+        {% block mast %}<a class="site" href="{{ assets_prefix }}">{{ planet.name|escape }}</a>{% endblock %}
+        {% include 'modules/nav.html' %}
+      </header>
+      <main>
+        {% block main %}{% endblock %}
+      </main>
+      <footer class="colophon">
+        <a href="{{ assets_prefix }}rss.xml">RSS</a>
+        <span>{% include 'modules/w_built.html' %}</span>
+      </footer>
+    </div>
+    {% include 'modules/script.html' %}
+    {% if custom_code_body_end.count > 0 %}{{ custom_code_body_end }}{% endif %}
+  </body>
+</html>

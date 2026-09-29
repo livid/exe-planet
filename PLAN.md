@@ -51,7 +51,7 @@ files over 10 MB neither accepted by the file API nor synced):
 ```
 ~/.exe/workspace/Planet/
   Templates/                  shared by every site; reserved name
-    plain/  sepia/  grid/  gamedb/  memories/  sparkle/
+    plain/  sepia/  grid/  gamedb/  memories/  sparkle/  platinum/  paper/
   Archived/                   reserved; the builder ignores it
     old-notes/…
   charts/                     one site; folder = slug
@@ -262,6 +262,53 @@ XSLT; a reader never sees the stylesheet, so the feed loses nothing
 when that day comes.
 The live `exe` site (slug `exe`, avatar = the desk's icon) wears it; its
 first post is "Meet exe".
+
+**Paper** (`templates/paper`, 2026-09-28, Livid asked for a super
+minimal template on a grey noise ground in Google's Noto Serif, for
+literature and the humanities, with hub replies as Platinum has them;
+I first called it Xuan, after xuan paper, and Livid renamed it Paper so
+one word names it and the hub frame's look) is ours, the eighth. One
+column (34rem, about 34 Chinese characters a line) of ink on a grey
+sheet whose grain is an SVG `feTurbulence` tile in the CSS, so it stays
+fine at every ratio; no boxes or shadows, hairlines only where a line
+says something; light and dark by `prefers-color-scheme`. Its one
+setting, **Language** (`zh-Hans` default, `zh-Hant`, `ja`, `en`; missing
+or anything else reads as `zh-Hans`, since Planet's template preview
+passes no settings), is the page's `lang`, and everything follows it:
+the Google Fonts link (Noto Serif variable, plus Noto Serif SC, TC or
+JP), the font stack (the CJK face first on a CJK site, so full-width
+punctuation and the long dash come from it; Noto Serif first on an
+English one), the words around the text from `modules/w_*.html` (one
+file a word, the four languages as nested `if`s, since the engine has
+no `elif` and no variables), and the dates. A post's date is `<time
+datetime>` from `formatDateC` with `ymd` inside as the fallback; the
+page script (`modules/script.html`, inline at the end of the body)
+rewrites it with `Intl.DateTimeFormat` in the site's language, the day
+read off the string so no reader's zone moves it, as figures
+(2026.09.28) in lists and the month from the first date under an
+archive heading. The same script marks a block written in Latin letters
+alone `lang="en"` on a CJK site, so it sets in Noto Serif, ragged
+right, with italics, instead of justified with CJK rules (an English
+post on a Chinese site opened rivers). CJK typography: justified text,
+`line-break: strict`, `text-autospace` (never inside a date), emphasis
+as 着重号 under Chinese and sesame dots over Japanese, a quotation set
+in from both sides, a section break as three dots; figures in Noto
+Serif for its tabular numerals. Under an announced post:
+`modules/replies.html` (a heading, the composer, then the frame asked
+for as `?look=paper&lang=<the site's language>`, 56px held for the
+hub's empty line so nothing moves when it answers) and
+`assets/replies.js`, Platinum's composer with every word in a table in
+the four languages (the words the page starts with come from `w_*`
+modules, so nothing flashes) and the scroll-into-view on the composer
+itself; a fix to one copy goes to the other. `TestPaperTemplate` and
+`TestPaperReplies` build every page kind in all four languages;
+`~/tools/playwright/exe-planet-paper-test.js` walks the replies path on
+scratch daemons (words in Chinese, the gate, a live reply, an English
+answer, a reply to it, the held height, DPR 1, 1.5, 2, dark and a
+phone); PlanetSiteTemplates' `swift test` passed with `paper` in its
+Resources on the Mac (2026-09-28, a throwaway clone). Not yet its own
+repo (SiteTemplatePaper) nor a PlanetSiteTemplates submodule: that
+publishing is Livid's word.
 
 ### What parity taught, so it is not relearned
 

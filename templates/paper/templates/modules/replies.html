@@ -1,0 +1,18 @@
+<section class="replies" id="replies">
+  <h2 class="replies-title">{% include 'modules/w_replies.html' %}</h2>
+  <div class="composer" id="reply"><div class="compose" id="compose" data-hub="{{ hub_thread.hub }}" data-root="{{ hub_thread.id }}">
+    <div class="out">
+      <div class="row pick-off"><span class="grow note">{% include 'modules/w_note.html' %}</span><button type="button" class="btn signin">{% include 'modules/w_signin.html' %}</button></div>
+      <div class="row picker" hidden></div>
+    </div>
+    <div class="in">
+      <div class="row who-row"><span class="grow who-wrap"><a class="me-av" target="_blank" rel="noopener" hidden><img alt=""></a><span class="who"><b class="name">…</b> <span class="mono id"></span></span></span><button type="button" class="btn signout">{% include 'modules/w_signout.html' %}</button></div>
+      <div class="row re-row" hidden><span class="grow re-q"></span><button type="button" class="btn re-clear"><svg class="x" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button></div>
+      <div class="field"><textarea class="text" placeholder="{% include 'modules/w_write.html' %}" aria-label="{% include 'modules/w_write.html' %}"></textarea></div>
+      <div class="row"><span class="grow status">{% include 'modules/w_checking.html' %}</span><button type="button" class="btn send" disabled>{% include 'modules/w_send.html' %}</button></div>
+    </div>
+  </div></div>
+  <iframe class="thread" src="{{ hub_thread.frame }}?look=paper&amp;lang={% if user_settings['language'] %}{{ user_settings['language']|escape }}{% else %}zh-Hans{% endif %}" title="{{ hub_thread.host }}" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+  <p class="via"><a href="{{ hub_thread.link }}" target="_blank" rel="noopener">{{ hub_thread.host }}</a></p>
+</section>
+<script defer src="{{ assets_prefix }}assets/replies.js"></script>

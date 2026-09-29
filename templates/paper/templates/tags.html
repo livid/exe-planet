@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}{% include 'modules/w_tags.html' %} · {{ planet.name|escape }}{% endblock %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% endblock %}
+{% block main %}
+<h1 class="page-title">{% include 'modules/w_tags.html' %}</h1>
+<ul class="tag-list">
+  {% for tag in tags %}
+  <li><a href="{{ assets_prefix }}{{ tag }}.html">{{ tags[tag]|escape }}</a><span class="n">{{ tag_articles[tag].count }}</span></li>
+  {% endfor %}
+</ul>
+{% endblock %}

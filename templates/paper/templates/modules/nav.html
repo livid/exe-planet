@@ -1,0 +1,5 @@
+<nav class="nav">
+  {% for item in site_navigation %}<a href="{% if item.externalLink.count > 0 %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{% if item.slug.count > 0 %}{{ item.slug }}{% else %}{{ item.id }}{% endif %}/{% endif %}"{% if item.externalLink.count > 0 %} target="_blank" rel="noopener"{% endif %}>{{ item.title|escape }}</a>{% endfor %}
+  <a href="{{ assets_prefix }}archive.html"{% if current_item_type == 'archive' %} aria-current="page"{% endif %}>{% include 'modules/w_archive.html' %}</a>
+  {% if planet.tags.count > 0 %}<a href="{{ assets_prefix }}tags.html"{% if current_item_type == 'tags' %}{% if not tag_key %} aria-current="page"{% endif %}{% endif %}>{% include 'modules/w_tags.html' %}</a>{% endif %}
+</nav>

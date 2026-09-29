@@ -1,0 +1,20 @@
+{
+  "name": "Paper",
+  "description": "One quiet column of Noto Serif on grey paper grain, made for literature and the humanities in Chinese, Japanese or English",
+  "author": "Planetable Team",
+  "authorWebsite": "https://planetable.xyz",
+  "version": "1.0",
+  "idealItemsPerPage": 12,
+  "generateIndexPagination": true,
+  "generateTagPages": true,
+  "generateArchive": true,
+  "buildNumber": 1,
+  "settings": {
+    "language": {
+      "name": "Language",
+      "type": "string",
+      "defaultValue": "zh-Hans",
+      "description": "The site's language: zh-Hans (Simplified Chinese, the default), zh-Hant (Traditional Chinese), ja (Japanese) or en (English). It picks the Noto Serif face for that script, the words around the text (Archive, Tags, Newer, Older) and how dates are written."
+    }
+  }
+}
