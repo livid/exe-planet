@@ -830,7 +830,10 @@ takes whole ids only, and the frame is built from it), in two places:
   daemon, every PUT and DELETE to the live daemon swallowed.
 - Real Stencil: PlanetSiteTemplates' `swift test` on the Mac renders the
   new module (SiteTemplatePlatinum cf39614, PlanetSiteTemplates 423e955,
-  tag 0.9.4).
+  tag 0.9.4). The draft fix and the hub's sign-in followed on
+  2026-10-06 (SiteTemplatePlatinum 2232e19, buildNumber 9;
+  PlanetSiteTemplates b16b0b6, tag 0.10.1), `swift test` passing in a
+  Linux Swift 6.1 container with Paper beside it.
 
 ### Later
 
