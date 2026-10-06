@@ -20,11 +20,16 @@
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix values='2.2 0 0 0 -.6 0 2.2 0 0 -.6 0 0 2.2 0 -.6 0 0 0 0 .13'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
     --serif: "Noto Serif SC", "Noto Serif", "Songti SC", "STSong", "SimSun", serif;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    /* the text's weight: Medium in a CJK face, whose horizontal strokes
+       are 33/1000 em at every weight, 0.6px at 18px, so only the
+       verticals can carry the ink and at Regular the page reads grey;
+       Regular in Latin letters, whose stems need no help */
+    --weight: 500;
     color-scheme: light dark;
 }
 :root:lang(zh-Hant) { --serif: "Noto Serif TC", "Noto Serif", "Songti TC", "PMingLiU", serif; }
 :root:lang(ja) { --serif: "Noto Serif JP", "Noto Serif", "Hiragino Mincho ProN", "Yu Mincho", serif; }
-:root:lang(en) { --serif: "Noto Serif", "Noto Serif SC", Georgia, serif; }
+:root:lang(en) { --serif: "Noto Serif", "Noto Serif SC", Georgia, serif; --weight: 400; }
 /* the same sheet at night: ink-stone ground, the grain lighter than it */
 @media (prefers-color-scheme: dark) {
     :root {
@@ -52,7 +57,7 @@ body {
     margin: 0;
     color: var(--ink);
     font-family: var(--serif);
-    font-weight: 400;
+    font-weight: var(--weight);
     line-height: 1.9;
     font-kerning: normal;
     /* a thin space where a Han character meets a Latin letter or a
@@ -61,12 +66,16 @@ body {
     line-break: strict;
     hanging-punctuation: allow-end;
     overflow-wrap: break-word;
-    -webkit-font-smoothing: antialiased;
 }
+/* a Mac thickens dark type on a light ground a little, which this
+   sheet's hairlines want; light type on the night sheet it would
+   swell, so there the smoothing is grey */
+@media (prefers-color-scheme: dark) { body { -webkit-font-smoothing: antialiased; } }
 :root:lang(en) body { line-height: 1.7; }
 /* a block in Latin letters on a CJK site (the page script marks it
    lang="en"): English type, whatever the site's language */
 .content :is(p, li, blockquote, h1, h2, h3, h4, th, td):lang(en), .post-title:lang(en), .list .t:lang(en) { font-family: "Noto Serif", var(--serif); }
+.content :is(p, li, blockquote, td):lang(en), .list .t:lang(en) { font-weight: 400; }
 /* figures: Noto Serif's, which has tabular ones, so a column of dates
    lines up; and no thin space between a figure and 年 or 月 inside one */
 .list .d, .pager .at, .tag-list .n, .date, .month h2 { font-family: "Noto Serif", var(--serif); font-variant-numeric: tabular-nums; text-autospace: no-autospace; }
@@ -138,9 +147,9 @@ a.t:hover { text-decoration: underline; text-decoration-thickness: 1px; text-und
 .list li.untitled:has(.snip) .d { margin-top: 0; }
 
 .page-title { margin: 0 0 2.5rem; font-size: 1.5rem; line-height: 1.45; font-weight: 700; letter-spacing: .05em; }
-.hash { color: var(--faint); font-weight: 400; margin-right: .12em; }
+.hash { color: var(--faint); font-weight: var(--weight); margin-right: .12em; }
 .month { margin: 0 0 2.25rem; }
-.month h2 { margin: 0 0 .4rem; font-size: .8rem; font-weight: 400; color: var(--quiet); letter-spacing: .1em; }
+.month h2 { margin: 0 0 .4rem; font-size: .8rem; font-weight: var(--weight); color: var(--quiet); letter-spacing: .1em; }
 
 .tag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.75rem; }
 .tag-list a { text-decoration: none; }
@@ -240,7 +249,7 @@ a.t:hover { text-decoration: underline; text-decoration-thickness: 1px; text-und
    classes <html> js (the composer is all script) and wallet (a wallet
    signed in here before), so it has its final shape before layout. */
 .replies { margin: 5rem 0 0; }
-.replies-title { margin: 0 0 1.5rem; font-size: .8rem; font-weight: 400; color: var(--quiet); letter-spacing: .12em; }
+.replies-title { margin: 0 0 1.5rem; font-size: .8rem; font-weight: var(--weight); color: var(--quiet); letter-spacing: .12em; }
 .replies-title::before { content: ""; display: block; width: 2rem; margin: 0 0 1.5rem; border-top: 1px solid var(--line); }
 .composer { display: none; }
 .js .composer { display: block; }

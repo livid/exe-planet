@@ -293,7 +293,12 @@ post on a Chinese site opened rivers). CJK typography: justified text,
 `line-break: strict`, `text-autospace` (never inside a date), emphasis
 as 着重号 under Chinese and sesame dots over Japanese, a quotation set
 in from both sides, a section break as three dots; figures in Noto
-Serif for its tabular numerals. Under an announced post:
+Serif for its tabular numerals. The text is Medium (500) on a CJK site
+and Regular in Latin letters (`--weight`): Noto Serif SC's horizontal
+strokes are 33/1000 em at every weight, 0.6px at 18px, so at Regular a
+Chinese page read grey (Livid, 2026-10-06); and the light sheet keeps
+macOS's own smoothing, since `-webkit-font-smoothing: antialiased`
+thinned every stroke further there (the dark sheet keeps it). Under an announced post:
 `modules/replies.html` (a heading, the composer, then the frame asked
 for as `?look=paper&lang=<the site's language>`, 56px held for the
 hub's empty line so nothing moves when it answers) and
