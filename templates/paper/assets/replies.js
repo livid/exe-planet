@@ -43,6 +43,7 @@
       checkingReply: "Checking the reply…", gone: "That reply is gone. Clear it to answer the post instead.",
       replied: "Replied.", nowallet: "Replying needs a Solana wallet in this browser.",
       switched: "Your wallet is on another account now, shown above. Nothing was signed; try again as that account, or switch back in the wallet.",
+      switchedSigned: "Your wallet changed to another account, shown above, while it was signing. What it signed was not sent; try again as that account, or switch back in the wallet.",
       signinTitle: host => "Sign in to " + host,
       signinStmt: "You signed out here before. This signature only shows it is you again: it is not sent anywhere, and it is not a transaction.",
     },
@@ -64,6 +65,7 @@
       checkingReply: "正在核对那条回复……", gone: "那条回复已被删除。清除后可直接回复文章。",
       replied: "已回复。", nowallet: "回复需要这个浏览器里有 Solana 钱包。",
       switched: "钱包现在是另一个账户，已显示在上面。什么都没有签名；用这个账户再试一次，或在钱包里切换回去。",
+      switchedSigned: "钱包在签名时换成了另一个账户，已显示在上面。签好的内容没有发送；用这个账户再试一次，或在钱包里切换回去。",
       signinTitle: host => "登录 " + host,
       signinStmt: "你之前在这里退出过登录。这个签名只是确认又是你本人：它不会被发送到任何地方，也不是交易。",
     },
@@ -85,6 +87,7 @@
       checkingReply: "正在核對那則回覆……", gone: "那則回覆已被刪除。清除後可直接回覆文章。",
       replied: "已回覆。", nowallet: "回覆需要這個瀏覽器裡有 Solana 錢包。",
       switched: "錢包現在是另一個帳戶，已顯示在上面。什麼都沒有簽名；用這個帳戶再試一次，或在錢包裡切換回去。",
+      switchedSigned: "錢包在簽名時換成了另一個帳戶，已顯示在上面。簽好的內容沒有傳送；用這個帳戶再試一次，或在錢包裡切換回去。",
       signinTitle: host => "登入 " + host,
       signinStmt: "你之前在這裡登出過。這個簽名只是確認又是你本人：它不會被傳送到任何地方，也不是交易。",
     },
@@ -106,6 +109,7 @@
       checkingReply: "返信先を確認しています…", gone: "返信先は削除されました。クリアすると記事に返信できます。",
       replied: "返信しました。", nowallet: "返信するには、このブラウザに Solana ウォレットが必要です。",
       switched: "ウォレットは別のアカウントに切り替わっています（上に表示）。何も署名していません。そのアカウントでもう一度試すか、ウォレットで元に戻してください。",
+      switchedSigned: "署名の途中でウォレットが別のアカウントに切り替わりました（上に表示）。署名したものは送信していません。そのアカウントでもう一度試すか、ウォレットで元に戻してください。",
       signinTitle: host => host + " にサインイン",
       signinStmt: "以前ここでサインアウトしました。この署名はあなた本人であることを確かめるだけのもので、どこにも送信されず、トランザクションでもありません。",
     },
@@ -221,10 +225,19 @@
     const pub = typeof saved.address === "string" && unb58(saved.address);
     if (!pub || pub.length !== 32) return null;
     let live = null;
+    // While the wallet is being asked, Sign Out can be pressed or the
+    // window turn to another account: this identity is then no longer the
+    // window's (`me`), and nothing more is asked of the wallet — not the
+    // connect aloud after a silent one that brought nothing, not the
+    // signature. The error is empty; signed() says what there is to say
+    // (mine).
+    const still = () => { if (me !== m) throw new Error(""); };
     const m = { wallet: w, name: w.name, address: saved.address, pub, live: false,
       sign: async msg => {
         if (!live) {
-          const got = await connect(w, true).catch(() => null) || await connect(w, false);
+          let got = await connect(w, true).catch(() => null);
+          still();
+          if (!got) { got = await connect(w, false); still(); }
           if (got.address !== m.address) throw Object.assign(new Error("switched"), { account: got });
           live = got;
           m.live = true;
@@ -374,33 +387,63 @@
   }
 
   // ---- one signed reply ----
-  async function signed(msg) {
+  // A reply is the account's that pressed the button. While it waits — on
+  // the hub for the reply it answers and for the next seq, on the wallet's
+  // own prompt — the wallet can turn to another account or Sign Out be
+  // pressed, and `me` is then someone else or no one: with /v1/seq held
+  // and a change from A to B, B was asked to sign an envelope naming A,
+  // which the hub refuses. So a reply keeps who it began as (`who`) and
+  // asks, before the wallet is asked and again before what it signed is
+  // sent, whether that is still who is signed in. If not it stops there:
+  // nothing is signed, or what was signed goes nowhere, and the words
+  // stay for a press as whoever is signed in now. Said in the status
+  // line when the account changed; Sign Out needs no line. The hub's own
+  // composer does the same (exe-hub's PLAN.md, A send is the account's
+  // that pressed the button): a fix to one is a fix to all three.
+  function mine(who, hasSigned) {
+    if (me === who) return;
+    throw new Error(me && me.address !== who.address ? (hasSigned ? W.switchedSigned : W.switched) : "");
+  }
+  async function signed(msg, who) {
+    mine(who);
+    let sig;
     try {
-      return await me.sign(msg);
+      sig = await who.sign(msg);
     } catch (e) {
-      if (e.account) { signedIn(e.account); throw new Error(W.switched); } // a remembered wallet came back on another account
+      // a remembered wallet came back on another account: the window turns
+      // to it, unless Sign Out was pressed or it has turned already
+      if (e.account) { if (me === who) signedIn(e.account); throw new Error(me ? W.switched : ""); }
+      // no longer this reply's account (Sign Out, or the window turned,
+      // while the wallet was asked): said as any such stop is, or not at
+      // all, never as an error of the wallet's
+      mine(who);
       throw new Error(e.message === "changed" ? W.changed : declined(e) ? W.declined : W.nosign + (e.message || e));
     }
+    mine(who, true);
+    return sig;
   }
-  async function sendReply(body) {
-    const author = b64(me.pub);
+  async function sendReply(body, who) {
+    const author = b64(who.pub);
     const s = await hubJSON("/v1/seq?author=" + encodeURIComponent(author));
     if (!s.r.ok) throw new Error(s.out.error || "HTTP " + s.r.status);
+    mine(who); // the account changed while the hub was asked: the wallet is not
     const env = enc.encode(JSON.stringify({ type: "post.create", author, seq: s.out.seq + 1, ts: Date.now(), body }));
     const msg = new Uint8Array(PREFIX.length + env.length);
     msg.set(enc.encode(PREFIX));
     msg.set(env, PREFIX.length);
     tell(W.waiting);
-    const sig = await signed(msg);
+    const sig = await signed(msg, who); // (and what it signed is sent at once, with no wait between)
     tell(W.sending);
     const { r, out } = await hubJSON("/v1/msg", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ envelope: b64(env), sig: b64(sig) }) });
     if (r.ok) return out.id;
+    // (the clock and the gate below are the window's: they follow this
+    // answer only while the window is still this reply's account's)
     if (r.status === 429) {
-      until = Date.now() + (parseInt(r.headers.get("Retry-After"), 10) || (verdict && verdict.cooldown) || 60) * 1000;
+      if (me === who) until = Date.now() + (parseInt(r.headers.get("Retry-After"), 10) || (verdict && verdict.cooldown) || 60) * 1000;
       throw new Error("");
     }
-    if (r.status === 403) { await check(); if (verdict && verdict.gate === "below") throw new Error(""); }
+    if (r.status === 403 && me === who) { await check(); if (verdict && verdict.gate === "below") throw new Error(""); }
     if (r.status === 401) throw new Error(W.badsig);
     if (r.status === 409) throw new Error(W.maybe);
     throw new Error(out.error || "HTTP " + r.status);
@@ -490,6 +533,7 @@
   send.addEventListener("click", async () => {
     const t = text.value.trim();
     if (!t || busy || !me) return;
+    const who = me; // the reply is this account's (mine)
     busy = true;
     render();
     try {
@@ -498,14 +542,15 @@
         tell(W.checkingReply);
         const { r } = await hubJSON("/v1/post/" + target.id);
         if (r.status === 404) throw new Error(W.gone);
+        mine(who); // asking took a while
       }
-      await sendReply({ text: t, reply_to: to });
+      await sendReply({ text: t, reply_to: to }, who);
       text.value = "";
       clearTimeout(saving);
       store(DRAFT, null);
       target = null;
       reRow.hidden = true;
-      until = Date.now() + ((verdict && verdict.cooldown) || 0) * 1000;
+      if (me === who) until = Date.now() + ((verdict && verdict.cooldown) || 0) * 1000;
       done(W.replied);
     } catch (e) {
       tell(e.message);

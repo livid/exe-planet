@@ -748,7 +748,12 @@ takes whole ids only, and the frame is built from it), in two places:
   - `assets/replies.js`, loaded at the end of `modules/replies.html` (not
     in the head: `build.Inline` makes it an inline script for the Planet
     app's page column, where `defer` does nothing), only when
-    `hub_thread` is set: the Wallet Standard handshake with the
+    `hub_thread` is set, and named by its hash
+    (`replies.js?sha256={{ replies_js_sha256 }}`, the builder's, as
+    `style_css_sha256` is; 2026-10-06): the file is served for four
+    hours by its name alone, so a changed script reached a reader's
+    browser, and the cache in front of the site, hours after the page
+    that needed it, and each change wanted a purge by hand. The script: the Wallet Standard handshake with the
     `window.solana` fallback, as the hub's compose script does; `GET
     /v1/gate?author=` at sign-in ("This address holds less than 10,000
     tokens of 9raU…pump, so it can read but not reply.", the cooldown's
@@ -784,6 +789,23 @@ takes whole ids only, and the frame is built from it), in two places:
     "Sign in to <host>" message that never begins `exe-hub:v1` — since a
     wallet that still trusts the site (Glow) connects again without a
     prompt. The flow is the hub's: a fix there comes to both copies.
+  - A reply is the account's that pressed the button (2026-10-06, from
+    exe-hub 7eec742 and 27b677d; Codex on Spark held `/v1/seq` on both
+    templates, turned the wallet from A to B, and B was asked to sign
+    an envelope naming A; Livid: "Improve.", then "continue improve").
+    The press keeps who it began as (`who`); `mine(who)` asks whether
+    that is still `me` after the reply it answers is looked up, after
+    the seq comes, before the wallet is asked and before what it signed
+    is sent. Not theirs any more, the reply stops: nothing is signed,
+    or what was signed goes nowhere, the words stay, and the status
+    line says the wallet is on another account (`switched`, or
+    `switchedSigned` when it had signed; Paper in its four languages).
+    Sign Out stops it without a line. The window's cooldown and gate
+    follow a reply's answer only while the window is still that
+    account's. A remembered wallet being asked again (`resume`) looks
+    between its steps too: after Sign Out it is asked for no connect
+    aloud and no signature, whichever account it answers as, and the
+    stop is silent, never "The wallet could not sign".
   - localStorage keeps the wallet's name and address (`exe-hub-wallet`,
     as the hub's pages do, with the hub id and the profile's name and
     picture once the gate answers), the Sign Out mark, and the unsent
@@ -839,6 +861,14 @@ takes whole ids only, and the frame is built from it), in two places:
   1.5, 2 and a phone. `exe-planet-announce-sheet-test.js`: the
   Hub group and Announce on Hub on the live desk against a scratch
   daemon, every PUT and DELETE to the live daemon swallowed.
+  `exe-planet-signin-test.js`: the sign-in on a Platinum site in English
+  and a Paper site in Chinese (a remembered wallet asked nothing, the
+  who row in every frame, Sign in after Sign Out).
+  `exe-planet-switch-test.js`: on the same two sites, the hub's answer,
+  the wallet's prompt and its reconnect held in turn while the wallet
+  turns to another account or Sign Out is pressed; it fails on the
+  templates before the port (`TEMPLATES=<dir>` points it at another
+  folder).
 - Real Stencil: PlanetSiteTemplates' `swift test` on the Mac renders the
   new module (SiteTemplatePlatinum cf39614, PlanetSiteTemplates 423e955,
   tag 0.9.4). The draft fix and the hub's sign-in followed on

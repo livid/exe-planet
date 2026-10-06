@@ -126,10 +126,19 @@
     const pub = typeof saved.address === "string" && unb58(saved.address);
     if (!pub || pub.length !== 32) return null;
     let live = null;
+    // While the wallet is being asked, Sign Out can be pressed or the
+    // window turn to another account: this identity is then no longer the
+    // window's (`me`), and nothing more is asked of the wallet — not the
+    // connect aloud after a silent one that brought nothing, not the
+    // signature. The error is empty; signed() says what there is to say
+    // (mine).
+    const still = () => { if (me !== m) throw new Error(""); };
     const m = { wallet: w, name: w.name, address: saved.address, pub, live: false,
       sign: async msg => {
         if (!live) {
-          const got = await connect(w, true).catch(() => null) || await connect(w, false);
+          let got = await connect(w, true).catch(() => null);
+          still();
+          if (!got) { got = await connect(w, false); still(); }
           if (got.address !== m.address) throw Object.assign(new Error("switched"), { account: got });
           live = got;
           m.live = true;
@@ -280,34 +289,66 @@
   }
 
   // ---- one signed reply ----
-  async function signed(msg) {
+  // A reply is the account's that pressed the button. While it waits — on
+  // the hub for the reply it answers and for the next seq, on the wallet's
+  // own prompt — the wallet can turn to another account or Sign Out be
+  // pressed, and `me` is then someone else or no one: with /v1/seq held
+  // and a change from A to B, B was asked to sign an envelope naming A,
+  // which the hub refuses. So a reply keeps who it began as (`who`) and
+  // asks, before the wallet is asked and again before what it signed is
+  // sent, whether that is still who is signed in. If not it stops there:
+  // nothing is signed, or what was signed goes nowhere, and the words
+  // stay for a press as whoever is signed in now. Said in the status
+  // line when the account changed; Sign Out needs no line. The hub's own
+  // composer does the same (exe-hub's PLAN.md, A send is the account's
+  // that pressed the button): a fix to one is a fix to all three.
+  const SWITCHED = "Your wallet is on another account now, shown above. Nothing was signed; try again as that account, or switch back in the wallet.";
+  const SWITCHED_SIGNED = "Your wallet changed to another account, shown above, while it was signing. What it signed was not sent; try again as that account, or switch back in the wallet.";
+  function mine(who, hasSigned) {
+    if (me === who) return;
+    throw new Error(me && me.address !== who.address ? (hasSigned ? SWITCHED_SIGNED : SWITCHED) : "");
+  }
+  async function signed(msg, who) {
+    mine(who);
+    let sig;
     try {
-      return await me.sign(msg);
+      sig = await who.sign(msg);
     } catch (e) {
-      if (e.account) { signedIn(e.account); throw new Error("Your wallet is on another account now, shown above. Nothing was signed; try again as that account, or switch back in the wallet."); } // a remembered wallet came back on another account
+      // a remembered wallet came back on another account: the window turns
+      // to it, unless Sign Out was pressed or it has turned already
+      if (e.account) { if (me === who) signedIn(e.account); throw new Error(me ? SWITCHED : ""); }
+      // no longer this reply's account (Sign Out, or the window turned,
+      // while the wallet was asked): said as any such stop is, or not at
+      // all, never as an error of the wallet's
+      mine(who);
       throw new Error(e.message === "changed" ? "The wallet changed the message before signing it, so the hub could not verify it."
         : declined(e) ? "You declined in the wallet." : "The wallet could not sign: " + (e.message || e));
     }
+    mine(who, true);
+    return sig;
   }
-  async function sendReply(body) {
-    const author = b64(me.pub);
+  async function sendReply(body, who) {
+    const author = b64(who.pub);
     const s = await hubJSON("/v1/seq?author=" + encodeURIComponent(author));
     if (!s.r.ok) throw new Error(s.out.error || "HTTP " + s.r.status);
+    mine(who); // the account changed while the hub was asked: the wallet is not
     const env = enc.encode(JSON.stringify({ type: "post.create", author, seq: s.out.seq + 1, ts: Date.now(), body }));
     const msg = new Uint8Array(PREFIX.length + env.length);
     msg.set(enc.encode(PREFIX));
     msg.set(env, PREFIX.length);
     tell("Waiting for your wallet…");
-    const sig = await signed(msg);
+    const sig = await signed(msg, who); // (and what it signed is sent at once, with no wait between)
     tell("Sending…");
     const { r, out } = await hubJSON("/v1/msg", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ envelope: b64(env), sig: b64(sig) }) });
     if (r.ok) return out.id;
+    // (the clock and the gate below are the window's: they follow this
+    // answer only while the window is still this reply's account's)
     if (r.status === 429) {
-      until = Date.now() + (parseInt(r.headers.get("Retry-After"), 10) || (verdict && verdict.cooldown) || 60) * 1000;
+      if (me === who) until = Date.now() + (parseInt(r.headers.get("Retry-After"), 10) || (verdict && verdict.cooldown) || 60) * 1000;
       throw new Error("");
     }
-    if (r.status === 403) { await check(); if (verdict && verdict.gate === "below") throw new Error(""); }
+    if (r.status === 403 && me === who) { await check(); if (verdict && verdict.gate === "below") throw new Error(""); }
     if (r.status === 401) throw new Error("The hub could not verify the signature.");
     if (r.status === 409) throw new Error("Your reply may have landed already; reload to see, or press Reply again.");
     throw new Error(out.error || "HTTP " + r.status);
@@ -397,6 +438,7 @@
   send.addEventListener("click", async () => {
     const t = text.value.trim();
     if (!t || busy || !me) return;
+    const who = me; // the reply is this account's (mine)
     busy = true;
     render();
     try {
@@ -405,14 +447,15 @@
         tell("Checking the reply…");
         const { r } = await hubJSON("/v1/post/" + target.id);
         if (r.status === 404) throw new Error("That reply is gone. Clear it to answer the post instead.");
+        mine(who); // asking took a while
       }
-      await sendReply({ text: t, reply_to: to });
+      await sendReply({ text: t, reply_to: to }, who);
       text.value = "";
       clearTimeout(saving);
       store(DRAFT, null);
       target = null;
       reRow.hidden = true;
-      until = Date.now() + ((verdict && verdict.cooldown) || 0) * 1000;
+      if (me === who) until = Date.now() + ((verdict && verdict.cooldown) || 0) * 1000;
       done("Replied.");
     } catch (e) {
       tell(e.message);
