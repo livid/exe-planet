@@ -7,7 +7,7 @@ The Language setting (`zh-Hans`, the default; `zh-Hant`, `ja` or `en`) is the pa
 - the face: Noto Serif SC, TC or JP first on a Chinese or Japanese site, so full-width punctuation and the long dash come from the CJK face, and Noto Serif first on an English one, all from Google Fonts;
 - the words around the text (归档, 標籤, アーカイブ, Archive …), from the `w_*.html` modules;
 - the dates, written for that language by a small script at the end of each page;
-- CJK typography: justified text, strict line breaking, a thin space where a Han character meets a Latin letter or a figure, and emphasis as dots under the characters in Chinese (着重号) or sesame dots over them in Japanese. A paragraph written in Latin letters alone is set as English: Noto Serif, ragged right, real italics.
+- CJK typography: justified text, strict line breaking, a thin space where a Han character meets a Latin letter or a figure, and emphasis as dots under the characters in Chinese (着重号) or sesame dots over them in Japanese. A paragraph written in Latin letters alone is set as English: Noto Serif, ragged right, real italics. On an English site it is the other way round: a paragraph that is mostly Chinese or Japanese is set as that, in the CJK face at Medium, justified, with its emphasis as dots.
 
 It reads the same context as the Plain template, so it builds a paginated index, posts, pages, the archive by month, the tag list and tag pages.
 

@@ -19,15 +19,35 @@
       t.textContent = f === "num" ? d.getUTCFullYear() + "." + two(d.getUTCMonth() + 1) + "." + two(d.getUTCDate())
         : (f === "month" ? month : long).format(d);
     }
-    // On a Chinese or Japanese site, a block written in Latin letters
-    // alone is English as far as type goes: marked lang="en", it is set
-    // in Noto Serif, ragged right, with italics, instead of justified
-    // CJK rules that open rivers between its words.
-    if (/^en\b/.test(lang)) return;
-    const cjk = /[぀-ヿ㐀-鿿豈-﫿＀-￯]/, latin = /[A-Za-z]{2}/;
-    for (const el of document.querySelectorAll(".content :is(p, li, blockquote, h1, h2, h3, h4, th, td), .post-title, .list .t")) {
-      const s = el.textContent;
-      if (latin.test(s) && !cjk.test(s)) el.lang = "en";
+    // A block in another script than the site's is set as its own
+    // language. On a Chinese or Japanese site, a block written in Latin
+    // letters alone is English as far as type goes: marked lang="en", it
+    // is set in Noto Serif, ragged right, with italics, instead of
+    // justified CJK rules that open rivers between its words. On an
+    // English site it is the other way round: a block that is mostly
+    // Chinese or Japanese (more of those characters than Latin words, so
+    // a sentence that only names 宣纸 stays English) is marked lang="zh",
+    // or "ja" when a tenth of them are kana, and is set in the CJK face,
+    // Medium and justified, where the site's Regular draws a CJK face
+    // grey. An English block inside a marked one gets the site's
+    // language back, and a block the writer gave a lang keeps it.
+    const blocks = document.querySelectorAll(".content :is(p, li, blockquote, h1, h2, h3, h4, th, td), .post-title, .list .t");
+    if (!/^en\b/.test(lang)) {
+      const cjk = /[぀-ヿ㐀-鿿豈-﫿＀-￯]/, latin = /[A-Za-z]{2}/;
+      for (const el of blocks) {
+        const s = el.textContent;
+        if (latin.test(s) && !cjk.test(s)) el.lang = "en";
+      }
+      return;
+    }
+    const count = (s, re) => (s.match(re) || []).length, marked = new Set();
+    for (const el of blocks) {
+      if (el.hasAttribute("lang")) continue;
+      const s = el.textContent, kana = count(s, /[぀-ヿ]/g), han = count(s, /[㐀-鿿豈-﫿]/g);
+      if (kana + han > count(s, /[A-Za-z]+/g)) {
+        el.lang = kana * 10 >= kana + han ? "ja" : "zh";
+        marked.add(el);
+      } else if (marked.has(el.parentElement.closest("[lang]"))) el.lang = lang;
     }
   })();
 </script>

@@ -289,7 +289,18 @@ read off the string so no reader's zone moves it, as figures
 archive heading. The same script marks a block written in Latin letters
 alone `lang="en"` on a CJK site, so it sets in Noto Serif, ragged
 right, with italics, instead of justified with CJK rules (an English
-post on a Chinese site opened rivers). CJK typography: justified text,
+post on a Chinese site opened rivers). On an English site it marks the
+other way round (2026-10-06, Livid: "fix the same gap in the paper
+template", after the hub's frame got it in exe-hub 076ca7c): a block
+that is mostly Chinese or Japanese — more of those characters than
+Latin words, so a sentence that only names 宣纸 stays English — is
+`lang="zh"`, or `"ja"` when a tenth of them are kana, and is set in the
+CJK face first (SC, the one an English site loads; JP when the reader
+has it), Medium, justified, with the emphasis dots, where it had
+inherited the site's Regular in Noto Serif's fallback and slanted its
+emphasis. An English block inside a marked one gets the site's language
+back; a block the writer gave a `lang` keeps it; CJK sites are as they
+were. CJK typography: justified text,
 `line-break: strict`, `text-autospace` (never inside a date), emphasis
 as 着重号 under Chinese and sesame dots over Japanese, a quotation set
 in from both sides, a section break as three dots; figures in Noto

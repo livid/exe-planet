@@ -76,6 +76,14 @@ body {
    lang="en"): English type, whatever the site's language */
 .content :is(p, li, blockquote, h1, h2, h3, h4, th, td):lang(en), .post-title:lang(en), .list .t:lang(en) { font-family: "Noto Serif", var(--serif); }
 .content :is(p, li, blockquote, td):lang(en), .list .t:lang(en) { font-weight: 400; }
+/* and the other way round, a block in Chinese or Japanese on an English
+   site (the script marks it lang="zh", or "ja"): the CJK face first, so
+   its punctuation is full width, and Medium, since the site's Regular is
+   the setting a CJK face draws grey; justified and spaced as a CJK site
+   sets it, by the rules below that English no longer claims */
+:root:lang(en) .content :is(p, li, blockquote, h1, h2, h3, h4, th, td):lang(zh), :root:lang(en) .post-title:lang(zh), :root:lang(en) .list .t:lang(zh) { font-family: "Noto Serif SC", "Noto Serif", "Songti SC", "STSong", "SimSun", serif; }
+:root:lang(en) .content :is(p, li, blockquote, h1, h2, h3, h4, th, td):lang(ja), :root:lang(en) .post-title:lang(ja), :root:lang(en) .list .t:lang(ja) { font-family: "Noto Serif JP", "Noto Serif SC", "Noto Serif", "Hiragino Mincho ProN", "Yu Mincho", serif; }
+:root:lang(en) .content :is(p, li, blockquote, td):is(:lang(zh), :lang(ja)), :root:lang(en) .list .t:is(:lang(zh), :lang(ja)) { font-weight: 500; }
 /* figures: Noto Serif's, which has tabular ones, so a column of dates
    lines up; and no thin space between a figure and 年 or 月 inside one */
 .list .d, .pager .at, .tag-list .n, .date, .month h2 { font-family: "Noto Serif", var(--serif); font-variant-numeric: tabular-nums; text-autospace: no-autospace; }

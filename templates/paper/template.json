@@ -8,7 +8,7 @@
   "generateIndexPagination": true,
   "generateTagPages": true,
   "generateArchive": true,
-  "buildNumber": 3,
+  "buildNumber": 4,
   "settings": {
     "language": {
       "name": "Language",

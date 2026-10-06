@@ -135,6 +135,17 @@ func TestPaperTemplate(t *testing.T) {
 			t.Errorf("no %s in the build", f)
 		}
 	}
+	// a block in another script than the site's is set as its own
+	// language: the page script marks it either way round (Latin letters
+	// alone on a CJK site; mostly Chinese or Japanese on an English one),
+	// and the stylesheet gives the marked block its face and its weight
+	has("pm/index.html", post, `if (latin.test(s) && !cjk.test(s)) el.lang = "en";`,
+		`el.lang = kana * 10 >= kana + han ? "ja" : "zh";`, `else if (marked.has(el.parentElement.closest("[lang]"))) el.lang = lang;`)
+	has("assets/style.css", read("assets/style.css"),
+		`.content :is(p, li, blockquote, td):lang(en), .list .t:lang(en) { font-weight: 400; }`,
+		`:root:lang(en) .list .t:lang(zh) { font-family: "Noto Serif SC", "Noto Serif", "Songti SC", "STSong", "SimSun", serif; }`,
+		`:root:lang(en) .list .t:lang(ja) { font-family: "Noto Serif JP", "Noto Serif SC", "Noto Serif", "Hiragino Mincho ProN", "Yu Mincho", serif; }`,
+		`:root:lang(en) .content :is(p, li, blockquote, td):is(:lang(zh), :lang(ja)), :root:lang(en) .list .t:is(:lang(zh), :lang(ja)) { font-weight: 500; }`)
 
 	// the Language setting: the page's lang, the CJK face, the words
 	for _, c := range []struct{ lang, family, archive, tags, older, replies string }{
