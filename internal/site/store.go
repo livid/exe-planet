@@ -43,6 +43,8 @@ var (
 	ErrExists = errors.New("already exists")
 	// ErrInvalid is a request the store cannot act on, with a reason.
 	ErrInvalid = errors.New("invalid")
+	// ErrChanged: the thing is no longer what the caller saw.
+	ErrChanged = errors.New("changed")
 )
 
 // Social holds the handles Planet templates link to.
@@ -656,6 +658,30 @@ func (s *Store) SetPostHub(site, slug, kind, hub string) (*Post, error) {
 		return nil, err
 	}
 	return readPost(p.Dir, p.Kind, p.Slug), nil
+}
+
+// RewritePost hands a post's index.md, as the file has it, to edit and
+// writes back what edit returns when that differs: for a change smaller
+// than the document, which must leave every other byte alone (ticking a
+// to-do item is one byte). It is not an edit of the post's words:
+// modified stays, as when the Writer saves the file.
+func (s *Store) RewritePost(site, slug, kind string, edit func(data []byte) ([]byte, error)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, err := s.Post(site, slug, kind)
+	if err != nil {
+		return err
+	}
+	file := filepath.Join(p.Dir, "index.md")
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	out, err := edit(data)
+	if err != nil || bytes.Equal(out, data) {
+		return err
+	}
+	return os.WriteFile(file, out, 0o644)
 }
 
 // MovePost moves a post between kinds: drafts to posts publishes it.

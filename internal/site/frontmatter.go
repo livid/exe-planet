@@ -44,6 +44,28 @@ func ParseDate(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("invalid date %q", s)
 }
 
+// BodyOffset is where the body starts in index.md as the file has it:
+// after the front matter ParseDoc reads, 0 with none, -1 when it is not
+// closed. For a change made in place, where ParseDoc's text, with its
+// line endings made one, no longer counts in the file's own bytes.
+func BodyOffset(data []byte) int {
+	nl := "\n"
+	switch {
+	case bytes.HasPrefix(data, []byte("---\r\n")):
+		nl = "\r\n"
+	case !bytes.HasPrefix(data, []byte("---\n")):
+		return 0
+	}
+	start := 3 + len(nl)
+	if end := bytes.Index(data[start:], []byte(nl+"---"+nl)); end >= 0 {
+		return start + end + 2*len(nl) + 3
+	}
+	if bytes.HasSuffix(data[start:], []byte(nl+"---")) {
+		return len(data)
+	}
+	return -1
+}
+
 // ParseDoc splits index.md into its front matter and body. A file with no
 // front matter is all body with an empty Meta.
 func ParseDoc(data []byte) (Meta, string, error) {

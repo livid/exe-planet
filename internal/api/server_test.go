@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/livid/exe-planet/internal/service"
 	"github.com/livid/exe-planet/internal/site"
 )
 
@@ -242,6 +243,50 @@ func TestPostsAPI(t *testing.T) {
 	}
 	if code, _ := c.do("GET", "/v1/nothing", nil); code != 404 {
 		t.Fatalf("unknown route: %d", code)
+	}
+}
+
+// TestTodoAPI: POST …/posts/{post}/todo ticks an item in the post's
+// Markdown, answers 409 for a page behind its file and 404 for an item
+// that is not there, and writes nothing then.
+func TestTodoAPI(t *testing.T) {
+	root := t.TempDir()
+	store := site.New(filepath.Join(root, "Planet"))
+	if err := store.Init(); err != nil {
+		t.Fatal(err)
+	}
+	svc := service.New(store, filepath.Join(root, "state"), time.UTC)
+	s := &Server{Store: store, Builder: svc, Version: "test", Started: time.Now(), Generation: func() uint64 { return 7 }}
+	srv := httptest.NewServer(s.Handler())
+	t.Cleanup(srv.Close)
+	c := &client{t: t, srv: srv}
+	if _, err := store.CreateSite("notes", "Notes", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	p, err := store.CreatePost("notes", site.KindDraft, "week", site.Meta{Title: "Week"}, "- [ ] one\n- [x] two\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func() string { b, _ := os.ReadFile(filepath.Join(p.Dir, "index.md")); return string(b) }
+	code, out := c.do("POST", "/v1/sites/notes/posts/week/todo?kind=draft", map[string]any{"item": 1, "done": true, "was": "01"})
+	if code != 200 || out["item"] != float64(1) || out["done"] != true || !strings.Contains(read(), "- [x] one\n- [x] two") {
+		t.Fatalf("tick item 1: %d %v, %q", code, out, read())
+	}
+	now := read()
+	if code, out = c.do("POST", "/v1/sites/notes/posts/week/todo", map[string]any{"item": 2, "done": false, "was": "01"}); code != 409 || read() != now {
+		t.Errorf("a page behind its file: %d %v", code, out)
+	}
+	if code, _ = c.do("POST", "/v1/sites/notes/posts/week/todo", map[string]any{"item": 3, "done": true, "was": "11"}); code != 404 || read() != now {
+		t.Errorf("item 3 of 2: %d", code)
+	}
+	if code, _ = c.do("POST", "/v1/sites/notes/posts/week/todo?kind=post", map[string]any{"item": 1, "done": false}); code != 404 {
+		t.Errorf("the draft asked for as a post: %d", code)
+	}
+	if code, _ = c.do("POST", "/v1/sites/notes/posts/week/todo", map[string]any{"item": 1, "done": false, "words": "x"}); code != 400 {
+		t.Errorf("an unknown field: %d", code)
+	}
+	if code, _ = c.do("POST", "/v1/sites/notes/posts/week/todo", map[string]any{"item": 2, "done": false, "was": "11"}); code != 200 || !strings.Contains(read(), "- [x] one\n- [ ] two") {
+		t.Errorf("untick item 2: %d, %q", code, read())
 	}
 }
 

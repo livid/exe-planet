@@ -40,6 +40,7 @@ type Builder interface {
 	Publish(slug string) (service.NodeInfo, error)
 	Retire(ctx context.Context, slug, id string)
 	AnnouncePost(slug, post string) error
+	TickTodo(slug, post, kind string, item int, done bool, was string) error
 	LiftInvite(ctx context.Context, id string)
 	Export(slug string, w io.Writer) error
 	HostDir(host string) string
@@ -74,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/sites/{site}/posts/{post}", s.deletePost)
 	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/move", s.movePost)
 	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/announce", s.announcePost)
+	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/todo", s.tickTodo)
 	mux.HandleFunc("POST /v1/sites/{site}/posts/{post}/attachments", s.addAttachments)
 	mux.HandleFunc("GET /v1/sites/{site}/posts/{post}/attachments/{name}", s.getAttachment)
 	mux.HandleFunc("DELETE /v1/sites/{site}/posts/{post}/attachments/{name}", s.deleteAttachment)
@@ -200,6 +202,34 @@ func (s *Server) announcePost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "announcing"})
 }
 
+// tickTodo sets one to-do item of a post done or not done in its
+// Markdown, as ticked on the post's page in the Planet window:
+// POST /v1/sites/{site}/posts/{post}/todo {item, done, was}, with ?kind=
+// as the other post routes take it. item counts the bullets at the
+// margin with a box, from one; was is how the page showed every item
+// stand ("1" for done, in order), and a file that has moved on from that
+// answers 409 with nothing written.
+func (s *Server) tickTodo(w http.ResponseWriter, r *http.Request) {
+	if s.Builder == nil {
+		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
+		return
+	}
+	var req struct {
+		Item int    `json:"item"`
+		Done bool   `json:"done"`
+		Was  string `json:"was"`
+	}
+	if err := decode(r, &req); err != nil {
+		fail(w, err)
+		return
+	}
+	if err := s.Builder.TickTodo(r.PathValue("site"), r.PathValue("post"), r.URL.Query().Get("kind"), req.Item, req.Done, req.Was); err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"item": req.Item, "done": req.Done})
+}
+
 // publishSite sends the build to IPFS now: POST /v1/sites/{site}/publish.
 func (s *Server) publishSite(w http.ResponseWriter, r *http.Request) {
 	if s.Builder == nil {
@@ -249,7 +279,7 @@ func fail(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, site.ErrNotFound):
 		writeErr(w, http.StatusNotFound, err)
-	case errors.Is(err, site.ErrExists):
+	case errors.Is(err, site.ErrExists), errors.Is(err, site.ErrChanged):
 		writeErr(w, http.StatusConflict, err)
 	case errors.Is(err, site.ErrInvalid), errors.Is(err, site.ErrInvalidSlug), errors.Is(err, site.ErrReservedSlug):
 		writeErr(w, http.StatusBadRequest, err)

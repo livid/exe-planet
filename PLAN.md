@@ -369,8 +369,52 @@ words is still a link and the words still take a selection, which
 Sepia's `pointer-events: none` on the whole item loses. All of it sits
 under `@supports selector(li:has(> input))`; elsewhere the checkbox
 stays as it comes. On the web nothing listens and the marks are still.
-exe's own Planet app does not listen either yet: its page column would
-need the same handler and a route that flips the line (Later).
+
+exe's own Planet app listens as Planet does (2026-10-06, Livid: "wire
+the click in exe's planet app"). Every page the window's page column
+shows carries a second script beside the links' (`todoBridge`,
+internal/service): a click whose target id begins `todo-item-` flips
+that item's checkbox at once and posts `{exe: "page-todo", item, done,
+was}` to the window. `item` is the script's own count, not the id's
+number: the bullets at the margin with a checkbox of their own, from
+one, so Sepia's pages, which id other items too, are counted the same
+way and a click on one of those others does nothing. `was` is how every
+such item stood before the click, "1" for done. The window sends it on
+as `POST /v1/sites/{site}/posts/{post}/todo?kind=` and the daemon
+(`Service.TickTodo`) finds the item in the post's file with the parser
+the page was written with (`markdown.TodoItems`: the task items of the
+document's own unordered lists, each with the offset of the mark
+between its brackets), checks the file's items stand as `was` says, and
+changes that one byte; the watcher builds as after any edit. A file
+that has moved on from the page — edited elsewhere while the build was
+on its way — answers 409 and nothing is written: the window draws the
+page again from the build, so the tick comes off, and says nothing,
+since the build on its way brings what the file says; any other failure
+is an alert. The count is by structure, not by Planet's rule of lines
+opening `- [ ] `, so a `*` bullet, a capital `[X]` and a line inside a
+code block are right here where Planet's count goes astray.
+
+The build that follows a tick must not redraw what the frame already
+shows. The window keeps the page as it was given and how its items
+stand with the frame's ticks; a build's page that is the same but for
+what is ticked, and ticked as the frame is, is taken without touching
+the frame, and one that still lacks a tick made in the last ten seconds
+is waited out (it was built before the tick; the next one has it). A
+page that did change is drawn again where it was read to: the page says
+how far down it is (`scrollBridge`, `{exe: "page-scroll", y}`), and the
+window ends the new page with a line that scrolls there before it
+paints, so it never shows at its top first. Sepia stamps every build
+into its pages, so there the frame is always drawn again, in place.
+A link to a place in the page itself (a footnote) is now followed in
+the page: left to the sandboxed frame it went to `about:blank#…` and
+the page was gone (found by the test's link in a to-do item).
+`~/tools/playwright/exe-planet-app-todo-test.js` opens the live app on
+its own against a scratch daemon and clicks boxes in the page column on
+a Paper, a Platinum and a Sepia site: the tick, the request, the one
+byte, the frame left alone or put back in place, a page behind its file
+refused without a word, and the words, a link and a nested box doing
+nothing.
+
 `~/tools/playwright/exe-planet-todo-test.js` builds one post on a
 Platinum site and on Paper sites in Chinese and English and walks each
 in Chromium and in WebKit (Planet's view is a WKWebView) with Planet's

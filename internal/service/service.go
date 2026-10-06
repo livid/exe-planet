@@ -508,14 +508,81 @@ func (s *Service) ViewPath(slug, rel string) (string, error) {
 // linkBridge is the script a viewed page carries: in the Planet window's
 // sandboxed frame a relative link would resolve against the app's own
 // address, so every link is handed to the window around it instead,
-// which shows the page or picks the post.
-const linkBridge = `<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href")||"";if(!h||h.charAt(0)==="#")return;e.preventDefault();parent.postMessage({exe:"page-link",href:h,external:/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(h)},"*")},true)})()</script>`
+// which shows the page or picks the post. A link to a place in the page
+// itself (a footnote, "#fn:1") is followed here, by scrolling to it: left
+// to the frame it went to about:blank#fn:1, and the page was gone.
+const linkBridge = `<script>(function(){document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href")||"";if(!h)return;e.preventDefault();if(h.charAt(0)==="#"){try{var t=document.getElementById(decodeURIComponent(h.slice(1)));if(t)t.scrollIntoView()}catch(x){}return}parent.postMessage({exe:"page-link",href:h,external:/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(h)},"*")},true)})()</script>`
+
+// todoBridge is the Planet window's part of a template's to-do lists
+// (PLAN.md, To-do lists): what Planet's own article view does with a
+// click on an item the page ids todo-item-N. It ticks the item's
+// checkbox at once and tells the window around it which item that is,
+// what it is now, and how every item stood before (was), so the window
+// can have the line flipped in the post's Markdown, and the daemon can
+// tell a page that is behind its file. The count is its own, not the
+// id's: the bullets at the margin with a checkbox of their own, in
+// reading order, as markdown.TodoItems counts them in the source. A
+// template that ids other items (Sepia ids an item for a box nested
+// inside it) has those clicks answered by nothing.
+const todoBridge = `<script>(function(){var own=function(li){return li.querySelector(':scope > input[type="checkbox"], :scope > p:first-child > input[type="checkbox"]')};document.addEventListener("click",function(e){var li=e.target;if(!li||!li.id||li.id.indexOf("todo-item-")!==0)return;var items=[].filter.call(document.querySelectorAll("ul > li"),function(x){return own(x)&&!x.parentElement.closest("li, blockquote")});var k=items.indexOf(li);if(k<0)return;var was=items.map(function(x){return own(x).checked?"1":"0"}).join("");var box=own(li);box.checked=!box.checked;parent.postMessage({exe:"page-todo",item:k+1,done:box.checked,was:was},"*")},true)})()</script>`
+
+// scrollBridge tells the window how far down the page is read, so the
+// same page shown again after a build (a ticked item is one) can be put
+// back where it was: the frame is sandboxed, and the window cannot look.
+const scrollBridge = `<script>(function(){var t=0;addEventListener("scroll",function(){if(t)return;t=requestAnimationFrame(function(){t=0;parent.postMessage({exe:"page-scroll",y:Math.round(scrollY)},"*")})},{passive:true})})()</script>`
 
 func withLinkBridge(html string) string {
+	bridges := linkBridge + todoBridge + scrollBridge
 	if i := strings.LastIndex(html, "</body>"); i >= 0 {
-		return html[:i] + linkBridge + html[i:]
+		return html[:i] + bridges + html[i:]
 	}
-	return html + linkBridge
+	return html + bridges
+}
+
+// TickTodo sets one to-do item of a post done or not done in its
+// Markdown: item counts the bullets at the margin with a box, from one
+// (markdown.TodoItems), and was, when given, is how the caller saw every
+// item stand, "1" for done, in order. A file whose items stand otherwise
+// has moved on from the page the caller looked at: nothing is written
+// and the error is site.ErrChanged. One byte of the file changes, the
+// mark between the item's brackets; an item already as asked changes
+// nothing. The watcher builds the site from the changed file as it does
+// after any edit.
+func (s *Service) TickTodo(slug, postSlug, kind string, item int, done bool, was string) error {
+	return s.Store.RewritePost(slug, postSlug, kind, func(data []byte) ([]byte, error) {
+		off := site.BodyOffset(data)
+		if off < 0 {
+			return nil, fmt.Errorf("%w: front matter is not closed", site.ErrInvalid)
+		}
+		items := markdown.TodoItems(data[off:])
+		if was != "" {
+			var now strings.Builder
+			for _, it := range items {
+				if it.Done {
+					now.WriteByte('1')
+				} else {
+					now.WriteByte('0')
+				}
+			}
+			if now.String() != was {
+				return nil, fmt.Errorf("%w: the post's to-do items are not as the page shows them", site.ErrChanged)
+			}
+		}
+		if item < 1 || item > len(items) {
+			return nil, fmt.Errorf("%w: no to-do item %d", site.ErrNotFound, item)
+		}
+		it := items[item-1]
+		if it.Done == done {
+			return data, nil
+		}
+		out := append([]byte(nil), data...)
+		if done {
+			out[off+it.At] = 'x'
+		} else {
+			out[off+it.At] = ' '
+		}
+		return out, nil
+	})
 }
 
 // RenderPath renders a Markdown file's text for the Writer: a post under

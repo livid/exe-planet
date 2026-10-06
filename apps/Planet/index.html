@@ -498,11 +498,37 @@ const postPath = p => "Planet/" + site + "/" + KIND_DIR[p.kind] + "/" + p.slug +
 
 // ---- the page column: the built page with its resources folded in ----
 let pageSeq = 0, pagePath = "";
-function showPage(html, note) {
+// What the frame shows, which this window cannot look at (the frame is
+// sandboxed): whose page it is, the page as it was given, how far down
+// it is read (the page's own script says), and how its to-do items stand
+// now, with the ticks made in the frame since.
+const shown = { key: "", html: "", todo: "", y: 0 };
+let tickedAt = 0;
+// How a page's to-do items stand, "1" for done, in reading order: the
+// bullets at the margin with a checkbox of their own, as the viewed
+// page's script and the daemon count them.
+function todoOf(html) {
+  const own = li => li.querySelector(':scope > input[type="checkbox"], :scope > p:first-child > input[type="checkbox"]');
+  return [...new DOMParser().parseFromString(html, "text/html").querySelectorAll("ul > li")]
+    .filter(li => own(li) && !li.parentElement.closest("li, blockquote")).map(li => own(li).checked ? "1" : "0").join("");
+}
+// The page with every checkbox as not ticked: two builds of a post that
+// differ only in what is ticked are the same under this.
+const unticked = html => html.replace(/ checked=""/g, "");
+// y: the same page shown again is put back where it was read to, by a
+// line at the end of the page itself, so it never shows at its top first.
+function showPage(html, note, key, y) {
+  Object.assign(shown, { key: html && key || "", html: html || "", todo: html ? todoOf(html) : "", y: html && y || 0 });
+  if (html && y) {
+    const at = html.lastIndexOf("</body>"), line = "<script>scrollTo(0," + (y | 0) + ")<\/script>";
+    html = at >= 0 ? html.slice(0, at) + line + html.slice(at) : html + line;
+  }
   $("#pv").srcdoc = html || "";
   const n = $("#pvnote"); n.textContent = note || ""; n.style.display = note ? "block" : "none";
 }
-async function loadPage(retry) {
+// again: the frame is drawn afresh even when the page reads the same
+// (a tick the daemon refused has to come off).
+async function loadPage(retry, again) {
   const p = current();
   if (!p) { showPage(null, site ? (posts.length ? "" : "") : ""); return; }
   const seq = ++pageSeq;
@@ -516,7 +542,18 @@ async function loadPage(retry) {
     const html = await api("/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/view?" + q);
     if (seq !== pageSeq) return;
     pagePath = p.slug + "/index.html";
-    showPage(html);
+    // The same page as the frame shows, after a build. When it differs
+    // only in what is ticked, the frame is left alone: either it is the
+    // build that followed a tick made in the frame, which the frame
+    // shows already, or, just after such a tick, a build from before
+    // it, and the one with the tick is on its way. Otherwise it is
+    // drawn where it was read to.
+    const key = site + "/" + pagePath, same = key === shown.key;
+    if (same && !again && unticked(html) === unticked(shown.html)) {
+      if (todoOf(html) === shown.todo) { shown.html = html; return; }
+      if (Date.now() - tickedAt < 10000) return;
+    }
+    showPage(html, "", key, same ? shown.y : 0);
   } catch (e) {
     if (seq !== pageSeq) return;
     if (/not built/.test(e.message) && (retry || 0) < 10) {
@@ -538,7 +575,7 @@ async function loadSitePage(rel) {
     const html = await api("/sites/" + encodeURIComponent(site) + "/view?path=" + encodeURIComponent(rel));
     if (seq !== pageSeq) return;
     pagePath = rel;
-    showPage(html);
+    showPage(html, "", site + "/" + rel);
   } catch (e) {
     if (seq !== pageSeq) return;
     showPage(null, "No page: " + e.message);
@@ -560,6 +597,34 @@ function pageLink(href, external) {
     return;
   }
   loadSitePage(rel);
+}
+
+// A to-do item ticked in the page column: the viewed page's script has
+// flipped its box and says which item it is (counted from one among the
+// bullets at the margin), what it is now, and how every item stood
+// before. The post's Markdown follows: the daemon flips that item's
+// line, the watcher builds, and the build's page is what the frame
+// shows already (loadPage). Refused — the file has moved on from this
+// page, or the page is no post's — the tick comes off: the page is
+// drawn again from the build.
+async function tickTodo(d) {
+  const p = current(), item = d.item | 0, was = String(d.was || "");
+  if (!p || shown.key !== site + "/" + p.slug + "/index.html" || !/^[01]+$/.test(was) || item < 1 || item > was.length) {
+    if (p) loadPage(0, true); else if (pagePath) loadSitePage(pagePath);
+    return;
+  }
+  shown.todo = was.slice(0, item - 1) + (d.done ? "1" : "0") + was.slice(item);
+  tickedAt = Date.now();
+  const slug = site;
+  try {
+    await json("POST", "/sites/" + encodeURIComponent(slug) + "/posts/" + encodeURIComponent(p.slug) + "/todo?kind=" + encodeURIComponent(p.kind), { item, done: !!d.done, was });
+  } catch (e) {
+    if (slug !== site || current() !== p) return;
+    tickedAt = 0;
+    loadPage(0, true);
+    // (a page behind its file needs no words: the build on its way brings what the file says)
+    if (!/not as the page shows/.test(e.message)) alertBox("That item could not be ticked.", e.message);
+  }
 }
 
 // ---- the status line: the site's last build, polled while shown ----
@@ -1018,6 +1083,9 @@ let refreshTimer = null;
 window.addEventListener("message", e => {
   // the page column's frame has no origin: its links come first
   if (e.source === $("#pv").contentWindow && e.data && e.data.exe === "page-link") { pageLink(String(e.data.href || ""), !!e.data.external); return; }
+  // and its to-do items, and how far down it is read
+  if (e.source === $("#pv").contentWindow && e.data && e.data.exe === "page-todo") { tickTodo(e.data); return; }
+  if (e.source === $("#pv").contentWindow && e.data && e.data.exe === "page-scroll") { if (shown.html) shown.y = Math.max(0, e.data.y | 0); return; }
   if (e.origin !== location.origin || !e.data) return;
   if (e.data.exe === "workspace-changed" && typeof e.data.path === "string") {
     const parts = e.data.path.split("/");
