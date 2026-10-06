@@ -331,7 +331,12 @@ buildNumber is the commit count as Platinum's is) and bundled as the
 `swift test` passed with it in a Linux Swift 6.1 container (the
 package's `import os` stubbed in the throwaway copy). From here Paper
 ships as Platinum does: the repo first, rsynced back into
-`templates/paper`, then the submodule bump and tag.
+`templates/paper`, then the submodule bump and tag. In practice a change
+is made and proved here first, and its commit replayed onto the repo
+when Livid says push, one repo commit a buildNumber: the CJK blocks on
+an English site and the reply's account went out that way the same day
+(SiteTemplatePaper ffd5515 and a03c34a, buildNumber 4 and 5;
+PlanetSiteTemplates 86d6d22, tag 0.10.2).
 
 ### What parity taught, so it is not relearned
 
@@ -876,7 +881,10 @@ takes whole ids only, and the frame is built from it), in two places:
   PlanetSiteTemplates b16b0b6, tag 0.10.1), `swift test` passing in a
   Linux Swift 6.1 container with Paper beside it, then on the Mac (a
   throwaway clone of the tag), whose ~/Developer/PlanetSiteTemplates
-  is pulled to 0.10.1.
+  is pulled to 0.10.1. The reply's account and the hashed script
+  followed (SiteTemplatePlatinum b581c2e, buildNumber 10;
+  PlanetSiteTemplates 86d6d22, tag 0.10.2, with Paper's two), the Mac's
+  checkout pulled to it and its `swift test` passing there.
 
 ### Later
 
