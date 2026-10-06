@@ -81,6 +81,31 @@ h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
 .content th, .content td { border: 1px solid var(--cell); padding: 3px 6px; text-align: left; vertical-align: top; }
 .content th { background: var(--head); font-weight: bold; white-space: nowrap; }
 .content input[type=checkbox] { vertical-align: -1px; }
+/* A to-do item ("- [ ] words"), as the Sepia template has them: the
+   checkbox is hidden and the item draws its own in the bullet's place,
+   the desk's OS 9 check box (the Todo app's, copied): a 12px white
+   square, black border, sunken bevel, the pixel check once done, 6px off
+   its words; the done words are struck through in grey, as the desk and
+   the hub strike theirs. A numbered item keeps its number and takes the
+   box inside. Only where the browser can ask an item what it holds
+   (:has); elsewhere the checkbox stays as it comes. */
+@supports selector(li:has(> input)) {
+  .content li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { position: relative; }
+  .content ul > li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { list-style: none; }
+  .content ol > li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { padding-left: 18px; }
+  .content li > input[type=checkbox], .content li > p:first-child > input[type=checkbox]:first-child { display: none; }
+  .content li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child))::before { content: ""; box-sizing: border-box; position: absolute; left: -18px; top: 3px; width: 12px; height: 12px;
+    border: 1px solid var(--black); background: #fff center no-repeat; box-shadow: inset 1px 1px 0 var(--g500), inset -1px -1px 0 #fff; }
+  .content ol > li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child))::before { left: 0; }
+  .content li:is(:has(> input[type=checkbox]:checked), :has(> p:first-child > input[type=checkbox]:first-child:checked))::before { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" shape-rendering="crispEdges"><path fill="black" d="M1 3h1v2h-1z M2 4h1v2h-1z M3 5h1v2h-1z M4 4h1v2h-1z M5 3h1v2h-1z M6 2h1v2h-1z M7 1h1v2h-1z M8 0h1v2h-1z"/></svg>'); }
+  .content li > input[type=checkbox]:checked + .todo-words, .content li > input[type=checkbox]:checked + p { color: #777; text-decoration: line-through; }
+  /* An item the page script numbered (todo-item-N) can be ticked by the
+     app showing the page. Only its box takes a click, and the click is
+     then the item's own: its words, a link among them and a list inside
+     it keep theirs. */
+  .content li[id^="todo-item-"] { pointer-events: none; }
+  .content li[id^="todo-item-"] > *, .content li[id^="todo-item-"]::before { pointer-events: auto; }
+}
 .video-container, .audio-container { margin: 0 0 8px; }
 .video-container video, .audio-container audio { display: block; width: 100%; }
 .tags { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 12px 0 0; font-size: 11px; }

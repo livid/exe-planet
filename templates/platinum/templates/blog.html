@@ -31,6 +31,7 @@
   <div class="tags"><span class="quiet">Tags</span>{% for tag in article.tags %}<a href="{{ assets_prefix }}{{ tag }}.html" class="tag">{{ article.tags[tag]|escape }}</a>{% endfor %}</div>
   {% endif %}
 </div>
+{% include 'modules/todo.html' %}
 {% endblock %}
 {% block status %}
 <span><a href="../">{{ planet.name|escape }}</a></span>

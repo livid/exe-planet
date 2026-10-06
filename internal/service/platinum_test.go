@@ -30,7 +30,7 @@ func TestPlatinumTemplate(t *testing.T) {
 		}
 		body := "Body of post " + string(rune('A'+i-1)) + ".\n"
 		if i == 12 {
-			body = "# Hello\n\nA *first* line with `code`.\n\n```sh\n$ exe serve\n```\n\n![shot](shot.png)\n\n- one\n- two\n"
+			body = "# Hello\n\nA *first* line with `code`.\n\n```sh\n$ exe serve\n```\n\n![shot](shot.png)\n\n- one\n- two\n\nThen:\n\n- [x] done\n- [ ] to do\n"
 		}
 		if _, err := store.CreatePost("exe", site.KindPost, "post-"+strings.ToLower(string(rune('A'+i-1))), m, body); err != nil {
 			t.Fatal(err)
@@ -80,6 +80,18 @@ func TestPlatinumTemplate(t *testing.T) {
 	page2 := read("page2.html")
 	has("page2.html", page2, `page 2 of 2`, `<a href="./page1.html">Newer</a>`, `href="./post-a/">Post A</a>`)
 	post := read("post-l/index.html")
+	// a to-do list: the checkboxes as the Markdown writes them, the script
+	// that numbers the items for the app showing the page, and the
+	// stylesheet's own box in the checkbox's place
+	has("post-l/index.html", post, `<li><input type="checkbox" checked="" disabled="" /> done</li>`, `<li><input type="checkbox" disabled="" /> to do</li>`,
+		`li.id = "todo-item-" + (++n);`, `if (li.parentElement.matches(".content > ul"))`)
+	has("assets/style.css", read("assets/style.css"), `@supports selector(li:has(> input)) {`,
+		`.content li[id^="todo-item-"] { pointer-events: none; }`, `.content li[id^="todo-item-"] > *, .content li[id^="todo-item-"]::before { pointer-events: auto; }`,
+		`box-shadow: inset 1px 1px 0 var(--g500), inset -1px -1px 0 #fff; }`, `shape-rendering="crispEdges"`,
+		`.content li > input[type=checkbox]:checked + .todo-words, .content li > input[type=checkbox]:checked + p { color: #777; text-decoration: line-through; }`)
+	if strings.Contains(read("index.html"), "todo-item-") {
+		t.Error("the index numbers to-do items: only a post's own page does")
+	}
 	has("post-l/index.html", post,
 		`<div class="title">Post L</div>`, `<a href="../">exe</a></span><svg class="sep"`, `<b>Post L</b>`,
 		`<h1 class="post-title">Post L</h1>`, `<div class="date">Sep 13, 2026`,

@@ -25,6 +25,8 @@
        verticals can carry the ink and at Regular the page reads grey;
        Regular in Latin letters, whose stems need no help */
     --weight: 500;
+    /* the tick of a done to-do item, drawn in the ink */
+    --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='18' fill='none' stroke='%2322211f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 10.6l3.6 4.1c2.6-5.6 5.4-9.4 9.4-12.6'/%3E%3C/svg%3E");
     color-scheme: light dark;
 }
 :root:lang(zh-Hant) { --serif: "Noto Serif TC", "Noto Serif", "Songti TC", "PMingLiU", serif; }
@@ -42,6 +44,7 @@
         --wash: rgba(221, 218, 211, .06);
         --field: rgba(0, 0, 0, .2);
         --idn: #3a3a48;
+        --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='18' fill='none' stroke='%23dddad3' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 10.6l3.6 4.1c2.6-5.6 5.4-9.4 9.4-12.6'/%3E%3C/svg%3E");
         --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeColorMatrix values='2.2 0 0 0 -.6 0 2.2 0 0 -.6 0 0 2.2 0 -.6 0 0 0 0 .07'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)'/%3E%3C/svg%3E");
     }
 }
@@ -230,6 +233,30 @@ a.t:hover { text-decoration: underline; text-decoration-thickness: 1px; text-und
 .content th, .content td { padding: .45em 1.2em .45em 0; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
 .content th { font-weight: 700; }
 .content input[type=checkbox] { vertical-align: -1px; }
+/* A to-do item ("- [ ] words"), as the Sepia template has them: the
+   checkbox is hidden and the item draws its own in the bullet's place,
+   a hairline box on the middle of its first line; once done, a tick
+   goes through it in ink and past its corner, as a pen leaves one, and
+   the words step back to the quiet ink. A numbered item keeps its number
+   and takes the box inside. Only where the browser can ask an item what
+   it holds (:has); elsewhere the checkbox stays as it comes. */
+@supports selector(li:has(> input)) {
+  .content li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { position: relative; --at: calc(.95em - 5px); }
+  .content li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)):lang(en) { --at: calc(.95em - 5.5px); }
+  :root:lang(en) .content li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { --at: calc(.85em - 5.5px); }
+  .content ul > li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { list-style: none; --left: calc(-13px - .5em); }
+  .content ol > li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child)) { padding-left: calc(16px + .5em); --left: 3px; }
+  .content li > input[type=checkbox], .content li > p:first-child > input[type=checkbox]:first-child { display: none; }
+  .content li:is(:has(> input[type=checkbox]), :has(> p:first-child > input[type=checkbox]:first-child))::before { content: ""; box-sizing: border-box; position: absolute; left: var(--left); top: var(--at); width: 13px; height: 13px; border: 1px solid var(--quiet); }
+  .content li:is(:has(> input[type=checkbox]:checked), :has(> p:first-child > input[type=checkbox]:first-child:checked))::after { content: ""; position: absolute; left: calc(var(--left) - 3px); top: calc(var(--at) - 5px); width: 20px; height: 18px; background: var(--tick) no-repeat; pointer-events: none; }
+  .content li > input[type=checkbox]:checked + .todo-words, .content li > input[type=checkbox]:checked + p { color: var(--quiet); }
+  /* An item the page script numbered (todo-item-N) can be ticked by the
+     app showing the page. Only its box takes a click, and the click is
+     then the item's own: its words, a link among them and a list inside
+     it keep theirs. */
+  .content li[id^="todo-item-"] { pointer-events: none; }
+  .content li[id^="todo-item-"] > *, .content li[id^="todo-item-"]::before { pointer-events: auto; }
+}
 .content sup { line-height: 0; }
 .content sup a, .content .footnote-backref { text-decoration: none; color: var(--quiet); }
 .content .footnotes { margin: 3.5em 0 0; font-size: .8rem; line-height: 1.8; color: var(--quiet); }

@@ -32,7 +32,7 @@ func TestPaperTemplate(t *testing.T) {
 		if i == 13 {
 			m.Title, m.Tags = "荷塘月色", []string{"散文", "Zhu Ziqing"}
 			body = "这几天心里颇不宁静。今晚在院子里坐着乘凉，忽然想起日日走过的荷塘，在这满月的光里，总该另有一番样子吧。\n\n" +
-				"> 采莲南塘秋，莲花过人头。\n\n我*忽然*想起采莲的事情来了。[^1]\n\n---\n\n## 二\n\n`code`\n\n[^1]: 《西洲曲》。\n"
+				"> 采莲南塘秋，莲花过人头。\n\n我*忽然*想起采莲的事情来了。[^1]\n\n---\n\n## 二\n\n`code`\n\n- [x] 读完\n- [ ] 抄一遍\n\n[^1]: 《西洲曲》。\n"
 		}
 		if _, err := store.CreatePost("wen", site.KindPost, "p"+string(rune('a'+i-1)), m, body); err != nil {
 			t.Fatal(err)
@@ -105,6 +105,16 @@ func TestPaperTemplate(t *testing.T) {
 		`<a href="../散文.html"><span class="hash">#</span>`+e("散文")+`</a>`, `<a href="../zhu-ziqing.html"><span class="hash">#</span>Zhu Ziqing</a>`,
 		`<meta property="og:type" content="article" />`)
 	lacks("pm/index.html", post, `id="compose"`, `replies.js`)
+	// a to-do list: the checkboxes as the Markdown writes them, the script
+	// that numbers the items for the app showing the page, and the
+	// stylesheet's own box in the checkbox's place
+	has("pm/index.html", post, `<li><input type="checkbox" checked="" disabled="" /> 读完</li>`, `<li><input type="checkbox" disabled="" /> 抄一遍</li>`,
+		`li.id = "todo-item-" + (++n);`, `if (li.parentElement.matches(".content > ul"))`)
+	has("assets/style.css", read("assets/style.css"), `@supports selector(li:has(> input)) {`,
+		`.content li[id^="todo-item-"] { pointer-events: none; }`, `.content li[id^="todo-item-"] > *, .content li[id^="todo-item-"]::before { pointer-events: auto; }`,
+		`width: 13px; height: 13px; border: 1px solid var(--quiet); }`, `background: var(--tick) no-repeat; pointer-events: none; }`,
+		`.content li > input[type=checkbox]:checked + .todo-words, .content li > input[type=checkbox]:checked + p { color: var(--quiet); }`)
+	lacks("index.html", index, "todo-item-")
 	about := read("about/index.html")
 	has("about/index.html", about, `<h1 class="post-title">`+e("关于")+`</h1>`)
 	lacks("about/index.html", about, `<p class="date">`)

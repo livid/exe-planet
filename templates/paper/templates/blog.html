@@ -29,5 +29,6 @@
   <p class="tags">{% for tag in article.tags %}<a href="{{ assets_prefix }}{{ tag }}.html"><span class="hash">#</span>{{ article.tags[tag]|escape }}</a>{% endfor %}</p>
   {% endif %}
 </article>
+{% include 'modules/todo.html' %}
 {% if hub_thread %}{% include 'modules/replies.html' %}{% endif %}
 {% endblock %}

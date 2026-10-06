@@ -338,6 +338,48 @@ an English site and the reply's account went out that way the same day
 (SiteTemplatePaper ffd5515 and a03c34a, buildNumber 4 and 5;
 PlanetSiteTemplates 86d6d22, tag 0.10.2).
 
+**To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
+has a sophisticated impl for displaying and interact markdown todo list,
+port its core functionality to paper and platinum"). Sepia's is two
+halves. The template hides each `- [ ] words` item's checkbox, draws its
+own mark in front of the item, and on a post's page gives the item the id
+`todo-item-N`, counted from one in reading order, with only the mark
+taking a click (`pointer-events`). The Planet app, in its article view,
+injects a click handler: a click whose target id begins `todo-item-`
+flips `#id > input[type=checkbox]` and tells the app, which flips the
+N-th line of the Markdown that opens `- [ ] ` or `- [x] `, saves and
+rebuilds. Both templates now carry the template half, in
+`modules/todo.html` (the same script in each, included by `blog.html`
+after the post) and their stylesheets, each in its own hand: Platinum
+the desk's OS 9 check box (the Todo app's, copied: 12px, black border,
+sunken bevel, the crisp pixel check) with the done words struck in grey;
+Paper a 13px hairline box on the middle of the first line, a pen's tick
+in ink through it and past its corner once done, the done words in the
+quiet ink. The box stands in the bullet's place; a numbered item keeps
+its number and takes the box inside. Where it departs from Sepia, on
+purpose: an item's own checkbox decides (`li:has(> input)`), so a bullet
+that only holds to-do items below it draws no mark of its own; the ids
+go to the items Planet's count sees — bullets at the margin
+(`.content > ul`) — so a nested, numbered or quoted item never ticks the
+wrong line, it is simply not ticked from the page; a list with blank
+lines between its items has its checkbox moved out of the paragraph to
+be the item's first child, where Planet looks; and the item's words go
+in a span and every child keeps its pointer events, so a link among the
+words is still a link and the words still take a selection, which
+Sepia's `pointer-events: none` on the whole item loses. All of it sits
+under `@supports selector(li:has(> input))`; elsewhere the checkbox
+stays as it comes. On the web nothing listens and the marks are still.
+exe's own Planet app does not listen either yet: its page column would
+need the same handler and a route that flips the line (Later).
+`~/tools/playwright/exe-planet-todo-test.js` builds one post on a
+Platinum site and on Paper sites in Chinese and English and walks each
+in Chromium and in WebKit (Planet's view is a WKWebView) with Planet's
+own click script read out of `/www/planet` and its `toggleToDoItem`
+run over the Markdown: the marks, the ids, a click on a box naming its
+item and flipping its own line, and a click on the words, a link, a
+nested or a numbered box doing nothing. Paper buildNumber 6, Platinum
+11.
+
 ### What parity taught, so it is not relearned
 
 - Stencil splits a tag into components with `smartSplit` and

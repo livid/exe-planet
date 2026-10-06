@@ -1,0 +1,34 @@
+<script>
+  // To-do lists ("- [ ] words"), as the Sepia template has them. The
+  // stylesheet draws each item's box in place of its checkbox; this
+  // gives the app that shows the page what it needs to tick one. An
+  // item the Markdown writes as a bullet at the margin gets the id
+  // todo-item-N, counted from one in reading order: Planet finds the
+  // line to flip by that count ("- [ ] " or "- [x] " opening a line), so
+  // an item inside another item, a numbered one and one in a quotation
+  // get no id and are not ticked from the page. The checkbox is made the
+  // item's first child, where Planet looks for it (a list with blank
+  // lines between its items has it inside a paragraph), and the item's
+  // own words go in a span: the stylesheet lets the box alone take a
+  // click, which then reaches the item itself and names it, while the
+  // words, a link among them and a list inside it stay as they are. On
+  // the web nothing listens, and the page reads as it is.
+  (() => {
+    const block = /^(UL|OL|P|PRE|BLOCKQUOTE|TABLE|DIV|H[1-6]|HR|DL|FIGURE|DETAILS)$/;
+    let n = 0;
+    for (const box of document.querySelectorAll('.content li > input[type="checkbox"], .content li > p:first-child > input[type="checkbox"]:first-child')) {
+      const li = box.closest("li");
+      if (box.parentElement !== li) li.prepend(box);
+      const words = document.createElement("span");
+      words.className = "todo-words";
+      for (let node = box.nextSibling; node && !(node.nodeType === 1 && block.test(node.tagName));) {
+        const next = node.nextSibling;
+        words.append(node);
+        node = next;
+      }
+      if (words.textContent.trim() || words.children.length) box.after(words);
+      else box.after(...words.childNodes);
+      if (li.parentElement.matches(".content > ul")) li.id = "todo-item-" + (++n);
+    }
+  })();
+</script>

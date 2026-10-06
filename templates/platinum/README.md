@@ -6,6 +6,8 @@ It comes from [exe](https://exe.v2core.com/), whose desktop, homepage and hub we
 
 `assets/rss.xsl` styles the feed for a browser: exe's Planet writes the `xml-stylesheet` line into `rss.xml` for a template that ships this file, and a browser that still transforms XSLT draws the feed as one more window. The Planet app does not write that line, and a feed reader never sees the stylesheet either way.
 
+A to-do list (`- [ ] words`) is drawn as the Sepia template draws one, in Platinum's hand: the OS 9 check box in the bullet's place, the pixel check once done, the done words struck through in grey. On a post's page each item written as a bullet at the margin is `todo-item-N`, so the Planet app can tick it from the page as it does in Sepia; only the box takes the click.
+
 A post can carry its replies from an [exe hub](https://github.com/livid/exe-hub): when exe's Planet has announced the post on a hub, the post's page gets a Reply window and, under it, a Replies window framing the hub's own replies page for that post, which draws the rows live and in the reader's language. The reader answers in the Reply window with a Solana wallet, which signs a hub message and never a transaction; `assets/replies.js` is that composer, and it runs only on such a page. The Planet app never announces a post, so on a site it builds these windows never appear.
 
 The first site to wear it is [blog.v2core.com](https://blog.v2core.com/).
