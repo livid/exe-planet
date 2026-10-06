@@ -422,7 +422,9 @@ own click script read out of `/www/planet` and its `toggleToDoItem`
 run over the Markdown: the marks, the ids, a click on a box naming its
 item and flipping its own line, and a click on the words, a link, a
 nested or a numbered box doing nothing. Paper buildNumber 6, Platinum
-11.
+11, pushed on Livid's word the same day (SiteTemplatePaper 703f3f6,
+SiteTemplatePlatinum fe9fa9b, PlanetSiteTemplates c181017, tag 0.10.3;
+the Mac's checkout pulled to it, `swift test` passing there).
 
 ### What parity taught, so it is not relearned
 
