@@ -311,9 +311,16 @@ itself; a fix to one copy goes to the other. `TestPaperTemplate` and
 scratch daemons (words in Chinese, the gate, a live reply, an English
 answer, a reply to it, the held height, DPR 1, 1.5, 2, dark and a
 phone); PlanetSiteTemplates' `swift test` passed with `paper` in its
-Resources on the Mac (2026-09-28, a throwaway clone). Not yet its own
-repo (SiteTemplatePaper) nor a PlanetSiteTemplates submodule: that
-publishing is Livid's word.
+Resources on the Mac (2026-09-28, a throwaway clone). Published
+2026-10-06 on Livid's word as
+[Planetable/SiteTemplatePaper](https://github.com/Planetable/SiteTemplatePaper)
+(its history is this folder's three commits, buildNumber 1 to 3, so
+buildNumber is the commit count as Platinum's is) and bundled as the
+`paper` submodule of PlanetSiteTemplates (5d359b0, tag 0.10.0), whose
+`swift test` passed with it in a Linux Swift 6.1 container (the
+package's `import os` stubbed in the throwaway copy). From here Paper
+ships as Platinum does: the repo first, rsynced back into
+`templates/paper`, then the submodule bump and tag.
 
 ### What parity taught, so it is not relearned
 
