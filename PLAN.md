@@ -750,9 +750,26 @@ takes whole ids only, and the frame is built from it), in two places:
     origin; a page shown sandboxed (the Planet app's page column, an
     opaque origin) also hears its frame's "null", since every frame inside
     a sandboxed one is opaque too.
+  - Signing in follows the hub's own pages, ported 2026-10-06 (exe-hub
+    a9c65e2, 29311cc, 41fff4f; Livid: "port to both"). A wallet signed
+    in on an earlier visit is asked nothing while the page is read: the
+    remembered address is the account, so the gate is checked and the
+    who row drawn with no wallet call, and the wallet is first asked at
+    the first reply to sign — silently, then aloud if that brings
+    nothing; one back on another account signs nothing, the window turns
+    to that account and says so. The who row of a returning wallet is
+    drawn by a script right after its markup from the name, id and
+    picture the gate last gave (one look from the first paint, not "…",
+    the short address, then the name). Sign Out leaves a mark
+    (`exe-hub-signed-out`) and the next Sign in asks for a signature —
+    Sign In With Solana where the wallet has it, else a connect and a
+    "Sign in to <host>" message that never begins `exe-hub:v1` — since a
+    wallet that still trusts the site (Glow) connects again without a
+    prompt. The flow is the hub's: a fix there comes to both copies.
   - localStorage keeps the wallet's name and address (`exe-hub-wallet`,
-    as the hub's pages do) and the unsent draft per post, every access in
-    try/catch; nothing else. The draft is the words and the reply they
+    as the hub's pages do, with the hub id and the profile's name and
+    picture once the gate answers), the Sign Out mark, and the unsent
+    draft per post, every access in try/catch; nothing else. The draft is the words and the reply they
     answer, together (`{v: 1, text, reply_to}` under
     `exe-hub-draft:<root>`), so a reload brings the "Replying to" row
     back with the text, and a sign-out leaves the aim alone: it is the

@@ -16,9 +16,12 @@
 // "exe-hub:v1\n" and the envelope, one popup a reply — and the hub's gate
 // checks that same address holds its token. There is no session and no
 // cookie; the page remembers which wallet signed in (its name and
-// address, nothing secret) and asks it again, silently, on the next
-// visit. Only ever a message signature, never a transaction. The code
-// is this template's, fixed with each build; the hub serves none of it.
+// address, nothing secret) and on the next visit is signed in as that
+// address, the wallet asked again only at the next reply to sign. Only
+// ever a message signature, never a transaction. The code is this
+// template's, fixed with each build; the hub serves none of it. The
+// sign-in follows the hub's own pages (exe-hub's PLAN.md, Posting from a
+// wallet): a fix to the flow there comes here too.
 (() => {
   // ---- the words, in the site's four languages ----
   const WORDS = {
@@ -39,6 +42,9 @@
       choose: "Choose a wallet:", cancel: "Cancel", clear: "Answer the post instead",
       checkingReply: "Checking the reply…", gone: "That reply is gone. Clear it to answer the post instead.",
       replied: "Replied.", nowallet: "Replying needs a Solana wallet in this browser.",
+      switched: "Your wallet is on another account now, shown above. Nothing was signed; try again as that account, or switch back in the wallet.",
+      signinTitle: host => "Sign in to " + host,
+      signinStmt: "You signed out here before. This signature only shows it is you again: it is not sent anywhere, and it is not a transaction.",
     },
     "zh-Hans": {
       checking: "正在查询这个地址……", banned: "这把密钥已被禁止在 hub 发帖。",
@@ -57,6 +63,9 @@
       choose: "选择钱包：", cancel: "取消", clear: "改为回复文章",
       checkingReply: "正在核对那条回复……", gone: "那条回复已被删除。清除后可直接回复文章。",
       replied: "已回复。", nowallet: "回复需要这个浏览器里有 Solana 钱包。",
+      switched: "钱包现在是另一个账户，已显示在上面。什么都没有签名；用这个账户再试一次，或在钱包里切换回去。",
+      signinTitle: host => "登录 " + host,
+      signinStmt: "你之前在这里退出过登录。这个签名只是确认又是你本人：它不会被发送到任何地方，也不是交易。",
     },
     "zh-Hant": {
       checking: "正在查詢這個地址……", banned: "這把金鑰已被禁止在 hub 發文。",
@@ -75,6 +84,9 @@
       choose: "選擇錢包：", cancel: "取消", clear: "改為回覆文章",
       checkingReply: "正在核對那則回覆……", gone: "那則回覆已被刪除。清除後可直接回覆文章。",
       replied: "已回覆。", nowallet: "回覆需要這個瀏覽器裡有 Solana 錢包。",
+      switched: "錢包現在是另一個帳戶，已顯示在上面。什麼都沒有簽名；用這個帳戶再試一次，或在錢包裡切換回去。",
+      signinTitle: host => "登入 " + host,
+      signinStmt: "你之前在這裡登出過。這個簽名只是確認又是你本人：它不會被傳送到任何地方，也不是交易。",
     },
     ja: {
       checking: "このアドレスを確認しています…", banned: "この鍵は hub への投稿を禁止されています。",
@@ -93,6 +105,9 @@
       choose: "ウォレットを選択：", cancel: "キャンセル", clear: "記事に返信する",
       checkingReply: "返信先を確認しています…", gone: "返信先は削除されました。クリアすると記事に返信できます。",
       replied: "返信しました。", nowallet: "返信するには、このブラウザに Solana ウォレットが必要です。",
+      switched: "ウォレットは別のアカウントに切り替わっています（上に表示）。何も署名していません。そのアカウントでもう一度試すか、ウォレットで元に戻してください。",
+      signinTitle: host => host + " にサインイン",
+      signinStmt: "以前ここでサインアウトしました。この署名はあなた本人であることを確かめるだけのもので、どこにも送信されず、トランザクションでもありません。",
     },
   };
 
@@ -160,7 +175,8 @@
   // wallets announce themselves as the page starts; give them a moment
   const found = new Promise(res => setTimeout(res, 300)).then(() => wallets.length ? wallets : [legacy()].filter(Boolean));
 
-  // connect → { wallet, name, address, pub, sign(message bytes) → signature bytes }
+  // connect → { wallet, name, address, pub, sign(message bytes) → signature bytes, live }
+  // live: the wallet itself handed this account over on this visit
   const solanaAccount = accounts => (accounts || []).find(a => (a.chains || []).some(c => c.startsWith("solana:"))) || (accounts || [])[0];
   async function connect(w, silent) {
     if (w.legacy) {
@@ -168,18 +184,54 @@
       const r = await p.connect(silent ? { onlyIfTrusted: true } : undefined);
       const pk = (r && r.publicKey) || p.publicKey;
       if (!pk) throw new Error("no account");
-      return { wallet: w, name: w.name, address: pk.toBase58(), pub: new Uint8Array(pk.toBytes()),
+      return { wallet: w, name: w.name, address: pk.toBase58(), pub: new Uint8Array(pk.toBytes()), live: true,
         sign: async m => { const r = await p.signMessage(m, "utf8"); return new Uint8Array(r.signature || r); } };
     }
     const { accounts } = await w.features["standard:connect"].connect(silent ? { silent: true } : undefined);
     const a = solanaAccount(accounts);
     if (!a) throw new Error("no account");
-    return { wallet: w, name: w.name, address: a.address, pub: new Uint8Array(a.publicKey),
-      sign: async m => {
-        const [out] = await w.features["solana:signMessage"].signMessage({ account: a, message: m });
-        if (out.signedMessage && !same(out.signedMessage, m)) throw new Error("changed");
-        return new Uint8Array(out.signature);
+    return bind(w, a);
+  }
+  const bind = (w, a) => ({ wallet: w, name: w.name, address: a.address, pub: new Uint8Array(a.publicKey), live: true,
+    sign: async m => {
+      const [out] = await w.features["solana:signMessage"].signMessage({ account: a, message: m });
+      if (out.signedMessage && !same(out.signedMessage, m)) throw new Error("changed");
+      return new Uint8Array(out.signature);
+    } });
+  // A wallet that signed in on an earlier visit is asked nothing while
+  // the page is read: a silent connect is a hint a wallet may not take
+  // (Glow in Safari put up its connect prompt now and then on a page
+  // opened only to read). The address the page remembers is the account:
+  // the gate is checked and the name drawn from it with no wallet at all.
+  // The wallet is first asked at the first reply to sign — silently, then
+  // aloud if that brings nothing, a press being when a prompt is looked
+  // for — and a wallet that answers with another account signs nothing:
+  // the window turns to that account and says so, and the next press is
+  // that account's.
+  const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  function unb58(s) {
+    let n = 0n;
+    for (const c of s) { const i = B58.indexOf(c); if (i < 0) return null; n = n * 58n + BigInt(i); }
+    const out = [];
+    for (; n > 0n; n >>= 8n) out.unshift(Number(n & 255n));
+    for (const c of s) { if (c !== "1") break; out.unshift(0); }
+    return new Uint8Array(out);
+  }
+  function resume(w, saved) {
+    const pub = typeof saved.address === "string" && unb58(saved.address);
+    if (!pub || pub.length !== 32) return null;
+    let live = null;
+    const m = { wallet: w, name: w.name, address: saved.address, pub, live: false,
+      sign: async msg => {
+        if (!live) {
+          const got = await connect(w, true).catch(() => null) || await connect(w, false);
+          if (got.address !== m.address) throw Object.assign(new Error("switched"), { account: got });
+          live = got;
+          m.live = true;
+        }
+        return live.sign(msg);
       } };
+    return m;
   }
 
   // ---- state ----
@@ -227,6 +279,12 @@
       verdict = out;
       until = Date.now() + (out.wait || 0) * 1000;
       const prof = p.r.ok ? p.out : null;
+      // with the hub id, the profile's name and picture, which the next
+      // visit's who line is drawn from as the page is parsed (the script
+      // after it in modules/replies.html), so it shows them from the
+      // first paint
+      remember({ name: me.name, address: me.address, id: out.profile,
+        pname: prof && prof.name || "", ava: prof && prof.avatar || "" });
       q(".id").textContent = out.profile;
       q(".id").title = me.address;
       q(".name").textContent = prof && prof.name ? prof.name : W.noname;
@@ -241,22 +299,56 @@
     }
   }
 
-  async function start(w, silent) {
+  // Sign in with Solana, pressed. A wallet that still trusts this site
+  // connects without a word, even after Sign Out — which forgets the
+  // wallet here and asks it to disconnect, but only the wallet keeps its
+  // list of trusted sites. So the first Sign in after a Sign Out pressed
+  // in this browser asks for a signature too, the one request every
+  // wallet puts to its owner: with Sign In With Solana, one prompt for
+  // both; otherwise a connect, then a message that says what it is.
+  // Never "exe-hub:v1", so it can be nothing the hub would take, and it
+  // is kept nowhere.
+  const OUT = "exe-hub-signed-out";
+  const wasOut = () => !!stored(OUT);
+  async function start(w) {
+    let got;
     try {
-      me = await connect(w, silent);
+      got = wasOut() ? await confirm(w) : await connect(w, false);
     } catch (e) {
       me = null;
       signedOut();
-      if (!silent) note.textContent = declined(e) ? W.signinDeclined : W.noconnect + (e.message || e);
+      note.textContent = declined(e) ? W.signinDeclined : W.noconnect + (e.message || e);
       return;
     }
-    remember({ name: me.name, address: me.address });
+    store(OUT, null);
+    await signedIn(got);
+  }
+  async function confirm(w) {
+    const siws = !w.legacy && w.features["solana:signIn"];
+    if (siws) {
+      const [out] = await siws.signIn({ domain: location.host, uri: location.origin, version: "1", statement: W.signinStmt, issuedAt: new Date().toISOString() });
+      if (!out || !out.account) throw new Error("no account");
+      return bind(w, out.account);
+    }
+    const got = await connect(w, false);
+    await got.sign(enc.encode(W.signinTitle(location.host) + "\n\n" + W.signinStmt + "\n\n" + new Date().toISOString()));
+    return got;
+  }
+  async function signedIn(m) {
+    me = m;
+    // the same wallet as last time keeps the who line the page drew
+    // as it was parsed, until the gate's answer redraws it the same or
+    // with what changed since; another account starts from its address
+    const before = recall(), same = before && before.address === me.address;
+    remember(same ? Object.assign(before, { name: me.name }) : { name: me.name, address: me.address });
     root.classList.add("wallet");
-    q(".name").textContent = "…";
-    q(".id").textContent = short(me.address);
-    q(".me-av").hidden = true;
+    if (!same || !before.id) {
+      q(".name").textContent = "…";
+      q(".id").textContent = short(me.address);
+      q(".me-av").hidden = true;
+    }
     flash = "";
-    watch(w);
+    watch(me.wallet);
     tellFrame();
     await check();
   }
@@ -275,8 +367,9 @@
     ev.on("change", ch => {
       if (!me || me.wallet !== w || !ch || !ch.accounts) return;
       const a = solanaAccount(ch.accounts);
-      if (!a) { me = null; signedOut(); }
-      else if (a.address !== me.address) start(w, true);
+      // a wallet not yet asked on this visit has nothing to take back
+      if (!a) { if (me.live) { me = null; signedOut(); } }
+      else if (a.address !== me.address) signedIn(bind(w, a));
     });
   }
 
@@ -285,6 +378,7 @@
     try {
       return await me.sign(msg);
     } catch (e) {
+      if (e.account) { signedIn(e.account); throw new Error(W.switched); } // a remembered wallet came back on another account
       throw new Error(e.message === "changed" ? W.changed : declined(e) ? W.declined : W.nosign + (e.message || e));
     }
   }
@@ -359,7 +453,7 @@
   // ---- the controls ----
   signin.addEventListener("click", async () => {
     const ws = await found;
-    if (ws.length === 1) return start(ws[0], false);
+    if (ws.length === 1) return start(ws[0]);
     if (!ws.length) return;
     const label = Object.assign(document.createElement("span"), { className: "grow", textContent: W.choose });
     picker.replaceChildren(label, ...ws.map(w => {
@@ -368,7 +462,7 @@
       b.className = "btn wbtn";
       if (w.icon) { const i = document.createElement("img"); i.src = w.icon; i.alt = ""; b.append(i); }
       b.append(w.name);
-      b.addEventListener("click", () => { picker.hidden = true; pickOff.hidden = false; start(w, false); });
+      b.addEventListener("click", () => { picker.hidden = true; pickOff.hidden = false; start(w); });
       return b;
     }), Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: W.cancel,
       onclick: () => { picker.hidden = true; pickOff.hidden = false; } }));
@@ -379,6 +473,7 @@
     const w = me && me.wallet;
     me = null;
     signedOut();
+    store(OUT, "1"); // the next Sign in asks for a signature (start)
     note.textContent = noteText;
     try {
       if (w && w.legacy && w.legacy.disconnect) w.legacy.disconnect();
@@ -434,8 +529,8 @@
       signin.disabled = true;
       onWallet = () => { note.textContent = noteText; signin.disabled = false; };
     }
-    const w = saved && ws.find(w => w.name === saved.name);
-    if (w) start(w, true);
+    const w = saved && ws.find(w => w.name === saved.name), m = w && resume(w, saved);
+    if (m) signedIn(m); // nothing asked of the wallet until a reply is signed
     else if (saved) signedOut();
   });
 })();
