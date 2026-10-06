@@ -66,6 +66,65 @@ func BodyOffset(data []byte) int {
 	return -1
 }
 
+// Issue writes an id, a created date or both into index.md as the file
+// has it, for a post made by hand that lacks them (Store.AdoptPosts): a
+// line each in its front matter, the id first and the date last, or a
+// front matter of just those lines before a file that has none. Every
+// other byte stays, the line endings the file's own. An "id:" line left
+// empty is filled, not doubled. Empty id or created writes none.
+func Issue(data []byte, id, created string) []byte {
+	text := string(data)
+	nl := "\n"
+	if strings.HasPrefix(text, "---\r\n") || (!strings.HasPrefix(text, "---\n") && strings.Contains(text, "\r\n")) {
+		nl = "\r\n"
+	}
+	var add []string
+	if id != "" {
+		add = append(add, "id: "+id)
+	}
+	if created != "" {
+		add = append(add, "created: "+created)
+	}
+	if len(add) == 0 {
+		return data
+	}
+	open := "---" + nl
+	if !strings.HasPrefix(text, open) {
+		if text != "" {
+			text = nl + text
+		}
+		return []byte(open + strings.Join(add, nl) + nl + open + text)
+	}
+	rest := text[len(open):]
+	end, tail := strings.Index(rest, nl+"---"+nl), ""
+	switch {
+	case end >= 0:
+		tail = rest[end:]
+	case strings.HasSuffix(rest, nl+"---"):
+		end = len(rest) - len(nl) - 3
+		tail = rest[end:]
+	default:
+		return data // not closed: it is shown as it is, invalid
+	}
+	lines := strings.Split(rest[:end], nl)
+	if id != "" {
+		filled := false
+		for i, line := range lines {
+			if key, value, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(key) == "id" && strings.TrimSpace(value) == "" {
+				lines[i], filled = "id: "+id, true
+				break
+			}
+		}
+		if !filled {
+			lines = append([]string{"id: " + id}, lines...)
+		}
+	}
+	if created != "" {
+		lines = append(lines, "created: "+created)
+	}
+	return []byte(open + strings.Join(lines, nl) + tail)
+}
+
 // ParseDoc splits index.md into its front matter and body. A file with no
 // front matter is all body with an empty Meta.
 func ParseDoc(data []byte) (Meta, string, error) {

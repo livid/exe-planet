@@ -158,6 +158,16 @@ func (s *Service) buildOnce(slug string) (Status, error) {
 	if err != nil {
 		return Status{Site: slug, Error: err.Error()}, err
 	}
+	// A post made by hand has no id yet, and cannot be built without one:
+	// it is issued now, into its file (the watcher sees that and builds
+	// again, which finds nothing left to issue).
+	adopted, err := s.Store.AdoptPosts(slug)
+	if len(adopted) > 0 {
+		s.Logf("planet: %s: issued an id or a date to %s", slug, strings.Join(adopted, ", "))
+	}
+	if err != nil {
+		s.Logf("planet: %s: a post made by hand could not be written to: %v", slug, err)
+	}
 	posts, err := s.fullPosts(slug)
 	if err != nil {
 		return Status{Site: slug, Error: err.Error()}, err
@@ -462,6 +472,10 @@ func (s *Service) View(slug, postSlug string, att Attachments) (string, error) {
 		return "", err
 	}
 	pub := s.PublicDir(st.ID)
+	if p.ID == "" {
+		// made by hand a moment ago: its id comes with the build on its way
+		return "", fmt.Errorf("%w: the site is not built yet", site.ErrNotFound)
+	}
 	page, err := os.ReadFile(filepath.Join(pub, p.ID, "index.html"))
 	if err != nil {
 		return "", fmt.Errorf("%w: the site is not built yet", site.ErrNotFound)

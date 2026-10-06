@@ -88,7 +88,9 @@ func FromSite(st *site.Site, posts []*site.Post) (*planet.MyPlanet, []*planet.My
 	var articles []*planet.MyArticle
 	updated := st.Created
 	for _, post := range posts {
-		if post.Kind == site.KindDraft || post.Error != "" {
+		// (a post with no id is one made by hand whose file could not be
+		// written to: its folder in the build would be the build's own)
+		if post.Kind == site.KindDraft || post.Error != "" || post.ID == "" {
 			continue
 		}
 		a := &planet.MyArticle{

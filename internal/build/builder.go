@@ -73,6 +73,15 @@ func Build(in Input) (*Result, error) {
 	if in.Planet == nil || in.Template == nil || in.Out == "" {
 		return nil, fmt.Errorf("build: planet, template and out are required")
 	}
+	// An article's id names its folder in the build. With none the folder
+	// would be the build's own root, and the copy made under the
+	// article's slug a copy of the whole build into itself, over and over
+	// until the path was too long to write.
+	for _, a := range in.Articles {
+		if a.ID == "" || a.ID == "." || a.ID == ".." || a.ID != filepath.Base(a.ID) {
+			return nil, fmt.Errorf("build: article %q has no id to name its folder by (%q)", a.Title, a.ID)
+		}
+	}
 	b := &builder{in: in, tpl: in.Template, loc: in.Location, now: in.Now, res: &Result{}}
 	if b.loc == nil {
 		b.loc = time.Local

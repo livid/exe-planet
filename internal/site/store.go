@@ -3,6 +3,8 @@ package site
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -658,6 +660,112 @@ func (s *Store) SetPostHub(site, slug, kind, hub string) (*Post, error) {
 		return nil, err
 	}
 	return readPost(p.Dir, p.Kind, p.Slug), nil
+}
+
+// AdoptPosts gives the posts of a site that were made by hand — a folder
+// and an index.md written into the Workspace by a person, an agent or a
+// synced peer, not through CreatePost — what CreatePost issues to the
+// ones it makes: an id, and a created date. Both are written into the
+// file's front matter (Issue), so they are issued once and stay: the id
+// is what a follower knows the post by and what its folder in the build
+// is named, and a post without one cannot be built. The id is not drawn
+// at random but made from the site's id and the post's folder name (a
+// version 5 UUID), so two nodes that each meet the same file before
+// either's line has reached the other write the same id; a name whose
+// id another post already holds (a post renamed away from that name
+// keeps the id it was given under it) takes the next one made from it.
+// The date is when the file was last written. It answers the folder
+// names of the posts it wrote to, and the first error of a file it
+// could not write; a file it cannot read as a post is left as it is.
+func (s *Store) AdoptPosts(site string) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st, err := s.liveSite(site)
+	if err != nil {
+		return nil, err
+	}
+	type found struct {
+		name, file string
+		data       []byte
+		m          Meta
+	}
+	var wanting []found
+	taken := map[string]bool{}
+	for _, k := range Kinds {
+		ents, err := os.ReadDir(filepath.Join(st.Dir, kindDirs[k]))
+		if err != nil {
+			continue
+		}
+		for _, e := range ents {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || ValidSlug(e.Name()) != nil {
+				continue
+			}
+			file := filepath.Join(st.Dir, kindDirs[k], e.Name(), "index.md")
+			data, err := os.ReadFile(file)
+			if err != nil {
+				continue
+			}
+			m, _, err := ParseDoc(data)
+			if err != nil {
+				continue
+			}
+			if m.ID != "" {
+				taken[strings.ToUpper(m.ID)] = true
+			}
+			if m.ID == "" || m.Created.IsZero() {
+				wanting = append(wanting, found{e.Name(), file, data, m})
+			}
+		}
+	}
+	var adopted []string
+	var first error
+	for _, f := range wanting {
+		id, created := "", ""
+		if f.m.ID == "" {
+			for n := 1; ; n++ {
+				name := f.name
+				if n > 1 {
+					name = fmt.Sprintf("%s#%d", f.name, n)
+				}
+				if id = postID(st.ID, name); !taken[id] {
+					break
+				}
+			}
+			taken[id] = true
+		}
+		if f.m.Created.IsZero() {
+			at := s.now()
+			if fi, err := os.Stat(f.file); err == nil {
+				at = fi.ModTime().In(at.Location()).Truncate(time.Second)
+			}
+			created = formatDate(at)
+		}
+		if err := os.WriteFile(f.file, Issue(f.data, id, created), 0o644); err != nil {
+			if first == nil {
+				first = err
+			}
+			continue
+		}
+		adopted = append(adopted, f.name)
+	}
+	return adopted, first
+}
+
+// postID is the id issued to a post made by hand: the version 5 UUID of
+// the post's folder name in the namespace of its site's id, written as
+// newID writes one.
+func postID(siteID, name string) string {
+	h := sha1.New()
+	if ns, err := hex.DecodeString(strings.ReplaceAll(siteID, "-", "")); err == nil && len(ns) == 16 {
+		h.Write(ns)
+	} else {
+		h.Write([]byte(siteID))
+	}
+	h.Write([]byte(name))
+	b := h.Sum(nil)[:16]
+	b[6] = (b[6] & 0x0f) | 0x50
+	b[8] = (b[8] & 0x3f) | 0x80
+	return strings.ToUpper(fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:]))
 }
 
 // RewritePost hands a post's index.md, as the file has it, to edit and

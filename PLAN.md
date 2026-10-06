@@ -152,6 +152,27 @@ hub: https://hub.example.com/p/<64 hex>   the post's thread, written by the anno
 `id` is issued when the post is created and never changes, so a rename of
 the folder is an edit for followers, not a delete plus an add.
 
+A post made by hand — a folder and an `index.md` written into the
+Workspace by a person, an agent or a synced peer, with no front matter
+or without these lines — is issued its `id` and its `created` by the
+build that first meets it (`Store.AdoptPosts`, 2026-10-06), as two lines
+in the file's front matter and no other byte changed (`site.Issue`); the
+watcher sees the write and builds once more, which finds nothing left
+to issue. The id is not drawn at random: it is the version 5 UUID of the
+folder's name in the namespace of the site's id, so two nodes that meet
+the same file before either's line has reached the other write the same
+id. A name whose id another post holds (a post renamed away keeps the id
+it was given under the old name) takes the next one made from it.
+`created` is when the file was last written. Until then such a post
+stopped its whole site from building (Livid: "fix the id-less post
+build bug"): with no id its folder in the build was the build's own
+root, and the copy made under its slug a copy of the whole build into
+itself, over and over until the path was too long to write; and with no
+date it was dated by an overflow, in 2293. The builder now refuses an
+article whose id cannot name a folder, and the build leaves out a post
+whose file could not be written to, so the rest of the site still
+builds.
+
 ## Build output
 
 Per site, `~/.exe/planet/<uuid>/public/` mirrors Planet's `Public/<uuid>/`
