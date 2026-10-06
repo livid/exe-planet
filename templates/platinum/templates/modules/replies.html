@@ -32,4 +32,4 @@
     <div class="statusbar"><span>On <a href="{{ hub_thread.link }}" target="_blank" rel="noopener">{{ hub_thread.host }}</a></span></div>
   </div>
 </div>
-<script defer src="{{ assets_prefix }}assets/replies.js"></script>
+<script defer src="{{ assets_prefix }}assets/replies.js{% if replies_js_sha256 %}?sha256={{ replies_js_sha256 }}{% endif %}"></script>

@@ -380,6 +380,7 @@ func (b *builder) renderArticleWith(file string, a *planet.MyArticle, dir string
 		"content_html":          markdown.Render(a.Content),
 		"build_timestamp":       int(b.now.Unix()),
 		"style_css_sha256":      b.tpl.StyleCSSHash,
+		"replies_js_sha256":     b.tpl.RepliesJSHash,
 		"current_item_type":     "blog",
 		"social_image_url":      social,
 	}

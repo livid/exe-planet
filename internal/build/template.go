@@ -73,6 +73,12 @@ type Template struct {
 	HasIndex   bool
 	// StyleCSSHash is the sha256 of assets/style.css, "" without one.
 	StyleCSSHash string
+	// RepliesJSHash is the same for assets/replies.js, the script of a
+	// template that carries a post's replies from the hub: the page names
+	// it by this, so a reader's browser, and the cache in front of the
+	// site, take a changed script with the page that needs it (the file
+	// is served for four hours by its name alone).
+	RepliesJSHash string
 }
 
 // LoadTemplate reads a template folder. blog.html is required, as in
@@ -92,6 +98,7 @@ func LoadTemplate(dir string) (*Template, error) {
 	exists := func(name string) bool { _, err := os.Stat(t.file(name)); return err == nil }
 	t.HasSimple, t.HasTags, t.HasArchive, t.HasIndex = exists("simple.html"), exists("tags.html"), exists("archive.html"), exists("index.html")
 	t.StyleCSSHash = styleHash(filepath.Join(dir, "assets", "style.css"))
+	t.RepliesJSHash = styleHash(filepath.Join(dir, "assets", "replies.js"))
 	return t, nil
 }
 

@@ -385,8 +385,9 @@ func TestHubThreadTemplate(t *testing.T) {
 		return string(b)
 	}
 	page := read("with/index.html")
+	js := sha256.Sum256([]byte(read("assets/replies.js")))
 	for _, want := range []string{
-		`<script defer src="../assets/replies.js"></script>`,
+		`<script defer src="../assets/replies.js?sha256=` + hex.EncodeToString(js[:]) + `"></script>`,
 		`id="compose" data-hub="https://hub.example.test" data-root="` + id + `"`,
 		`src="https://hub.example.test/p/` + id + `/replies"`,
 		`href="https://hub.example.test/p/` + id + `" target="_blank"`,

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -188,6 +189,10 @@ func TestPaperReplies(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := string(b)
+	js, err := os.ReadFile(filepath.Join(svc.PublicDir(st.ID), "assets", "replies.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, want := range []string{
 		`document.documentElement.classList.add('js')`,
 		`<section class="replies" id="replies">`, `<h2 class="replies-title">回复</h2>`,
@@ -197,7 +202,7 @@ func TestPaperReplies(t *testing.T) {
 		`<button type="button" class="btn send" disabled>回复</button>`,
 		`src="https://hub.example.test/p/` + id + `/replies?look=paper&amp;lang=zh-Hans"`,
 		`<a href="https://hub.example.test/p/` + id + `" target="_blank" rel="noopener">hub.example.test</a>`,
-		`<script defer src="../assets/replies.js"></script>`,
+		`<script defer src="../assets/replies.js?sha256=` + fmt.Sprintf("%x", sha256.Sum256(js)) + `"></script>`,
 	} {
 		if !strings.Contains(page, want) {
 			t.Errorf("with/index.html lacks %q", want)
