@@ -121,6 +121,15 @@ func TestTickTodo(t *testing.T) {
 		t.Errorf("a CRLF file with front matter: %v, %q", err, read())
 	}
 
+	// a code example that only looks like an item, before a real one: the
+	// real one is item 1 here, where a count of lines opening "- [ ] "
+	// (Planet's) would flip the example (Codex on Spark's fixture)
+	fenced := "```\n- [ ] example\n```\n\n- [ ] task\n"
+	os.WriteFile(file, []byte(fenced), 0o644)
+	if err := svc.TickTodo("wen", "week", "", 1, true, "0"); err != nil || read() != "```\n- [ ] example\n```\n\n- [x] task\n" {
+		t.Errorf("a fenced example before a task: %v, %q", err, read())
+	}
+
 	// the page the window shows carries the click's script, after the links' own
 	if err := os.WriteFile(file, []byte(before), 0o644); err != nil {
 		t.Fatal(err)
