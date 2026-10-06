@@ -833,7 +833,9 @@ takes whole ids only, and the frame is built from it), in two places:
   tag 0.9.4). The draft fix and the hub's sign-in followed on
   2026-10-06 (SiteTemplatePlatinum 2232e19, buildNumber 9;
   PlanetSiteTemplates b16b0b6, tag 0.10.1), `swift test` passing in a
-  Linux Swift 6.1 container with Paper beside it.
+  Linux Swift 6.1 container with Paper beside it, then on the Mac (a
+  throwaway clone of the tag), whose ~/Developer/PlanetSiteTemplates
+  is pulled to 0.10.1.
 
 ### Later
 
