@@ -890,6 +890,11 @@ takes whole ids only, and the frame is built from it), in two places:
     online or the page is shown. A press that never reached the hub says
     "Offline: the hub can't be reached…" in the site's language, not the
     browser's "Failed to fetch". `~/tools/playwright/exe-planet-retry-dot-test.js`.
+    Paper buildNumber 7, Platinum 12, pushed on Livid's word the same day
+    (SiteTemplatePaper f7d9994, SiteTemplatePlatinum 1cc170f,
+    PlanetSiteTemplates 2bdb835, tag 0.10.4; `swift test` passing in the
+    swift:6.1 container; croptop's newer upstream commits left out of the
+    bundle).
   - A commenter is a 10,000 $V2EX holder, the hub's gate unchanged
     (Livid, 2026-09-26).
   - Reply to a reply: the page tells the frame `{hub: "signed-in", on}`
