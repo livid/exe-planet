@@ -874,6 +874,22 @@ takes whole ids only, and the frame is built from it), in two places:
     countdown); then `GET /v1/seq`, `signMessage` over `exe-hub:v1\n` and
     the envelope (`post.create {text, reply_to}`), `POST /v1/msg`. The
     reply comes back through the frame, live.
+  - An address check that cannot reach the hub is tried again, as on the
+    hub's own pages (exe-hub's PLAN.md, Offline; Livid, 2026-10-08: "that
+    gray dot pattern should also apply to comment embed"): a request that
+    never reached it (offline — and the edge's own 502 while the hub
+    restarts, which carries no CORS header, so the page sees a network
+    failure) or a 502–504 with no word from the hub. Until one lands
+    Reply stays disabled and the status line pulses a grey dot in place
+    of words, the reason its tooltip and label: Platinum's the hub's 8px
+    disc of pixels in the disabled grey, Paper's a round 7px dot in its
+    faint ink (the night sheet's too), fading to a quarter and back each
+    1.2 s, still under reduced motion; the box is the line's height, the
+    dot centred in it, so the line keeps its height. Tried again 2 s,
+    4 s, 8 s, then every 15 s, and at once when the browser says it is
+    online or the page is shown. A press that never reached the hub says
+    "Offline: the hub can't be reached…" in the site's language, not the
+    browser's "Failed to fetch". `~/tools/playwright/exe-planet-retry-dot-test.js`.
   - A commenter is a 10,000 $V2EX holder, the hub's gate unchanged
     (Livid, 2026-09-26).
   - Reply to a reply: the page tells the frame `{hub: "signed-in", on}`

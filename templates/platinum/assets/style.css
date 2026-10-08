@@ -158,6 +158,17 @@ h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
 .wallet .compose .in { display: block; }
 .compose .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .compose .grow { flex: 1 1 12em; min-width: 0; font-size: 11px; color: #333; }
+/* the address check being made again, the hub out of reach (offline,
+   or the edge's 502 while it restarts): the hub's own dot, an 8px disc
+   of pixels in the disabled grey on the status line in place of words,
+   fading to a quarter and back each 1.2 s; still under reduced motion.
+   Why is its tooltip. Its box is the line's height, the disc centred in
+   it, so it sits on the buttons' middle and the line keeps its height. */
+.compose .pulse { display: inline-flex; align-items: center; vertical-align: top; height: 1lh; animation: hub-pulse .6s ease-in-out infinite alternate; }
+.compose .pulse svg { display: block; width: 8px; height: 8px; shape-rendering: crispEdges; fill: #999; }
+@media (min-resolution: 1.01dppx) and (max-resolution: 1.99dppx) { .compose .pulse svg { shape-rendering: geometricPrecision; } }
+@keyframes hub-pulse { from { opacity: 1; } to { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .compose .pulse { animation: none; } }
 .compose .who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compose .who-row { flex-wrap: nowrap; }
 .compose .who-wrap { flex: 1 1 0; display: flex; align-items: center; gap: 5px; }

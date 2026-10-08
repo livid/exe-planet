@@ -33,6 +33,7 @@
       wait: s => "You can reply again in " + s + " s.", ready: "Each reply asks your wallet for one signature.",
       over: (n, max) => "That is " + n + " bytes past the " + max + "-byte limit.",
       nocheck: "Could not check this address: ", noname: "No name yet",
+      offline: "Offline: the hub can’t be reached. You can read; replying needs the network.",
       signinDeclined: "Sign-in was declined in the wallet.", noconnect: "The wallet did not connect: ",
       changed: "The wallet changed the message before signing it, so the hub could not verify it.",
       declined: "You declined in the wallet.", nosign: "The wallet could not sign: ",
@@ -55,6 +56,7 @@
       wait: s => s + " 秒后可以再次回复。", ready: "每条回复需要钱包签名一次。",
       over: (n, max) => "已超出 " + max + " 字节的上限 " + n + " 字节。",
       nocheck: "无法查询这个地址：", noname: "尚未设置名字",
+      offline: "离线：连不上 hub。可以继续阅读，回复需要联网。",
       signinDeclined: "已在钱包中取消登录。", noconnect: "钱包没有连接：",
       changed: "钱包在签名前改动了消息，hub 无法验证。",
       declined: "你在钱包中取消了。", nosign: "钱包无法签名：",
@@ -77,6 +79,7 @@
       wait: s => s + " 秒後可以再次回覆。", ready: "每則回覆需要錢包簽名一次。",
       over: (n, max) => "已超出 " + max + " 位元組的上限 " + n + " 位元組。",
       nocheck: "無法查詢這個地址：", noname: "尚未設定名稱",
+      offline: "離線：連不上 hub。可以繼續閱讀，回覆需要連網。",
       signinDeclined: "已在錢包中取消登入。", noconnect: "錢包沒有連線：",
       changed: "錢包在簽名前改動了訊息，hub 無法驗證。",
       declined: "你在錢包中取消了。", nosign: "錢包無法簽名：",
@@ -99,6 +102,7 @@
       wait: s => "あと " + s + " 秒で再び返信できます。", ready: "返信のたびにウォレットの署名が 1 回必要です。",
       over: (n, max) => "上限の " + max + " バイトを " + n + " バイト超えています。",
       nocheck: "このアドレスを確認できませんでした：", noname: "名前はまだありません",
+      offline: "オフライン：hub に接続できません。読むことはできますが、返信にはネットワークが必要です。",
       signinDeclined: "ウォレットでサインインが拒否されました。", noconnect: "ウォレットに接続できませんでした：",
       changed: "ウォレットが署名前にメッセージを変更したため、hub で検証できません。",
       declined: "ウォレットで拒否されました。", nosign: "ウォレットで署名できませんでした：",
@@ -137,8 +141,13 @@
   const remember = v => store(KEY, v ? JSON.stringify(v) : null);
   const recall = () => { try { return JSON.parse(stored(KEY) || "null"); } catch (e) { return null; } };
   const declined = e => e && (e.code === 4001 || /reject|declin|cancel|denied/i.test(e.message || ""));
+  // a request that never reached the hub says so in the page's words,
+  // not the browser's ("Failed to fetch"), and is marked, so the address
+  // check knows to ask again once it can
   const hubJSON = async (path, opts) => {
-    const r = await fetch(HUB + path, Object.assign({ cache: "no-store", credentials: "omit" }, opts));
+    let r;
+    try { r = await fetch(HUB + path, Object.assign({ cache: "no-store", credentials: "omit" }, opts)); }
+    catch (e) { throw Object.assign(new Error(W.offline), { offline: true }); }
     const out = await r.json().catch(() => ({}));
     return { r, out };
   };
@@ -249,6 +258,7 @@
 
   // ---- state ----
   let verdict = null, until = 0, busy = false, flash = "", timer = 0;
+  let retry = "", backoff = 0, away = 0, checking = false; // the address check tried again (check, below)
   let target = null; // the reply this window answers instead of the post
   let saving = 0;    // the draft's save, debounced behind the typing
   const watched = new WeakSet();
@@ -263,6 +273,10 @@
     if (left > 0) return W.wait(left);
     return W.ready;
   }
+  // the dot the status line pulses while the address check is made again
+  const pulse = Object.assign(document.createElement("span"), { className: "pulse",
+    innerHTML: '<svg viewBox="0 0 8 8" width="7" height="7" aria-hidden="true"><circle cx="4" cy="4" r="4"/></svg>' });
+  pulse.setAttribute("role", "img");
   // one pass over everything the state decides: the status line, what is
   // enabled, and the cooldown's countdown while it runs
   function render() {
@@ -273,20 +287,32 @@
     const t = text.value.trim();
     const over = bytes(t) - MAX_TEXT;
     send.disabled = busy || !can || left > 0 || !t || over > 0;
-    status.textContent = over > 0 ? W.over(over, MAX_TEXT) : flash || line(left);
+    const said = over > 0 ? W.over(over, MAX_TEXT) : flash || (retry ? "" : line(left));
+    if (said) { status.textContent = said; status.removeAttribute("title"); }
+    else { if (status.firstChild !== pulse) status.replaceChildren(pulse); status.title = retry; pulse.setAttribute("aria-label", retry); }
     if (left > 0 && !flash) timer = setTimeout(render, 1000);
   }
   const tell = s => { flash = s; render(); };
   const done = s => { tell(s); setTimeout(() => { if (flash === s) { flash = ""; render(); } }, 2500); };
 
   // who is replying: the gate's verdict, and the profile's name and face
+  // A check that could not reach the hub — offline, or the edge's 502
+  // while the hub restarts — is no error to read (exe-hub's PLAN.md,
+  // Offline; Livid, 2026-10-08): it leaves nothing to reply with, and
+  // the status line pulses a grey dot instead of words (why, on hover),
+  // through every check made again until one lands: when the browser
+  // says it is back online, when the page is shown again, and 2 s, 4 s,
+  // 8 s, then every 15 s meanwhile. A 5xx carrying the hub's own error
+  // is the hub's answer, and reads as before.
   async function check() {
     verdict = null;
+    clearTimeout(away);
+    checking = true;
     render();
     const author = b64(me.pub);
     try {
       const { r, out } = await hubJSON("/v1/gate?author=" + encodeURIComponent(author));
-      if (!r.ok) throw new Error(W.nocheck + (out.error || "HTTP " + r.status));
+      if (!r.ok) throw Object.assign(new Error(W.nocheck + (out.error || "HTTP " + r.status)), { again: r.status >= 502 && r.status <= 504 && !out.error });
       const p = await hubJSON("/v1/profile/" + out.profile);
       if (!me || b64(me.pub) !== author) return;
       verdict = out;
@@ -306,11 +332,20 @@
       img.classList.toggle("idn", !(prof && prof.avatar));
       av.href = HUB + "/u/" + out.profile;
       av.hidden = false;
+      retry = ""; backoff = 0;
       render();
     } catch (e) {
-      if (me) tell(e.message);
-    }
+      if (!me) return;
+      if (e.offline || e.again) {
+        retry = e.message;
+        away = setTimeout(recheck, backoff = Math.min(backoff ? backoff * 2 : 2000, 15000));
+        render();
+      } else { retry = ""; tell(e.message); }
+    } finally { checking = false; }
   }
+  const recheck = () => { if (me && !verdict && !checking && !busy && !document.hidden) check(); };
+  addEventListener("online", recheck);
+  document.addEventListener("visibilitychange", recheck);
 
   // Sign in with Solana, pressed. A wallet that still trusts this site
   // connects without a word, even after Sign Out — which forgets the
@@ -366,7 +401,7 @@
     await check();
   }
   function signedOut() {
-    verdict = null; flash = ""; until = 0;
+    verdict = null; flash = ""; until = 0; retry = ""; backoff = 0; clearTimeout(away);
     remember(null);
     root.classList.remove("wallet");
     q(".me-av").hidden = true;

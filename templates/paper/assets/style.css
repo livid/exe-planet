@@ -294,6 +294,16 @@ a.t:hover { text-decoration: underline; text-decoration-thickness: 1px; text-und
 .wallet .compose .in { display: block; }
 .compose .row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
 .compose .grow { flex: 1 1 14em; min-width: 0; color: var(--quiet); }
+/* the address check being made again, the hub out of reach (offline,
+   or the edge's 502 while it restarts): the hub's grey dot, here a round
+   7px one in the faint ink (dark on the night sheet too), on the status
+   line in place of words, fading to a quarter and back each 1.2 s;
+   still under reduced motion. Why is its tooltip. Its box is the line's
+   height, the dot centred in it, so the line keeps its height. */
+.compose .pulse { display: inline-flex; align-items: center; vertical-align: top; height: 1lh; animation: hub-pulse .6s ease-in-out infinite alternate; }
+.compose .pulse svg { display: block; width: 7px; height: 7px; fill: var(--faint); }
+@keyframes hub-pulse { from { opacity: 1; } to { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .compose .pulse { animation: none; } }
 .compose .who-row { flex-wrap: nowrap; }
 .compose .who-wrap { flex: 1 1 0; display: flex; align-items: center; gap: .5rem; }
 .compose .who { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
