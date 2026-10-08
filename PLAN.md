@@ -333,7 +333,12 @@ macOS's own smoothing, since `-webkit-font-smoothing: antialiased`
 thinned every stroke further there (the dark sheet keeps it). Under an announced post:
 `modules/replies.html` (a heading, the composer, then the frame asked
 for as `?look=paper&lang=<the site's language>`, 56px held for the
-hub's empty line so nothing moves when it answers) and
+hub's empty line so nothing moves when it answers, and invisible until
+the hub's page first speaks: on the night sheet WebKit painted those
+56px white for the whole round trip, since the empty document a frame
+starts with is light and a frame whose scheme is not its document's
+gets an opaque base colour — Livid, 2026-10-08, buildNumber 8;
+`~/tools/playwright/exe-planet-paper-flash-test.js`) and
 `assets/replies.js`, Platinum's composer with every word in a table in
 the four languages (the words the page starts with come from `w_*`
 modules, so nothing flashes) and the scroll-into-view on the composer

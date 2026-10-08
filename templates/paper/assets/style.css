@@ -359,6 +359,14 @@ a.t:hover { text-decoration: underline; text-decoration-thickness: 1px; text-und
 .compose .re-clear:hover { border-color: var(--line); }
 .compose .re-clear .x { display: block; width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.2; }
 .replies iframe.thread { display: block; width: 100%; height: 56px; border: 0; background: transparent; color-scheme: light dark; }
+/* Until the hub's page arrives a frame holds the empty document every
+   frame starts with, which is light; on the night sheet the frame is
+   dark, and WebKit (Safari, the Planet app) fills a frame whose scheme
+   is not its document's with an opaque base colour: white, for as long
+   as the hub takes to answer. So the frame keeps its 56px but shows
+   nothing until the hub's page first speaks (replies.js); without
+   script nothing hides it. */
+.js .replies iframe.thread:not(.shown) { visibility: hidden; }
 .via { margin: .5rem 0 0; font-size: .72rem; text-align: right; letter-spacing: .03em; }
 .via a { color: var(--faint); text-decoration: none; }
 .via a:hover { color: var(--ink); }

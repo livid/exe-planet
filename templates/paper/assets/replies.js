@@ -163,6 +163,8 @@
   addEventListener("message", e => {
     const d = e.data;
     if (e.source !== frame.contentWindow || (e.origin !== HUB && !(boxed && e.origin === "null")) || !d || typeof d !== "object") return;
+    // the hub's page is in the frame: it may show now (style.css)
+    frame.classList.add("shown");
     if (d.hub === "height" && typeof d.h === "number" && d.h > 0) frame.style.height = Math.ceil(d.h) + "px";
     else if (d.hub === "ready") tellFrame();
     else if (d.hub === "aim" && me && typeof d.id === "string" && /^[0-9a-f]{64}$/.test(d.id)) aim(d);
