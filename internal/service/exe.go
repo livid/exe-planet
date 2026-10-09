@@ -16,7 +16,8 @@ import (
 
 // Exe is the slice of exe's API a site's expose uses: the routes that
 // put a hostname in front of a local backend (POST and DELETE
-// /v1/routes, exe 0454005), with exe's own token and zone.
+// /v1/routes, exe 0454005) and the DNSLink record beside one, with exe's
+// own token and zone.
 type Exe struct {
 	URL    string // http://127.0.0.1:7777
 	Token  string // api_token from exe's config.json, may be empty
@@ -76,6 +77,25 @@ func (e *Exe) DeleteRoute(ctx context.Context, host string) error {
 		return errors.New("exe is not configured on this node")
 	}
 	return e.call(ctx, "DELETE", "/v1/routes/"+url.PathEscape(host), nil, nil)
+}
+
+// SetDNSLink points the hostname's DNSLink record, TXT _dnslink.<host>,
+// at path (/ipfs/<cid>) through exe (PUT /v1/routes/{host}/dnslink), so
+// gateways resolve /ipns/<host> to the build the hostname serves.
+func (e *Exe) SetDNSLink(ctx context.Context, host, path string) error {
+	if e == nil {
+		return errors.New("exe is not configured on this node")
+	}
+	body, _ := json.Marshal(map[string]string{"path": path})
+	return e.call(ctx, "PUT", "/v1/routes/"+url.PathEscape(host)+"/dnslink", bytes.NewReader(body), nil)
+}
+
+// DeleteDNSLink removes the hostname's DNSLink record.
+func (e *Exe) DeleteDNSLink(ctx context.Context, host string) error {
+	if e == nil {
+		return errors.New("exe is not configured on this node")
+	}
+	return e.call(ctx, "DELETE", "/v1/routes/"+url.PathEscape(host)+"/dnslink", nil, nil)
 }
 
 // HubPublish has exe sign one op with the node's own key and send it to

@@ -836,6 +836,7 @@ async function publishSheet() {
       <div class="row h"><input type="checkbox" id="d-ipfs" ${canIPFS ? "" : "disabled"} ${node.ipfs ? "checked" : ""}><label for="d-ipfs" class="${canIPFS ? "" : "dis"}">Publish every changed build to IPFS under this node's key</label></div>
       <div class="row f"><label>IPNS</label><span class="val mono" id="d-ipns"></span></div>
       <div class="row f"><label>Last</label><span class="val" id="d-cid"></span></div>
+      <div class="row f"><label>DNSLink</label><span class="val" id="d-dnslink"></span></div>
     </div>
     <div class="group"><h3>Hub</h3>
       <div class="row h"><input type="checkbox" id="d-announce" ${hubBlock ? "disabled" : ""} ${node.announce ? "checked" : ""}><label for="d-announce" class="${hubBlock ? "dis" : ""}">Announce each new post on the hub, with its replies under it</label></div>
@@ -868,6 +869,12 @@ async function publishSheet() {
     else if (node.publish_error) cid.textContent = "Failed: " + node.publish_error + (node.cid ? " (still " + node.cid.slice(0, 16) + "…)" : "");
     else if (node.cid) { const a = document.createElement("a"); a.href = node.cid_url; a.target = "_blank"; a.className = "mono"; a.textContent = node.cid; cid.append(fmtTime(node.published) + " · "); cid.append(a); if (node.built_hash && node.built_hash !== node.published_hash) cid.append(" · a newer build waits"); }
     else cid.textContent = node.ipfs ? "Not published yet" : "Never published";
+    // an exposed site's CID also goes to its address's DNSLink record
+    $("#d-dnslink").textContent = !node.dnslink_name ? "Each CID goes to the address's _dnslink record while the site is exposed"
+      : !node.ipfs ? node.dnslink_name + " · written while IPFS is on"
+      : node.dnslink_error ? "Failed: " + node.dnslink_error
+      : node.cid && node.dnslink === "/ipfs/" + node.cid ? node.dnslink_name + " names the last CID"
+      : node.dnslink_name + " · written after the next publish";
     $("#d-pubnow").disabled = !node.ipfs || node.publishing;
     // the site's key in its hub and Solana spellings, once it has one
     $("#d-hubid").textContent = node.hub_id ? node.hub_id + " · " + node.address : "Made when Announce or IPFS is first turned on";

@@ -41,6 +41,12 @@ type Node struct {
 	PublishedHash string    `json:"published_hash,omitempty"`
 	BuiltHash     string    `json:"built_hash,omitempty"`
 	PublishError  string    `json:"publish_error,omitempty"`
+	// DNSLink is what the hostname's DNSLink record (TXT
+	// _dnslink.<hostname>) was last set to, /ipfs/<cid>: an exposed site
+	// on IPFS names each published CID there, so /ipns/<hostname> is the
+	// same build the hostname serves.
+	DNSLink      string `json:"dnslink,omitempty"`
+	DNSLinkError string `json:"dnslink_error,omitempty"`
 	// Announce is the site on the exe hub (PLAN.md, Replies from the
 	// hub): each post published from now on announces itself at Hub, the
 	// one hub the site posts to and its pages frame.
@@ -55,6 +61,8 @@ type NodeInfo struct {
 	URL        string `json:"url,omitempty"`
 	IPNS       string `json:"ipns,omitempty"`
 	IPNSURL    string `json:"ipns_url,omitempty"`
+	// the TXT record an exposed site's CID is written to
+	DNSLinkName string `json:"dnslink_name,omitempty"`
 	CIDURL     string `json:"cid_url,omitempty"`
 	Publishing bool   `json:"publishing"`
 	Key        bool   `json:"key"`
@@ -201,6 +209,7 @@ func (s *Service) info(st *site.Site) NodeInfo {
 	}
 	if n.Expose && n.Hostname != "" {
 		in.URL = "https://" + n.Hostname + "/"
+		in.DNSLinkName = "_dnslink." + n.Hostname
 	}
 	if st.IPNS != "" {
 		in.IPNSURL = "https://eth.sucks/ipns/" + st.IPNS + "/"
@@ -270,7 +279,8 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 			s.mu.Lock()
 			delete(s.hosts, n.Hostname)
 			s.mu.Unlock()
-			n.Hostname = ""
+			// exe drops the DNSLink record with the route
+			n.Hostname, n.DNSLink, n.DNSLinkError = "", "", ""
 		}
 		if want != "" {
 			w, err := s.Exe.AddRoute(ctx, want, s.Backend)
@@ -311,6 +321,13 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 				publish = true
 			}
 			n.PublishError = ""
+		} else if n.DNSLink != "" && n.Hostname != "" {
+			// off: the record would name a build that stops moving
+			if err := s.Exe.DeleteDNSLink(ctx, n.Hostname); err != nil {
+				n.DNSLinkError = err.Error()
+			} else {
+				n.DNSLink, n.DNSLinkError = "", ""
+			}
 		}
 		n.IPFS = *u.IPFS
 	}
@@ -457,7 +474,7 @@ func (s *Service) afterBuild(slug, id, hash string) {
 		s.saveNode(n)
 	}
 	s.nodeMu.Unlock()
-	if n.IPFS && hash != n.PublishedHash {
+	if n.IPFS && (hash != n.PublishedHash || n.dnslinkStale()) {
 		s.startPublish(slug, false)
 	}
 	// a post just published, or a profile that moved, goes to the hub
@@ -515,6 +532,9 @@ func (s *Service) publishOnce(slug string, force bool) {
 		return
 	}
 	if !force && n.BuiltHash != "" && n.BuiltHash == n.PublishedHash {
+		if n.dnslinkStale() {
+			s.syncDNSLink(slug, st.ID)
+		}
 		return
 	}
 	hash := n.BuiltHash
@@ -551,6 +571,44 @@ func (s *Service) publishOnce(slug string, force bool) {
 		}
 	}
 	s.Logf("planet: published %s: %s -> %s", slug, st.IPNS, cid)
+	s.syncDNSLink(slug, st.ID)
+}
+
+// dnslinkStale says an exposed site on IPFS has a CID its hostname's
+// DNSLink record does not name yet.
+func (n Node) dnslinkStale() bool {
+	return n.IPFS && n.Expose && n.Hostname != "" && n.CID != "" && n.DNSLink != "/ipfs/"+n.CID
+}
+
+// syncDNSLink writes the last published CID into the hostname's DNSLink
+// record through exe. A failure is kept in dnslink_error and tried again
+// after the next build; the publish itself stands.
+func (s *Service) syncDNSLink(slug, id string) {
+	s.nodeMu.Lock()
+	n := s.loadNode(id)
+	s.nodeMu.Unlock()
+	if s.Exe == nil || !n.dnslinkStale() {
+		return
+	}
+	host, path := n.Hostname, "/ipfs/"+n.CID
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err := s.Exe.SetDNSLink(ctx, host, path)
+	s.nodeMu.Lock()
+	n = s.loadNode(id)
+	n.Slug = slug
+	if err != nil {
+		n.DNSLinkError = err.Error()
+	} else if n.Hostname == host {
+		n.DNSLink, n.DNSLinkError = path, ""
+	}
+	s.saveNode(n)
+	s.nodeMu.Unlock()
+	if err != nil {
+		s.Logf("planet: dnslink %s: %v", host, err)
+		return
+	}
+	s.Logf("planet: dnslink %s -> %s", host, path)
 }
 
 // Retire takes a site off this node's routing when it is deleted or
@@ -577,6 +635,7 @@ func (s *Service) Retire(ctx context.Context, slug, id string) {
 	s.nodeMu.Lock()
 	n = s.loadNode(id)
 	n.Slug, n.Expose, n.Hostname, n.RouteWarnings = slug, false, "", nil
+	n.DNSLink, n.DNSLinkError = "", ""
 	s.saveNode(n)
 	s.nodeMu.Unlock()
 }

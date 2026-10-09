@@ -78,7 +78,7 @@ Per node, never synced, derived or secret:
 ```
 ~/.exe/planet/
   <site uuid>/
-    node.json                 expose {sub}, ipfs {enabled}, announce {hub}, last build, last CID, last published
+    node.json                 expose {sub}, ipfs {enabled}, announce {hub}, last build, last CID, last published, DNSLink written
     ipns.key                  PKCS#8 PEM, mode 600, the site's key: IPNS name, hub author, Solana address
     hub.json                  the site on its hub: each post's state and thread, the invite, the profile sent
     public/                   Planet's Public/<uuid> layout, rebuilt from the Workspace source
@@ -538,8 +538,8 @@ hundreds of golden pairs for free.
     last build, whether one is running and whether another is queued;
     `GET|PUT /v1/sites/{slug}/node` is the site's publishing on this node
     (`{expose, subdomain, ipfs}` in, the node file plus `url`, `ipns`,
-    `ipns_url`, `cid_url`, `publishing`, `key`, `domain`, `exe`, `kubo`
-    out), `POST /v1/sites/{slug}/publish` (202) goes to IPFS now,
+    `ipns_url`, `cid_url`, `dnslink_name`, `publishing`, `key`, `domain`,
+    `exe`, `kubo` out), `POST /v1/sites/{slug}/publish` (202) goes to IPFS now,
     `GET /v1/sites/{slug}/export` is the zip, `GET /v1/node` says what the
     node has (`domain`, `exe`, `kubo`, `kubo_version`/`kubo_error`)
   - `GET /v1/sites/{slug}/avatar` (the folder's `avatar.png`, 404 without),
@@ -593,6 +593,9 @@ Built and applied on 2026-09-25 (exe commit 0454005). As shipped:
   `exe expose <host> -backend http://127.0.0.1:7799`.
 - The live daemon runs with an empty `api_token`, so its `/v1` routes,
   the relay included, are open to whoever reaches its Tailscale address.
+- A third addition, 2026-10-09: `PUT /v1/routes/{host}/dnslink {"path":
+  "/ipfs/<cid>"}` and `DELETE` set and remove a route's DNSLink TXT
+  record (see Publishing, DNSLink); removing the route removes it too.
 
 ## The app
 
@@ -691,6 +694,20 @@ does not. Built 2026-09-25 (0.5.0).
   allow-offline as Planet does, unpins the CID before it, and records
   the CID, the time and the hash. Kubo republishes its keystore itself.
   Off keeps the key and the name, so on again is the same site.
+- **DNSLink** (2026-10-09, Livid: "if Kubo is reachable and site is
+  published to a domain, write latest CID to domain's dnslink txt
+  record"). A site that is both exposed and on IPFS names each published
+  CID in its hostname's DNSLink record, TXT `_dnslink.<hostname>` =
+  `dnslink=/ipfs/<cid>`, so Kubo and IPFS gateways resolve
+  `/ipns/<hostname>` to the same build the hostname serves over HTTPS.
+  exe writes it (`PUT /v1/routes/{host}/dnslink {path}`, exe owns
+  Cloudflare; TTL 60 s, quoted content, one record per name) and drops it
+  with the route; IPFS off sends `DELETE …/dnslink`. The node file keeps
+  what was written (`dnslink`) and a refusal (`dnslink_error`) beside a
+  publish that stands; a build whose CID the record does not name yet
+  writes it without publishing again, so a failure heals on the next
+  build or start. The Publish… sheet's IPFS group shows the record's name
+  and whether it names the last CID. paper-demo.v2core.com was the first.
 - **Publish Now** (`POST …/publish`) goes again, changed or not; one
   publish runs at a time per site, a request during one runs once more
   after. A failure is kept in `publish_error` beside the last good CID.

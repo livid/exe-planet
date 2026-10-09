@@ -29,6 +29,9 @@ type fakeExe struct {
 	// what the node signed for a hub through exe (POST /v1/hub/publish)
 	hubOps  []fakeHubOp
 	hubFail string
+	// each route's DNSLink record, and a refusal to write one
+	dnslinks    map[string]string
+	dnslinkFail string
 }
 
 type fakeHubOp struct {
@@ -37,7 +40,7 @@ type fakeHubOp struct {
 }
 
 func newFakeExe(t *testing.T) (*fakeExe, *Exe) {
-	f := &fakeExe{routes: map[string]string{}}
+	f := &fakeExe{routes: map[string]string{}, dnslinks: map[string]string{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/routes", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -58,6 +61,31 @@ func newFakeExe(t *testing.T) (*fakeExe, *Exe) {
 		defer f.mu.Unlock()
 		f.calls = append(f.calls, "del "+r.PathValue("host"))
 		delete(f.routes, r.PathValue("host"))
+		delete(f.dnslinks, r.PathValue("host")) // exe drops the record with the route
+		w.Write([]byte(`{"status":"removed"}`))
+	})
+	mux.HandleFunc("PUT /v1/routes/{host}/dnslink", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		var req struct{ Path string }
+		json.NewDecoder(r.Body).Decode(&req)
+		f.calls = append(f.calls, "dnslink "+r.PathValue("host")+" "+req.Path)
+		if f.routes[r.PathValue("host")] == "" {
+			http.Error(w, `{"error":"not a published route"}`, 404)
+			return
+		}
+		if f.dnslinkFail != "" {
+			http.Error(w, `{"error":"`+f.dnslinkFail+`"}`, 502)
+			return
+		}
+		f.dnslinks[r.PathValue("host")] = req.Path
+		w.Write([]byte(`{"host":"` + r.PathValue("host") + `","dnslink":"dnslink=` + req.Path + `"}`))
+	})
+	mux.HandleFunc("DELETE /v1/routes/{host}/dnslink", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		f.calls = append(f.calls, "undnslink "+r.PathValue("host"))
+		delete(f.dnslinks, r.PathValue("host"))
 		w.Write([]byte(`{"status":"removed"}`))
 	})
 	mux.HandleFunc("POST /v1/hub/publish", func(w http.ResponseWriter, r *http.Request) {
@@ -316,5 +344,97 @@ func TestIPFS(t *testing.T) {
 	caps := svc.Caps(ctx)
 	if caps.Kubo || !caps.Exe || caps.Domain != "example.test" || caps.Backend != "http://127.0.0.1:7798" {
 		t.Fatalf("caps: %+v", caps)
+	}
+}
+
+// An exposed site on IPFS names each published CID in its hostname's
+// DNSLink record, through exe; a site that is only one of the two does not.
+func TestDNSLink(t *testing.T) {
+	svc, store, fe, fk := newNodeService(t)
+	store.CreateSite("notes", "Notes", "", "plain")
+	store.CreatePost("notes", site.KindPost, "hello", site.Meta{Title: "Hello"}, "hi\n")
+	if _, err := svc.Build("notes"); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	on, off := true, false
+	dnslinks := func() map[string]string {
+		fe.mu.Lock()
+		defer fe.mu.Unlock()
+		m := map[string]string{}
+		for k, v := range fe.dnslinks {
+			m[k] = v
+		}
+		return m
+	}
+	// on IPFS but not exposed: nothing to write
+	if _, err := svc.SetNode(ctx, "notes", NodeUpdate{IPFS: &on}); err != nil {
+		t.Fatal(err)
+	}
+	n := waitPublished(t, svc, "notes", 1, fk)
+	if n.DNSLink != "" || n.DNSLinkName != "" || len(dnslinks()) != 0 {
+		t.Fatalf("unexposed: %+v %v", n, dnslinks())
+	}
+	// exposed after: the rebuild for the hostname publishes and names its CID
+	if _, err := svc.SetNode(ctx, "notes", NodeUpdate{Expose: &on}); err != nil {
+		t.Fatal(err)
+	}
+	n = waitPublished(t, svc, "notes", 2, fk)
+	if n.DNSLinkName != "_dnslink.notes.example.test" || n.DNSLink != "/ipfs/"+n.CID || dnslinks()["notes.example.test"] != "/ipfs/"+n.CID {
+		t.Fatalf("exposed: %+v %v", n, dnslinks())
+	}
+	// every change moves the record with the CID
+	body := "changed\n"
+	store.UpdatePost("notes", "hello", "", site.PostUpdate{Body: &body})
+	svc.Build("notes")
+	n = waitPublished(t, svc, "notes", 3, fk)
+	if dnslinks()["notes.example.test"] != "/ipfs/"+n.CID || n.DNSLink != "/ipfs/"+n.CID {
+		t.Fatalf("after a change: %+v %v", n, dnslinks())
+	}
+	// a refusal is kept beside a publish that stands, and the next build
+	// writes it without publishing again
+	fe.mu.Lock()
+	fe.dnslinkFail = "cloudflare said no"
+	fe.mu.Unlock()
+	body = "again\n"
+	store.UpdatePost("notes", "hello", "", site.PostUpdate{Body: &body})
+	svc.Build("notes")
+	n = waitPublished(t, svc, "notes", 4, fk)
+	if !strings.Contains(n.DNSLinkError, "cloudflare said no") || n.PublishError != "" || n.DNSLink == "/ipfs/"+n.CID {
+		t.Fatalf("refused: %+v", n)
+	}
+	fe.mu.Lock()
+	fe.dnslinkFail = ""
+	fe.mu.Unlock()
+	svc.Build("notes")
+	deadline := time.Now().Add(5 * time.Second)
+	for n.DNSLink != "/ipfs/"+n.CID && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+		n, _ = svc.Node("notes")
+	}
+	if n.DNSLink != "/ipfs/"+n.CID || n.DNSLinkError != "" || dnslinks()["notes.example.test"] != n.DNSLink {
+		t.Fatalf("healed: %+v %v", n, dnslinks())
+	}
+	if _, _, pubs, _ := fk.Snapshot(); len(pubs) != 4 {
+		t.Fatalf("healing published again: %v", pubs)
+	}
+	// a new subdomain: the old record goes with its route, the new one is written
+	sub := "blog"
+	if _, err := svc.SetNode(ctx, "notes", NodeUpdate{Subdomain: &sub}); err != nil {
+		t.Fatal(err)
+	}
+	n = waitPublished(t, svc, "notes", 5, fk)
+	if d := dnslinks(); len(d) != 1 || d["blog.example.test"] != "/ipfs/"+n.CID || n.DNSLinkName != "_dnslink.blog.example.test" {
+		t.Fatalf("moved: %+v %v", n, d)
+	}
+	// IPFS off takes the record down; the route stays
+	n, err := svc.SetNode(ctx, "notes", NodeUpdate{IPFS: &off})
+	if err != nil || n.DNSLink != "" || len(dnslinks()) != 0 || !n.Expose {
+		t.Fatalf("ipfs off: %+v %v %v", n, dnslinks(), err)
+	}
+	svc.Build("notes")
+	time.Sleep(100 * time.Millisecond)
+	if len(dnslinks()) != 0 {
+		t.Fatalf("written while IPFS is off: %v", dnslinks())
 	}
 }
