@@ -1,4 +1,4 @@
-GO ?= /usr/local/go/bin/go
+GO ?= $(shell command -v go 2>/dev/null || echo /usr/local/go/bin/go)
 UNIT = $(HOME)/.config/systemd/user/exe-planet.service
 
 build:
@@ -7,10 +7,11 @@ build:
 test:
 	$(GO) test ./...
 
-# Install the user unit once; afterwards `make restart` is the loop.
+# Install the user unit once; afterwards `make restart` is the loop. The
+# unit names this checkout, wherever it is (the file says /www/exe-planet).
 install: build
 	mkdir -p $(dir $(UNIT))
-	cp exe-planet.service $(UNIT)
+	sed 's#/www/exe-planet#$(CURDIR)#g' exe-planet.service > $(UNIT)
 	XDG_RUNTIME_DIR=/run/user/$(shell id -u) systemctl --user daemon-reload
 	XDG_RUNTIME_DIR=/run/user/$(shell id -u) systemctl --user enable --now exe-planet
 
