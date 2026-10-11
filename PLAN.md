@@ -299,10 +299,12 @@ page is laid out to the same pixel as before in Chromium and WebKit on
 Linux at ratios 1, 1.5 and 2. On the Mac (Safari 27, through the Safari
 MCP) a heading measures Lucida Grande Bold's width, the paragraphs keep
 theirs and the page keeps its height. Headings stay 12px, the manual's
-size; a size step is a separate decision. The exe desk, its docs pages
-and the hub use the same stack and still show the faint bold on a Mac:
-the same two rules would fix them, in exe-stats' `chrome.css` and the
-desk. buildNumber 13, **not pushed** to SiteTemplatePlatinum: until
+size; a size step is a separate decision. exe's public site (homepage,
+documentation, /stats) got the same two rules in its `site.css` the
+same day (exe 3773b30, Livid: "documentation needs this h2 fix too").
+The exe desk and the hub use the same stack and still show the faint
+bold on a Mac: the same two rules would fix them, in the desk and in
+exe-stats' `chrome.css`. buildNumber 13, **not pushed** to SiteTemplatePlatinum: until
 Livid says push, the change lives in the vendored copy here (a fresh
 clone rsynced over `templates/platinum` before then would undo it:
 rsync this copy into the clone first), and PlanetSiteTemplates has no
