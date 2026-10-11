@@ -284,6 +284,30 @@ when that day comes.
 The live `exe` site (slug `exe`, avatar = the desk's icon) wears it; its
 first post is "Meet exe".
 
+**Bold type on a Mac** (2026-10-11; Livid: "h2 seems no bold or size
+diff"). The stack in `chrome.css` lands on Geneva on a Mac, and Geneva
+has one weight: Safari thickened it by a hair, so a post's 12px bold
+headings, its title, a list item's bold lead, the window's name and the
+buttons read as plain text there, while Linux and Windows (Verdana, or
+DejaVu) always showed a real bold. `style.css` now opens with two
+`@font-face` rules for the family `Geneva`: the plain face is the Mac's
+own Geneva, the bold one `local("Lucida Grande Bold")`, which every Mac
+carries. They bind the family's name, so `chrome.css` stays the verbatim
+copy and no selector has to be listed. Where neither face is installed
+both rules fail to load and the stack goes on to its next name: the
+page is laid out to the same pixel as before in Chromium and WebKit on
+Linux at ratios 1, 1.5 and 2. On the Mac (Safari 27, through the Safari
+MCP) a heading measures Lucida Grande Bold's width, the paragraphs keep
+theirs and the page keeps its height. Headings stay 12px, the manual's
+size; a size step is a separate decision. The exe desk, its docs pages
+and the hub use the same stack and still show the faint bold on a Mac:
+the same two rules would fix them, in exe-stats' `chrome.css` and the
+desk. buildNumber 13, **not pushed** to SiteTemplatePlatinum: until
+Livid says push, the change lives in the vendored copy here (a fresh
+clone rsynced over `templates/platinum` before then would undo it:
+rsync this copy into the clone first), and PlanetSiteTemplates has no
+bump for it yet.
+
 **Paper** (`templates/paper`, 2026-09-28, Livid asked for a super
 minimal template on a grey noise ground in Google's Noto Serif, for
 literature and the humanities, with hub replies as Platinum has them;

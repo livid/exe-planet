@@ -5,6 +5,13 @@
    shared block; this file is only what a site needs on top of it. Every
    1px line is a border on a box of its own; 12px type; no hover states. */
 :root { --rule: #ddd; --quiet: #555; --cell: #999; --head: #ddd; }
+/* bold type on a Mac: the stack in chrome.css lands there on Geneva, which
+   has one weight, so a browser thickens it a little and a heading reads as
+   the text under it. Geneva's bold on these pages is Lucida Grande's, a
+   face every Mac carries; where neither face is installed both rules come
+   to nothing and the stack goes on to its next name, as it always did. */
+@font-face { font-family: "Geneva"; font-weight: normal; src: local("Geneva"); }
+@font-face { font-family: "Geneva"; font-weight: bold; src: local("Lucida Grande Bold"), local("LucidaGrande-Bold"); }
 .window { max-width: 720px; }
 
 /* the top strip: where this page sits, in one line, on the platinum the
