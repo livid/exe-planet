@@ -51,6 +51,10 @@
 .item-date { margin-left: auto; font-size: 11px; color: var(--quiet); white-space: nowrap; }
 .item-summary { margin: 2px 0 0; color: #333; }
 .item-body { margin: 2px 0 0; }
+/* a post in more than one language is listed with its title in each,
+   the one it was written with marked data-o; until the page script has
+   chosen the reader's, and without script, only that one shows */
+html:not(.lang-on) [data-l]:not([data-o]) { display: none; }
 h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
 /* the feed, as rss.xsl shows it in a browser: a line saying what the
    file is, with its address to copy */
@@ -63,6 +67,14 @@ h2.section { margin: 16px 0 4px; font-size: 12px; line-height: 16px; }
    picture on its own */
 .post-title { margin: 0 0 2px; font-size: 12px; line-height: 16px; }
 .date { margin: 0 0 12px; font-size: 11px; color: var(--quiet); }
+/* a post in more than one language: the languages it can be read in, at
+   the far end of the date's line, each by its own name; the one being
+   read is bold, the others are links */
+.meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0 0 12px; }
+.meta .date { margin: 0; }
+.langs { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-left: auto; font-size: 11px; }
+.langs a { color: #333399; text-decoration: none; }
+.langs a:hover { text-decoration: underline; }
 .content { font-size: 12px; line-height: 1.45; }
 .content > :first-child { margin-top: 0; }
 .content h1, .content h2 { font-size: 12px; font-weight: bold; line-height: 1.34; margin: 16px 0 4px; }

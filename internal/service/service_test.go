@@ -218,20 +218,20 @@ func TestViewAndRenderPath(t *testing.T) {
 	store.CreateSite("notes", "Notes", "", "sparkle")
 	p, _ := store.CreatePost("notes", site.KindPost, "hello", site.Meta{Title: "Hello"}, "![pic](photo.jpg)\n")
 	store.AddAttachment("notes", "hello", "", "photo.jpg", strings.NewReader("jpeg"))
-	if _, err := svc.View("notes", "hello", Attachments{}); err == nil {
+	if _, err := svc.View("notes", "hello", "", Attachments{}); err == nil {
 		t.Fatal("view before a build")
 	}
 	if _, err := svc.Build("notes"); err != nil {
 		t.Fatal(err)
 	}
-	page, err := svc.View("notes", "hello", Attachments{})
+	page, err := svc.View("notes", "hello", "", Attachments{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(page, "<h1>Hello</h1>") || !strings.Contains(page, `src="data:image/jpeg;base64,anBlZw=="`) {
 		t.Fatalf("view folded nothing:\n%s", page)
 	}
-	page, _ = svc.View("notes", "hello", Attachments{Base: "/att/", Query: "token=T"})
+	page, _ = svc.View("notes", "hello", "", Attachments{Base: "/att/", Query: "token=T"})
 	if !strings.Contains(page, `src="/att/photo.jpg?token=T"`) || !strings.Contains(page, `exe:"page-link"`) {
 		t.Fatalf("view route:\n%s", page)
 	}

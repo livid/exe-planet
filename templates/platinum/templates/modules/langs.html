@@ -1,0 +1,1 @@
+<div class="langs">{% for l in languages %}{% if l.current %}<b lang="{{ l.lang }}" aria-current="true">{{ l.name }}</b>{% else %}<a href="{{ l.href }}" lang="{{ l.lang }}" hreflang="{{ l.lang }}" data-lang="{{ l.key }}">{{ l.name }}</a>{% endif %}{% endfor %}</div>

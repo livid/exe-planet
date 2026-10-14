@@ -14,13 +14,17 @@ import (
 	"strings"
 )
 
-// Setting is one entry of template.json's settings.
+// Setting is one entry of template.json's settings. Options are the
+// values it takes, which Planet does not read and a template of ours may
+// list: a Language setting that lists them is set, on a post's page in
+// one of those languages, to that language (lang.go).
 type Setting struct {
 	Name         string       `json:"name"`
 	Type         string       `json:"type"`
 	DefaultValue DefaultValue `json:"defaultValue"`
 	Description  string       `json:"description"`
 	Advanced     *bool        `json:"advanced"`
+	Options      []string     `json:"options"`
 }
 
 // DefaultValue is a setting's default as Planet decodes it: a string, or

@@ -493,17 +493,23 @@ function revealRow(slug) {
   const r = $$("#rows .row").find(r => r.dataset.slug === slug);
   if (r) r.scrollIntoView({ block: "nearest" });
 }
-function selectPost(slug) {
+// lang: the post's page in another language than it was written in (the
+// page column followed a link to index.ja.html); none is the post itself.
+function selectPost(slug, lang) {
   post = slug;
+  pageLang = lang || "";
   $$("#rows .row").forEach(r => r.classList.toggle("sel", r.dataset.slug === slug));
   setButtons();
   loadPage();
 }
 const current = () => posts.find(p => p.slug === post);
-const postPath = p => "Planet/" + site + "/" + KIND_DIR[p.kind] + "/" + p.slug + "/index.md";
+// The file Edit opens: the post's index.md, or, while the page column
+// shows the post in another language, that language's file beside it.
+const langFile = p => { const v = pageLang && (p.versions || []).find(v => v.lang.toLowerCase() === pageLang); return v ? v.file : "index.md"; };
+const postPath = p => "Planet/" + site + "/" + KIND_DIR[p.kind] + "/" + p.slug + "/" + langFile(p);
 
 // ---- the page column: the built page with its resources folded in ----
-let pageSeq = 0, pagePath = "";
+let pageSeq = 0, pagePath = "", pageLang = "";
 // What the frame shows, which this window cannot look at (the frame is
 // sandboxed): whose page it is, the page as it was given, how far down
 // it is read (the page's own script says), and how its to-do items stand
@@ -544,10 +550,12 @@ async function loadPage(retry, again) {
   if (p.kind !== "post") extra.set("kind", p.kind);
   if (TOKEN) extra.set("token", TOKEN);
   if ([...extra].length) q.set("query", extra.toString());
+  const lang = pageLang;
+  if (lang) q.set("lang", lang);
   try {
     const html = await api("/sites/" + encodeURIComponent(site) + "/posts/" + encodeURIComponent(p.slug) + "/view?" + q);
     if (seq !== pageSeq) return;
-    pagePath = p.slug + "/index.html";
+    pagePath = p.slug + "/index" + (lang ? "." + lang : "") + ".html";
     // The same page as the frame shows, after a build. When it differs
     // only in what is ticked, the frame is left alone: either it is the
     // build that followed a tick made in the frame, which the frame
@@ -562,6 +570,8 @@ async function loadPage(retry, again) {
     showPage(html, "", key, same ? shown.y : 0);
   } catch (e) {
     if (seq !== pageSeq) return;
+    // (the language shown is gone from the post: its file was deleted or emptied)
+    if (lang && /is not built in/.test(e.message)) { pageLang = ""; loadPage(); return; }
     if (/not built/.test(e.message) && (retry || 0) < 10) {
       showPage(null, "Building…");
       setTimeout(() => { if (seq === pageSeq) loadPage((retry || 0) + 1); }, 1500);
@@ -589,15 +599,17 @@ async function loadSitePage(rel) {
 }
 // A link clicked in the page column: the viewed page hands it over
 // (its own base would be this window's address). A post's page picks
-// the post in the list, a feed opens in a tab, any other page of the
-// site shows in place, and an outside link opens in a tab.
+// the post in the list, in the language the link names (index.ja.html
+// is the post in Japanese), a feed opens in a tab, any other page of
+// the site shows in place, and an outside link opens in a tab.
 function pageLink(href, external) {
   if (external) { window.open(href, "_blank", "noopener"); return; }
   let rel;
   try { rel = new URL(href, "http://site/" + (pagePath || "index.html")).pathname.replace(/^\//, ""); } catch (e) { return; }
   if (rel === "" || rel.endsWith("/")) rel += "index.html";
-  const hit = posts.find(p => rel === p.slug + "/index.html" || rel === p.id + "/index.html");
-  if (hit) { selectPost(hit.slug); revealRow(hit.slug); return; }
+  const m = /^([^/]+)\/index(?:\.([a-z0-9-]+))?\.html$/.exec(rel);
+  const hit = m && posts.find(p => m[1] === p.slug || m[1] === p.id);
+  if (hit) { selectPost(hit.slug, m[2]); revealRow(hit.slug); return; }
   if (/\.(xml|json|png|jpe?g|gif|webp|svg|pdf|mp3|mp4|mov|m4a|zip)$/i.test(rel)) {
     window.open(withToken(API.replace(/\/v1$/, "") + "/sites/" + encodeURIComponent(site) + "/" + rel), "_blank", "noopener");
     return;

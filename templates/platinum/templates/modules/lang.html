@@ -1,0 +1,83 @@
+<script>
+  // A post in more than one language. Each language is a page of its
+  // own in the post's folder (index.ja.html beside index.html, which is
+  // the post as it was written), and a page of the site — the home
+  // page, the archive, a tag — is one page that carries every title in
+  // each. A reader gets, in this order: the language ?lang= on the
+  // address asks for; the one they last chose on a post here, which
+  // this browser remembers; the first of the browser's own languages
+  // the post is in; the post as it was written. So the written page
+  // sends a reader on to their language, a page in a language of its
+  // own stays where it is (only ?lang= moves it), and a list hides
+  // every title but the reader's and points at that page. The language
+  // being read rides on: a page asked for by ?lang=, and a post's page
+  // in a language of its own, add it to their links into the site.
+  // Inside the app that writes the site (a frame with no address of its
+  // own) nothing is chosen, and without script every page is the one it
+  // was written as.
+  (() => {
+    if (location.protocol === "about:") return;
+    const L = { {% if languages %}here: "{% for l in languages %}{% if l.current %}{{ l.key }}{% endif %}{% endfor %}", orig: "{% for l in languages %}{% if l.original %}{{ l.key }}{% endif %}{% endfor %}", files: { {% for l in languages %}"{{ l.key }}": "{{ l.file }}", {% endfor %}}{% else %}site: [{% for key in site_languages %}"{{ key }}", {% endfor %}]{% endif %} };
+    const doc = document.documentElement, KEY = "planet-lang", low = s => String(s || "").trim().toLowerCase();
+    // The languages in have that someone asking for want reads, best
+    // first: the tag itself; then, in Chinese, the ones in the same
+    // script (Traditional is asked for by Hant, TW, HK or MO, anything
+    // else is Simplified) before the others; in any other language the
+    // bare one before its regional forms. The builder has the same rule.
+    const base = t => t.split("-")[0], hant = t => /-(hant|tw|hk|mo)(-|$)/.test(t);
+    const cands = (want, have) => {
+      const rank = h => h === want ? 0 : (base(want) === "zh" ? hant(h) === hant(want) : h === base(h)) ? 1 : 2;
+      return have.filter(h => base(h) === base(want)).sort((a, b) => rank(a) - rank(b));
+    };
+    const q = low(new URLSearchParams(location.search).get("lang"));
+    let kept = "";
+    try { kept = low(localStorage.getItem(KEY)); } catch (e) {}
+    const asked = q ? [q] : kept ? [kept] : (navigator.languages || [navigator.language]).map(low);
+    let ride = q;
+    const first = [];
+    if (L.files) {
+      // a post's page: the written one moves on to the reader's
+      // language, held blank meanwhile so it never shows first
+      const have = Object.keys(L.files);
+      let to = "";
+      if (q || L.here === L.orig) for (const want of asked) if ((to = cands(want, have)[0] || "")) break;
+      if (to && to !== L.here) {
+        doc.style.visibility = "hidden";
+        location.replace((L.files[to] || "./") + (q ? "?lang=" + encodeURIComponent(q) : "") + location.hash);
+        return;
+      }
+      if (!ride && L.here !== L.orig) ride = L.here;
+      // the line of languages on the post: a click there is a choice
+      addEventListener("click", e => {
+        const a = e.target.closest && e.target.closest("a[data-lang]");
+        if (a) try { localStorage.setItem(KEY, a.dataset.lang); } catch (x) {}
+      }, true);
+    } else {
+      // a page of the site: of a row's titles (data-l, the written one
+      // data-o) all but the first the reader asks for are hidden, by
+      // rules written here before anything is drawn
+      for (const want of asked) for (const c of cands(want, L.site)) if (!first.includes(c)) first.push(c);
+      const not = first.map(x => ':not([data-langs~="' + x + '"])');
+      document.head.appendChild(document.createElement("style")).textContent =
+        first.map((x, i) => '[data-langs~="' + x + '"]' + not.slice(0, i).join("") + ' [data-l]:not([data-l="' + x + '"]),').join("") +
+        "[data-langs]" + not.join("") + " [data-l]:not([data-o]){display:none!important}";
+      doc.classList.add("lang-on");
+    }
+    addEventListener("DOMContentLoaded", () => {
+      // a row's other links to its post (the date) go where its title does
+      for (const row of document.querySelectorAll("[data-langs]")) {
+        const has = row.dataset.langs.split(" "), x = first.find(x => has.includes(x));
+        const o = row.querySelector("[data-o]"), t = x && row.querySelector('[data-l="' + x + '"]');
+        if (!o || !t || t === o) continue;
+        for (const a of row.querySelectorAll("a[href]:not([data-l])")) if (a.getAttribute("href") === o.getAttribute("href")) a.setAttribute("href", t.getAttribute("href"));
+      }
+      // and the language rides on the links to the site's pages: not to a
+      // file, another site, a place in this page, or a page already in a
+      // language of its own
+      if (ride) for (const a of document.querySelectorAll("a[href]:not([data-lang])")) {
+        const m = /^(?![a-z][a-z0-9+.-]*:|\/\/)([^?#]+)(?:\?[^#]*)?(#.*)?$/i.exec(a.getAttribute("href"));
+        if (m && /(\/|\.html)$/i.test(m[1]) && !/(^|\/)index\.[a-z0-9-]+\.html$/i.test(m[1])) a.setAttribute("href", m[1] + "?lang=" + encodeURIComponent(ride) + (m[2] || ""));
+      }
+    });
+  })();
+</script>

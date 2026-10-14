@@ -8,12 +8,13 @@
   "generateIndexPagination": true,
   "generateTagPages": true,
   "generateArchive": true,
-  "buildNumber": 8,
+  "buildNumber": 9,
   "settings": {
     "language": {
       "name": "Language",
       "type": "string",
       "defaultValue": "zh-Hans",
+      "options": ["zh-Hans", "zh-Hant", "ja", "en"],
       "description": "The site's language: zh-Hans (Simplified Chinese, the default), zh-Hant (Traditional Chinese), ja (Japanese) or en (English). It picks the Noto Serif face for that script, the words around the text (Archive, Tags, Newer, Older) and how dates are written."
     }
   }

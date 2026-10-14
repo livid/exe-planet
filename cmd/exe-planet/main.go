@@ -24,7 +24,7 @@ import (
 	"github.com/livid/exe-planet/internal/watch"
 )
 
-const version = "0.6.0"
+const version = "0.7.0"
 
 func main() {
 	home, _ := os.UserHomeDir()

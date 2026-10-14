@@ -257,7 +257,25 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 	dirs := map[string]string{}
 	threads := map[string]map[string]any{}
 	lost := s.ledgerHubs(st.ID) // a thread whose hub: line a save dropped still shows
+	// a post in more than one language (PLAN.md): the language its own
+	// front matter names, and its index.<language>.md files that hold a
+	// text. One with no title of its own takes the post's.
+	langs := map[string]string{}
+	versions := map[string][]build.Version{}
 	for _, post := range posts {
+		if tag, ok := site.LangTag(post.Extra["lang"]); ok {
+			langs[post.ID] = tag
+		}
+		for _, v := range post.Versions {
+			if v.Error != "" || strings.TrimSpace(v.Body) == "" {
+				continue
+			}
+			title := v.Title
+			if title == "" {
+				title = post.Title
+			}
+			versions[post.ID] = append(versions[post.ID], build.Version{Lang: v.Lang, Title: title, Content: v.Body, Summary: Summary(markdown.Render(v.Body))})
+		}
 		dirs[post.ID] = post.Dir
 		hub := post.Hub
 		if hub == "" && post.Kind == "post" {
@@ -277,6 +295,9 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 		},
 		HubThread: func(a *planet.MyArticle) map[string]any {
 			return threads[a.ID]
+		},
+		Languages: func(a *planet.MyArticle) (string, []build.Version) {
+			return langs[a.ID], versions[a.ID]
 		},
 		Now:      time.Now(),
 		Location: s.Location,
@@ -461,8 +482,9 @@ func attachmentURL(a Attachments) func(string) string {
 }
 
 // View is the built page of a post with its resources folded in, for the
-// window's page column.
-func (s *Service) View(slug, postSlug string, att Attachments) (string, error) {
+// window's page column: the post as it was written, or, with lang, its
+// page in that language.
+func (s *Service) View(slug, postSlug, lang string, att Attachments) (string, error) {
 	st, err := s.Store.Site(slug)
 	if err != nil {
 		return "", err
@@ -476,8 +498,22 @@ func (s *Service) View(slug, postSlug string, att Attachments) (string, error) {
 		// made by hand a moment ago: its id comes with the build on its way
 		return "", fmt.Errorf("%w: the site is not built yet", site.ErrNotFound)
 	}
-	page, err := os.ReadFile(filepath.Join(pub, p.ID, "index.html"))
+	file := "index.html"
+	if lang != "" {
+		// the post in another language: its own page beside that one
+		tag, ok := site.LangTag(lang)
+		if !ok {
+			return "", fmt.Errorf("%w: %q is not a language", site.ErrInvalid, lang)
+		}
+		file = "index." + strings.ToLower(tag) + ".html"
+	}
+	page, err := os.ReadFile(filepath.Join(pub, p.ID, file))
 	if err != nil {
+		if lang != "" {
+			if _, err := os.Stat(filepath.Join(pub, p.ID, "index.html")); err == nil {
+				return "", fmt.Errorf("%w: the post is not built in %s", site.ErrNotFound, lang)
+			}
+		}
 		return "", fmt.Errorf("%w: the site is not built yet", site.ErrNotFound)
 	}
 	return withLinkBridge(build.Inline(string(page), build.InlineOptions{

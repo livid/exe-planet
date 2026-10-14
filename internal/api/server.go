@@ -30,7 +30,7 @@ type Builder interface {
 	Build(slug string) (service.Status, error)
 	Status(slug string) (service.Status, error)
 	Preview(slug string, post *site.Post) (string, error)
-	View(slug, post string, att service.Attachments) (string, error)
+	View(slug, post, lang string, att service.Attachments) (string, error)
 	ViewPath(slug, rel string) (string, error)
 	RenderPath(rel, text string, att service.Attachments) (string, error)
 	PublicDir(id string) string
@@ -774,13 +774,13 @@ func attachmentsFrom(r *http.Request) service.Attachments {
 }
 
 // viewPost answers the built page of a post with its resources folded
-// in, for the window's page column.
+// in, for the window's page column; ?lang=ja is its page in Japanese.
 func (s *Server) viewPost(w http.ResponseWriter, r *http.Request) {
 	if s.Builder == nil {
 		writeErr(w, http.StatusNotImplemented, errors.New("no builder"))
 		return
 	}
-	page, err := s.Builder.View(r.PathValue("site"), r.PathValue("post"), attachmentsFrom(r))
+	page, err := s.Builder.View(r.PathValue("site"), r.PathValue("post"), r.URL.Query().Get("lang"), attachmentsFrom(r))
 	if err != nil {
 		fail(w, err)
 		return

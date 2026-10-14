@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{% if page_lang %}{{ page_lang }}{% else %}en{% endif %}">
   <head>
     <meta charset="UTF-8">
     <meta content="True" name="HandheldFriendly">
@@ -20,7 +20,7 @@
     <link rel="icon" href="{{ assets_prefix }}avatar.png" sizes="144x144">
     <link rel="shortcut icon" href="{{ assets_prefix }}favicon.ico" type="image/png">
     {% endif %}
-    {% block head %}{% endblock %}
+    {% if languages %}{% include 'modules/lang.html' %}{% else %}{% if site_languages %}{% include 'modules/lang.html' %}{% endif %}{% endif %}{% block head %}{% endblock %}
     {% if planet.plausibleEnabled %}
     <script defer data-domain="{{ planet.plausibleDomain }}" src="https://{{ planet.plausibleAPIServer }}/js/plausible.local.js"></script>
     {% endif %}

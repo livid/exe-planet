@@ -37,6 +37,12 @@ type Input struct {
 	// hub). It reaches the page as hub_thread and nothing else: Planet
 	// never sets it, and article.json keeps Planet's shape.
 	HubThread func(a *planet.MyArticle) map[string]any
+	// Languages says what language an article was written in ("" is the
+	// site's) and gives it in its other languages, if it has any (PLAN.md,
+	// A post in more than one language). Like HubThread it reaches the
+	// pages and nothing else: article.json, planet.json and the feed keep
+	// the article as it was written.
+	Languages func(a *planet.MyArticle) (string, []Version)
 	// AssetsDir replaces the template's assets/ folder, for a golden test
 	// whose site was built with an older copy of the template.
 	AssetsDir string
@@ -64,7 +70,8 @@ type builder struct {
 	user      map[string]any // user_settings for templates
 	tsettings map[string]any
 	hasAvatar bool
-	pubs      []map[string]any // every article's JSON projection, Planet's order
+	pubs      []map[string]any         // every article's JSON projection, Planet's order
+	langs     map[string]*articleLangs // each article's languages, by id (lang.go)
 	res       *Result
 }
 
@@ -324,6 +331,9 @@ func (b *builder) articles() error {
 				return err
 			}
 		}
+		if err := b.versionPages(a, dir); err != nil {
+			return fmt.Errorf("%s: %w", a.ID, err)
+		}
 		if err := b.write(filepath.Join(a.ID, "article.json"), planet.MarshalFoundation(b.pubs[len(b.pubs)-1])); err != nil {
 			return err
 		}
@@ -346,14 +356,27 @@ func (b *builder) renderArticle(a *planet.MyArticle, dir string) (string, error)
 }
 
 func (b *builder) renderArticleWith(file string, a *planet.MyArticle, dir string) (string, error) {
+	return b.renderArticleIn(file, a, dir, nil)
+}
+
+// renderArticleIn renders an article's page as it was written, or, given
+// a version, in that language: the same article with the version's title
+// and text, which is recorded nowhere but on the page.
+func (b *builder) renderArticleIn(file string, written *planet.MyArticle, dir string, v *Version) (string, error) {
 	p := b.in.Planet
+	a := written
+	if v != nil {
+		in := *written
+		in.Title, in.Content, in.ContentRendered, in.Summary = v.Title, v.Content, nil, &v.Summary
+		a = &in
+	}
 	if a.ContentRendered == nil && a.Content != "" {
 		r := markdown.Render(a.Content)
 		a.ContentRendered = &r
 	}
 	hero := detectHero(a, dir, b.base+b.articlePath(a)+"/")
 	pub := planet.PublicArticle(a, hero, nil, nil)
-	if file == "blog.html" {
+	if file == "blog.html" && v == nil {
 		b.pubs = append(b.pubs, pub)
 	}
 	anyAudio := false
@@ -398,6 +421,7 @@ func (b *builder) renderArticleWith(file string, a *planet.MyArticle, dir string
 			ctx["hub_thread"] = t
 		}
 	}
+	b.langContext(ctx, written, v)
 	for k, v := range b.customCode(ctx) {
 		ctx[k] = v
 	}
@@ -451,6 +475,12 @@ func (b *builder) pages() error {
 		all[i] = planet.ForTemplate(pub)
 	}
 	blogCtx := planetCtx["articles"].([]any)
+	// a post in more than one language is listed with its title in each
+	byID := make(map[string]*planet.MyArticle, len(b.in.Articles))
+	for _, a := range b.in.Articles {
+		byID[a.ID] = a
+	}
+	b.listLanguages(byID, blogCtx, all)
 	common := map[string]any{
 		"planet":                planetCtx,
 		"planet_ipns":           p.IPNS,
@@ -459,6 +489,9 @@ func (b *builder) pages() error {
 		"og_image_url":          b.ogImageURL(),
 		"has_podcast":           b.hasPodcast(blog),
 		"has_podcast_cover_art": false,
+	}
+	if langs := b.siteLanguages(); langs != nil {
+		common["site_languages"] = langs
 	}
 
 	// Index pages.

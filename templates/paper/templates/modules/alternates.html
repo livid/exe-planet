@@ -1,0 +1,2 @@
+{% for l in languages %}<link rel="alternate" hreflang="{{ l.lang }}" href="{{ l.url }}">
+{% endfor %}{% for l in languages %}{% if l.original %}<link rel="alternate" hreflang="x-default" href="{{ l.url }}">{% endif %}{% endfor %}

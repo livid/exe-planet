@@ -137,7 +137,7 @@ func TestTickTodo(t *testing.T) {
 	if _, err := svc.Build("wen"); err != nil {
 		t.Fatal(err)
 	}
-	page, err := svc.View("wen", "week", Attachments{})
+	page, err := svc.View("wen", "week", "", Attachments{})
 	if err != nil {
 		t.Fatal(err)
 	}

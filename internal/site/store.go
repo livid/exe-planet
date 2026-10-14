@@ -120,8 +120,12 @@ type Post struct {
 	Meta
 	Body        string   `json:"body,omitempty"`
 	Attachments []string `json:"attachments"`
-	Error       string   `json:"error,omitempty"`
-	Dir         string   `json:"-"`
+	// Versions are the post in other languages, its index.<language>.md
+	// files (lang.go); the language it was written in is its front
+	// matter's lang line, or the site's.
+	Versions []Version `json:"versions,omitempty"`
+	Error    string    `json:"error,omitempty"`
+	Dir      string    `json:"-"`
 }
 
 // PostUpdate carries the fields PUT may change; nil leaves a field alone.
@@ -137,12 +141,14 @@ type PostUpdate struct {
 
 // TemplateSetting is one of a template's settings, for the settings
 // sheet; the default is passed through as the JSON the template wrote.
+// Options are the values the setting takes, when the template lists them.
 type TemplateSetting struct {
 	Name         string          `json:"name"`
 	Type         string          `json:"type"`
 	DefaultValue json.RawMessage `json:"defaultValue"`
 	Description  string          `json:"description"`
 	Advanced     bool            `json:"advanced"`
+	Options      []string        `json:"options,omitempty"`
 }
 
 // Template is a template folder's template.json.
@@ -489,6 +495,9 @@ func (s *Store) Posts(site, kind string) ([]*Post, error) {
 			}
 			p := readPost(dir, k, e.Name())
 			p.Body = ""
+			for i := range p.Versions {
+				p.Versions[i].Body = ""
+			}
 			posts = append(posts, p)
 		}
 	}
@@ -502,7 +511,7 @@ func (s *Store) Posts(site, kind string) ([]*Post, error) {
 }
 
 func readPost(dir, kind, slug string) *Post {
-	p := &Post{Kind: kind, Slug: slug, Dir: dir, Attachments: listAttachments(dir)}
+	p := &Post{Kind: kind, Slug: slug, Dir: dir, Attachments: listAttachments(dir), Versions: readVersions(dir)}
 	if err := ValidSlug(slug); err != nil {
 		p.Error = "folder name: " + err.Error()
 		return p
@@ -529,6 +538,9 @@ func listAttachments(dir string) []string {
 	}
 	for _, e := range ents {
 		n := e.Name()
+		if _, lang := LangFile(n); lang {
+			continue // the post in another language, not a file of it
+		}
 		if e.Type().IsRegular() && n != "index.md" && !strings.HasPrefix(n, ".") && !strings.HasPrefix(n, "_") {
 			names = append(names, n)
 		}
@@ -836,9 +848,12 @@ func (s *Store) DeletePost(site, slug, kind string) error {
 }
 
 // AttachmentName checks a file name a client sends: the base name only,
-// nothing hidden or generated, not the post itself.
+// nothing hidden or generated, not the post itself, in any language.
 func AttachmentName(name string) (string, error) {
 	name = path.Base(strings.ReplaceAll(strings.TrimSpace(name), "\\", "/"))
+	if _, lang := LangFile(name); lang {
+		return "", fmt.Errorf("%w: invalid attachment name", ErrInvalid)
+	}
 	if name == "" || name == "." || name == "/" || name == "index.md" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || !utf8.ValidString(name) {
 		return "", fmt.Errorf("%w: invalid attachment name", ErrInvalid)
 	}

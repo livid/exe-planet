@@ -344,3 +344,84 @@ func TestImportAPI(t *testing.T) {
 		t.Fatalf("import over an existing site: %d", code)
 	}
 }
+
+// TestPostLanguagesAPI: a post that is in more than one language (PLAN.md,
+// A post in more than one language) lists its versions, which are not
+// attachments, and the page column's view answers its page in a language.
+func TestPostLanguagesAPI(t *testing.T) {
+	root := t.TempDir()
+	store := site.New(filepath.Join(root, "Planet"))
+	if err := store.Init(); err != nil {
+		t.Fatal(err)
+	}
+	shipped, _ := filepath.Abs(filepath.Join("..", "..", "templates"))
+	if err := service.InstallTemplates(shipped, filepath.Join(store.Root, site.TemplatesDir)); err != nil {
+		t.Fatal(err)
+	}
+	svc := service.New(store, filepath.Join(root, "state"), time.UTC)
+	svc.Logf = t.Logf
+	s := &Server{Store: store, Builder: svc, Version: "test", Started: time.Now(), Generation: func() uint64 { return 7 }}
+	srv := httptest.NewServer(s.Handler())
+	t.Cleanup(srv.Close)
+	c := &client{t: t, srv: srv}
+	if _, err := store.CreateSite("desk", "exe", "", "platinum"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := store.CreatePost("desk", site.KindPost, "meet", site.Meta{Title: "Meet exe"}, "A personal cloud.\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(p.Dir, "index.zh-Hans.md"), []byte("---\ntitle: 认识 exe\n---\n\n一朵个人云。\n"), 0o644)
+	if _, err := svc.Build("desk"); err != nil {
+		t.Fatal(err)
+	}
+
+	code, out := c.do("GET", "/v1/sites/desk/posts", nil)
+	list, _ := out["list"].([]any)
+	if code != 200 || len(list) != 1 {
+		t.Fatalf("posts: %d %v", code, out)
+	}
+	listed := list[0].(map[string]any)
+	vs, _ := listed["versions"].([]any)
+	if len(vs) != 1 || len(listed["attachments"].([]any)) != 0 {
+		t.Fatalf("listed: %v", listed)
+	}
+	if v := vs[0].(map[string]any); v["lang"] != "zh-Hans" || v["file"] != "index.zh-Hans.md" || v["title"] != "认识 exe" || v["body"] != nil {
+		t.Errorf("listed version: %v", v)
+	}
+	code, out = c.do("GET", "/v1/sites/desk/posts/meet", nil)
+	if vs, _ = out["versions"].([]any); code != 200 || len(vs) != 1 || vs[0].(map[string]any)["body"] != "一朵个人云。\n" {
+		t.Errorf("the post with its versions: %d %v", code, out)
+	}
+
+	view := func(query string) (int, string) {
+		resp, err := http.Get(srv.URL + "/v1/sites/desk/posts/meet/view" + query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+	if code, page := view(""); code != 200 || !strings.Contains(page, "A personal cloud.") || strings.Contains(page, "一朵个人云") {
+		t.Errorf("view: %d", code)
+	}
+	if code, page := view("?lang=zh-hans"); code != 200 || !strings.Contains(page, "一朵个人云。") || !strings.Contains(page, `<html lang="zh-Hans">`) || strings.Contains(page, "A personal cloud.") {
+		t.Errorf("view in zh-hans: %d", code)
+	}
+	if code, page := view("?lang=ja"); code != 404 || !strings.Contains(page, "is not built in ja") {
+		t.Errorf("view in a language the post is not in: %d %s", code, page)
+	}
+	if code, _ := view("?lang=..%2Fplanet"); code != 400 {
+		t.Errorf("view in no language: %d", code)
+	}
+	// no attachment route reaches a language's file
+	resp, err := http.Get(srv.URL + "/v1/sites/desk/posts/meet/attachments/index.zh-Hans.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 400 {
+		t.Errorf("a language's file as an attachment: %d", resp.StatusCode)
+	}
+}

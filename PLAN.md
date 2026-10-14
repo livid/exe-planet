@@ -63,6 +63,7 @@ files over 10 MB neither accepted by the file API nor synced):
     posts/
       hello-world/            one post; folder = post slug
         index.md              front matter, then Markdown
+        index.ja.md           the post in Japanese, when it has one: a title, then Markdown
         photo.jpg             attachments next to the text
     pages/
       about/index.md          in the navigation, not in RSS
@@ -146,6 +147,7 @@ hero: photo.jpg
 link: https://example.com/original     optional external link
 type: page                             only under pages/; default post
 hub: https://hub.example.com/p/<64 hex>   the post's thread, written by the announcing node
+lang: en                               only when it is not the site's language
 ---
 ```
 
@@ -188,7 +190,9 @@ container; see `/home/livid/.claude` memory `planet-mac-golden-sites`):
   one, `article.md`, `article.json`, `nft.json` when the template asks,
   attachments, and the generated `_grid.png` and `_grid.jpg` hero grids. An
   article with a slug is copied whole to `<slug>/` as well, so both paths
-  resolve.
+  resolve. An article in more than one language has `index.<language>.html`
+  beside its `index.html`, which Planet does not write (A post in more
+  than one language).
 - `planet.json` fields: `id, name, about, ipns, created, updated, tags,
   articles[]`, plus the optional social, Plausible, Juicebox, donation and
   podcast fields when set. Every `Date` is a double of seconds since
@@ -239,7 +243,10 @@ social and Plausible), `article`, `articles`, `article_summary`,
 `previous_page`, `build_timestamp`, `social_image_url`, `og_image_url`,
 `style_css_sha256`, `custom_code_head`, `custom_code_body_start`,
 `custom_code_body_end`, `template_settings`, `user_settings`,
-`current_item_type`, `has_avatar`, `has_podcast`, `planet_ipns`.
+`current_item_type`, `has_avatar`, `has_podcast`, `planet_ipns`. Ours, and
+absent when they do not apply: `hub_thread` (Replies from the hub),
+`replies_js_sha256`, and `page_lang`, `languages`, `article.languages`
+and `site_languages` (A post in more than one language).
 
 `user_settings` also carries `<key>Filter` for every setting ending in
 `Color`, a CSS filter chain that tints a black glyph to that colour. Sepia
@@ -1072,6 +1079,162 @@ takes whole ids only, and the frame is built from it), in two places:
   picture without visiting the hub.
 - Pictures in a reply from the blog (each one is another signature).
 
+## A post in more than one language (built 2026-10-13)
+
+Livid, 2026-10-13: "post can hold multiple languages for title/content,
+and template Platinum and Paper can detect browser language or read query
+string to select language"; and, asked whether a reader's language should
+be one address or a page of its own: "same address for site-level pages
+like home, tag, archive...but each post can have multiple static page
+while page's slug/index.html holds the default". Built the same day
+(exe-planet 0.7.0; Paper buildNumber 9, Platinum 14).
+
+**In the Workspace** a post's `index.md` is the post as it was written,
+and a file `index.<language>.md` beside it is the post in that language:
+`title:` in its front matter, its text under it, nothing else. The id,
+the dates, the tags, the pictures, the hero and the thread on the hub are
+`index.md`'s and are the same in every language. The language is a BCP 47
+tag of a two-letter language, an optional four-letter script and an
+optional region (`ja`, `zh-hans`, `pt-br`), read in any letter case and
+best written lower, so a folder synced to a Mac, whose file system folds
+case, holds one file a language (of two names that differ only in case
+the lower one is read). Three letters are left out on purpose:
+`index.old.md` and `index.bak.md` are files a person keeps, and stay the
+attachments they always were. A language's file is not an attachment: it
+is not listed as one, not copied into the build, and the attachment
+routes refuse its name. One with no text is not built (it is being
+written); one with no title takes the post's; one in the language the
+post was written in is not another language. That language is the
+`lang:` line of `index.md` when it has one, else the site's: the
+template's Language setting when it has one (Paper), else `en`. The API
+lists a post's languages as `versions` (`lang`, `file`, `title`, and the
+text when one post is asked for); there is no route that writes one, as
+there is none that writes `index.md` for the Writer: it is a file.
+
+**In the build** each other language is one more page in the post's
+folder, beside the page Planet builds: `<id>/index.html` is the post as
+written, `<id>/index.ja.html` the post in Japanese, the same `blog.html`
+given that language's title and text, and both are in the copy under the
+slug. Same folder, not a folder each: a post's pictures and footnote
+links are relative, and one level down both would break. One text a
+page means one `fn:1` a page and one count of to-do items. Nothing else
+of Planet's changes: `planet.json`, `article.json`, `article.md` and the
+feed keep the post as it was written, so a follower in Planet and a feed
+reader get that one, and a post in one language builds to the bytes it
+always did (checked against the two live sites built with the code
+before and after: 143 files, the same but for the stylesheet's hash). A
+page of the site — the home page, a tag, the archive — stays one page
+at one address and is handed every title.
+
+**What a template is given**, all of it absent for a post in one
+language, as `hub_thread` is for a post with no thread (Planet gives none
+of it, and both templates render there as before; PlanetSiteTemplates'
+`swift test` passed with them in a Swift 6.1 container): on a post's
+page `page_lang`, the language of this page, when the post is in more
+than one or names its own; and `languages`, the post's languages with the
+written one first, each `{lang, key, name, title, file, href, url,
+original, current}` — `key` the tag in lower case, `name` the language's
+own name (日本語), `file` the page's name after the post's folder (empty
+for the written one), `href` the way there from one of the post's pages.
+On a page of the site each listed article that is in more than one has
+the same list as `article.languages`, and the page has `site_languages`,
+every language any post is in, as keys. And one rule for a template with
+a Language setting: when the setting lists the values it takes
+(`"options"` in `template.json`, which Planet does not read), a post's
+page in one of them is rendered with the setting set to it. That is all
+Paper needed: its face, the words around the text, its dates and the
+reply frame's language already follow that setting, so a Japanese page
+on a Chinese site is a Japanese page throughout. A language Paper has no
+words for (Korean) keeps the site's setting and marks the article
+`lang="ko"`. Platinum has no such setting: `page_lang` is its `<html
+lang>` and its own words stay English.
+
+**Which language a reader gets** is decided by a script in the page
+(`modules/lang.html`, the same file in both templates), since a built
+site is files, on IPFS as well, and no server reads `Accept-Language`.
+In this order: the language `?lang=` on the address asks for; the one
+the reader last chose on a post here, which the browser keeps
+(`localStorage`, `planet-lang`); the first of the browser's own
+languages the post is in; the post as it was written. A language is
+matched by the tag itself, then within Chinese by script (Traditional is
+asked for by `Hant`, `TW`, `HK` or `MO`, anything else is Simplified)
+before the other script, and in any other language by the bare tag
+before its regional forms; `langCands` in the builder is the same rule
+(`TestLangCands`). From there:
+
+- The written page (`<slug>/`) sends the reader on to their language's
+  page with `location.replace`, and hides itself first, so it is never
+  seen on the way: one more request, and only for a reader who arrives
+  at a post's bare address in another language.
+- A page in a language of its own stays where it is. Only `?lang=` moves
+  it, and the line of languages links the written page as
+  `./?lang=<its language>`, or the reader's browser would send them
+  straight back.
+- The line of languages sits at the far end of the date's line, each
+  language by its own name, the one being read marked; a click there is
+  the choice the browser keeps. `?lang=` is for the link it is on and is
+  not kept.
+- A page of the site carries each such post's titles as links, one a
+  language (`data-l`, the written one `data-o`, the row
+  `data-langs`), and the script writes, in the head before a row is
+  parsed, the rules that hide all but the first the reader asks for;
+  until it has, and without script, a rule in the stylesheet shows only
+  the written ones. So nothing is drawn twice and no row changes its
+  title after it is seen. The row's other links to the post (Paper's
+  date) are pointed where its title goes. An untitled post is listed as
+  written.
+- The language being read rides on: a page asked for by `?lang=`, and a
+  post's page in a language of its own, add `?lang=` to their links to
+  the site's pages (not to a file, another site, a place in the page or
+  a page already in a language of its own), so Archive from a Japanese
+  post lists in Japanese.
+- Inside a frame with no address of its own (the Planet window's page
+  column) nothing is chosen: the author sees the post as written, and a
+  click on a language is handed to the window like any link. Without
+  script every page is the one it was written as, and the line of
+  languages still links the others.
+
+Each page also names the others to a crawler (`<link rel="alternate"
+hreflang>`, the written page as `x-default`) and has its own title and
+description for a link card.
+
+**The Planet window** follows a link to `index.ja.html` in the page
+column to that post in Japanese (`GET …/posts/{post}/view?lang=ja`), the
+post still chosen in the list, and Edit then opens that language's file
+by the name it has on disk; a row, or the written language in the page,
+is the post itself again. A build keeps the language shown; a language
+whose file is gone falls back to the post. A to-do item ticked on a
+language's page writes nothing and comes off: the tick route flips a line
+of `index.md`.
+
+**Left as it was**, on purpose or for later: the site's own words on its
+pages (Archive, Tags, the dates, the site's name and about) stay in the
+site's language, so a Japanese reader of a Chinese site reads Japanese
+titles under Chinese navigation, and a page's title in the navigation is
+the written one; tag names are not translated; the feed is the written
+posts only; one thread on the hub serves every language of a post, and
+the announcement is of the post as written; nothing translates a post
+(the hub's translator takes minutes a post, and a story wants a reader's
+check) and nothing says that a language's file is older than the post it
+follows; there is no New Translation… in the window yet, a language is
+made as a file; templates that are Planet's own build the pages but have
+no line of languages and no script.
+
+Tests: `TestLangTag`, `TestLangFile`, `TestPostVersions` (the store),
+`TestLangCands`, `TestLangName` (the builder), `TestPostLanguages` (both
+templates, every page kind, Planet's files untouched, a site in one
+language carrying none of it), `TestPostLanguagesAPI`.
+`~/tools/playwright/exe-planet-lang-test.js` reads the built pages as
+readers in Chinese, Japanese, English, French, Korean and both Chinese
+scripts would, in Chromium and WebKit: where each lands, that the
+written page paints nothing on its way, `?lang=`, the kept choice, one
+title a row and its links, the rules in place before the rows, the
+riding links, one footnote a page, the line of languages on the date's
+line at ratios 1, 1.5 and 2 and on a phone, no script, and the frame.
+`exe-planet-app-lang-test.js` drives the Planet window against a scratch
+daemon: a language followed from the page, Edit's file, the home page,
+the tick that comes off, a build, a deleted file.
+
 ## Import
 
 Done 2026-09-25 (`internal/importer`). Reads a copied Planet library:
@@ -1145,10 +1308,20 @@ in 0.2 s and builds in 0.2 s.
 6. Markdown without a dependency, gated on the corpus.
 7. Replies from the hub, as that section says. Done 2026-09-26 (0.6.0);
    the live site switched on at Livid's say.
+8. A post in more than one language, as that section says. Done
+   2026-10-13 (0.7.0). The two templates' changes are in the vendored
+   copies here and **not pushed** to SiteTemplatePaper and
+   SiteTemplatePlatinum (which also still lacks buildNumber 13, the Mac
+   bold): that waits for Livid's word, one repo commit a buildNumber,
+   then the PlanetSiteTemplates bump.
 
 ## Later
 
 - The Finder opening `index.md` under `Planet/` in this editor.
+- For a post in more than one language: New Translation… in the Planet
+  window, a mark on a language's file that is older than its post, the
+  site's own words following the reader on the site's pages, a feed a
+  language.
 - Import of a `.planet` backup including its key (an imported site
   announces on the hub only with its own key).
 - **Tips** to the site's Solana address, the third role of its key: the

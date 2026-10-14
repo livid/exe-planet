@@ -97,7 +97,7 @@ func TestBuildAdoptsHandMadePosts(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(pub, "by-hand", "index.html")); err != nil {
 			t.Error("the other posts were not built beside it")
 		}
-		if _, err := svc.View("wen", "locked", Attachments{}); err == nil {
+		if _, err := svc.View("wen", "locked", "", Attachments{}); err == nil {
 			t.Error("a post with no id has a page to view")
 		}
 	}
