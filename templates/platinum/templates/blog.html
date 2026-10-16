@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block head %}
 {% include 'modules/article_seo.html' %}{% if languages %}{% include 'modules/alternates.html' %}{% endif %}
+{% include 'modules/type.html' %}
 {% if hub_thread %}{% include 'modules/replies_head.html' %}{% endif %}
 {% if article.externalLink.count > 0 %}
 <script>
@@ -12,7 +13,7 @@
 {% endblock %}
 {% block window_title %}{% if article.title.count > 0 %}{{ article.title|escape }}{% else %}{{ planet.name|escape }}{% endif %}{% endblock %}
 {% block main %}
-<div class="strip tools"><div class="crumbs"><span class="crumb"><a href="../">{{ planet.name|escape }}</a></span>{% include 'modules/sep.html' %}<b>{% if article.title.count > 0 %}{{ article.title|escape }}{% else %}{{ article.created|ymd }}{% endif %}</b></div></div>
+<div class="strip tools typed"><div class="crumbs"><span class="crumb"><a href="../">{{ planet.name|escape }}</a></span>{% include 'modules/sep.html' %}<b>{% if article.title.count > 0 %}{{ article.title|escape }}{% else %}{{ article.created|ymd }}{% endif %}</b></div><div class="type" role="group" aria-label="Text"><span class="seg size"><button class="btn" type="button" data-type="smaller" title="Smaller text" aria-label="Smaller text">&minus;</button><button class="btn" type="button" data-type="bigger" title="Larger text" aria-label="Larger text">+</button></span><span class="seg face"><button class="btn" type="button" data-type="sans" title="Sans Serif" aria-pressed="true"><span class="w">Sans Serif</span><span class="s">Aa</span></button><button class="btn" type="button" data-type="serif" title="Serif" aria-pressed="false"><span class="w">Serif</span><span class="s">Aa</span></button></span></div></div>
 <div class="body">
   {% if article.title.count > 0 %}<h1 class="post-title">{{ article.title|escape }}</h1>{% endif %}
   {% if languages %}<div class="meta">{% endif %}{% if article_type == 0 %}<div class="date">{{ article.created|formatDate }}</div>{% endif %}{% if languages %}{% include 'modules/langs.html' %}</div>{% endif %}

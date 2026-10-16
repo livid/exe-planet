@@ -317,6 +317,27 @@ clone rsynced over `templates/platinum` before then would undo it:
 rsync this copy into the clone first), and PlanetSiteTemplates has no
 bump for it yet.
 
+**The reader's type** (2026-10-16; Livid: "in post page, on the toolbar
+for breadcrumb, add these to far right: font size + -, sans serif / serif
+segmented control. use localstorage to remember preference."). A post's
+crumb strip ends in − + and a Sans Serif | Serif segment, the exe Notes
+app's controls copied (joined push buttons, one seam one line, the chosen
+face pressed in, the end of the size range dimmed); on a phone the faces
+show as "Aa" each in itself. The sizes are Notes': 10, 11, 12, 14, 16, 18,
+20 and 24px, 12 the default. They set `--ts` on `<html>`, and the post's
+title, text, headings, code (a pixel under) and tables follow it; at 12px
+every size is what it was. Serif is Notes' Charter stack, then Songti or a
+Noto Serif CJK face for Chinese (Simplified or Traditional by the page's
+`lang`) and Hiragino Mincho or Yu Mincho for Japanese, since the browser's
+own fallback would draw those in a sans. `modules/type.html`, in the head
+of a post's page only, reads the choice from `localStorage`
+(`platinum-type`, one for every post of the origin) and puts it on
+`<html>` before anything is drawn, so the text never changes size under
+the reader; the controls' looks follow `<html>`'s classes. The strip keeps
+its height: the buttons' 20px take 4px above and below in place of the
+text's 6px. Without script the controls keep their place, unseen.
+buildNumber 15, **not pushed** to SiteTemplatePlatinum, like 13 and 14.
+
 **Paper** (`templates/paper`, 2026-09-28, Livid asked for a super
 minimal template on a grey noise ground in Google's Noto Serif, for
 literature and the humanities, with hub replies as Platinum has them;
@@ -1312,7 +1333,7 @@ in 0.2 s and builds in 0.2 s.
    2026-10-13 (0.7.0). The two templates' changes are in the vendored
    copies here and **not pushed** to SiteTemplatePaper and
    SiteTemplatePlatinum (which also still lacks buildNumber 13, the Mac
-   bold): that waits for Livid's word, one repo commit a buildNumber,
+   bold, and 15, the reader's type): that waits for Livid's word, one repo commit a buildNumber,
    then the PlanetSiteTemplates bump.
 
 ## Later

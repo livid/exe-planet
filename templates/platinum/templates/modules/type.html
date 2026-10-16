@@ -1,0 +1,45 @@
+<script>
+  // A post's type, the reader's to choose with the controls at the far
+  // end of the strip: − and + step the text's size, Sans Serif | Serif
+  // its face. The choice is this browser's, kept in localStorage for
+  // every post here, and it is put on <html> by this script, before
+  // anything is drawn, so the text never changes under the reader. The
+  // buttons' pressed and dimmed looks follow from <html>'s classes; their
+  // own state (disabled, aria-pressed) is set once they exist. Without
+  // script the controls keep their place and are not shown.
+  (() => {
+    const KEY = "platinum-type", SIZES = [10, 11, 12, 14, 16, 18, 20, 24], doc = document.documentElement;
+    const t = { size: 12, face: "sans" };
+    try {
+      const kept = JSON.parse(localStorage.getItem(KEY) || "{}");
+      if (SIZES.includes(kept.size)) t.size = kept.size;
+      if (kept.face === "serif") t.face = "serif";
+    } catch (e) {}
+    const apply = keep => {
+      const i = SIZES.indexOf(t.size);
+      doc.style.setProperty("--ts", t.size + "px");
+      doc.classList.add("type-on");
+      doc.classList.toggle("serif", t.face === "serif");
+      doc.classList.toggle("ts-min", i === 0);
+      doc.classList.toggle("ts-max", i === SIZES.length - 1);
+      for (const b of document.querySelectorAll(".type [data-type]")) {
+        const v = b.dataset.type;
+        if (v === "smaller") b.disabled = i === 0;
+        else if (v === "bigger") b.disabled = i === SIZES.length - 1;
+        else b.setAttribute("aria-pressed", String(v === t.face));
+      }
+      if (keep) try { localStorage.setItem(KEY, JSON.stringify(t)); } catch (e) {}
+    };
+    apply(false);
+    document.addEventListener("DOMContentLoaded", () => apply(false));
+    addEventListener("click", e => {
+      const b = e.target.closest && e.target.closest(".type [data-type]");
+      if (!b || b.disabled) return;
+      const v = b.dataset.type, i = SIZES.indexOf(t.size);
+      if (v === "smaller") t.size = SIZES[Math.max(0, i - 1)];
+      else if (v === "bigger") t.size = SIZES[Math.min(SIZES.length - 1, i + 1)];
+      else t.face = v;
+      apply(true);
+    });
+  })();
+</script>
