@@ -188,6 +188,11 @@ button.ghost.danger { color: #7a1010; }
   box-shadow: -1px -1px 0 #999, 1px 1px 0 #fff; }
 #dlg input[type=text] { height: 20px; }
 #dlg textarea { height: 64px; resize: none; }
+/* Custom Code…: a wider sheet, its three fields the code they hold in the
+   terminal's face, its long lines wrapped as Planet's editor wraps them,
+   so a field never scrolls sideways */
+#dlg.wide { width: 560px; }
+#dlg textarea.code { height: 96px; font: 11px/15px Monaco, Menlo, Consolas, "DejaVu Sans Mono", monospace; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: hidden; overflow-y: auto; tab-size: 2; }
 #dlg input[type=text]:focus, #dlg textarea:focus { outline: 2px solid #9999fe; outline-offset: 0; }
 #dlg input[type=checkbox] { appearance: none; width: 12px; height: 12px; margin: 0; border: 1px solid var(--black);
   background: #fff; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #bbb; }
@@ -817,6 +822,39 @@ async function siteSettings() {
   });
   $("#d-name").focus();
 }
+// Custom Code…, Planet's sheet of the same name: the site's own code for
+// the head of every page, just after the start of its body and just
+// before its end (an analytics or a comments script), each with its
+// Enable box. The daemon keeps each in a file of the site's folder
+// (head.html, body-start.html, body-end.html); a box cleared keeps the
+// code and leaves it out of the pages, an emptied field takes the file
+// away. Saving builds the site again.
+async function customCode() {
+  if (!site) return;
+  const slug = site;
+  let c;
+  try { c = await api("/sites/" + encodeURIComponent(slug) + "/code"); }
+  catch (e) { alertBox("Could not read the site's code", e.message); return; }
+  const parts = [["head", "Head", "inside <head></head>"], ["body_start", "Body Start", "after the start of <body>"], ["body_end", "Body End", "before </body>"]];
+  // a part with no code yet has its box ticked, so code typed into it is on
+  const part = ([k, title, where]) => `<div class="group"><h3>${title}</h3>
+      <div class="row h"><input type="checkbox" id="cc-${k}-on" ${c[k].enabled || !c[k].code ? "checked" : ""}><label for="cc-${k}-on">Enable custom code ${esc(where)}</label></div>
+      <div class="row"><textarea class="code" id="cc-${k}" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="${title} code">${esc(c[k].code)}</textarea></div></div>`;
+  dialog(`<h2>Custom Code</h2>
+    <p class="hint">Written into every page of the site, so a script from an analytics or a comments service can go here. Each is kept as a file in the site's folder: head.html, body-start.html and body-end.html.</p>
+    ${parts.map(part).join("")}
+    <div class="err" id="d-err"></div>
+    <div class="btns"><button class="ghost" id="d-cancel">Cancel</button><button class="ghost default" id="d-ok">Save</button></div>`, async () => {
+    const body = {};
+    for (const [k] of parts) body[k] = { code: $("#cc-" + k).value, enabled: $("#cc-" + k + "-on").checked };
+    try {
+      await json("PUT", "/sites/" + encodeURIComponent(slug) + "/code", body);
+      return true;
+    } catch (e) { $("#d-err").textContent = e.message; return false; }
+  }, () => $("#dlg").classList.remove("wide"));
+  $("#dlg").classList.add("wide");
+  $("#cc-head").focus();
+}
 async function archiveSite(slug, restore) {
   try {
     await api("/sites/" + encodeURIComponent(slug) + (restore ? "/unarchive" : "/archive"), { method: "POST" });
@@ -992,6 +1030,7 @@ $("#site-list").addEventListener("contextmenu", e => {
   selectSite(slug);
   menu(e.clientX, e.clientY, [
     { label: "Site Settings…", run: siteSettings },
+    { label: "Custom Code…", run: customCode },
     { label: "New Post…", run: () => $("#b-newpost").click() },
     "-",
     { label: "Archive", run: () => archiveSite(slug, false) },

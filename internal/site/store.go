@@ -82,6 +82,9 @@ type SiteFile struct {
 	Plausible        Plausible         `json:"plausible"`
 	// NoIndex asks search engines away: robots.txt disallows everything.
 	NoIndex bool `json:"noindex,omitempty"`
+	// CodeOff names the custom code (code.go) that is kept in its file
+	// but not written into the pages: head, body_start, body_end.
+	CodeOff []string `json:"code_off,omitempty"`
 }
 
 // Site is a site as the API sees it: its file plus what the folder says.

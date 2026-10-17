@@ -66,6 +66,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sites/{site}", s.getSite)
 	mux.HandleFunc("PUT /v1/sites/{site}", s.updateSite)
 	mux.HandleFunc("DELETE /v1/sites/{site}", s.deleteSite)
+	mux.HandleFunc("GET /v1/sites/{site}/code", s.getCode)
+	mux.HandleFunc("PUT /v1/sites/{site}/code", s.setCode)
 	mux.HandleFunc("POST /v1/sites/{site}/archive", s.archiveSite)
 	mux.HandleFunc("POST /v1/sites/{site}/unarchive", s.unarchiveSite)
 	mux.HandleFunc("GET /v1/sites/{site}/posts", s.listPosts)
@@ -375,6 +377,31 @@ func (s *Server) updateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, st)
+}
+
+// getCode and setCode are the site's own code for the head, the start
+// and the end of every page's body (site.CustomCode).
+func (s *Server) getCode(w http.ResponseWriter, r *http.Request) {
+	c, err := s.Store.CustomCode(r.PathValue("site"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
+
+func (s *Server) setCode(w http.ResponseWriter, r *http.Request) {
+	var u site.CodeUpdate
+	if err := decode(r, &u); err != nil {
+		fail(w, err)
+		return
+	}
+	c, err := s.Store.SetCustomCode(r.PathValue("site"), u)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
 }
 
 func (s *Server) deleteSite(w http.ResponseWriter, r *http.Request) {

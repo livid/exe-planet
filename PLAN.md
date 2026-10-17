@@ -714,13 +714,39 @@ Post, Edit, Site…, Publish…), contextual menus on a site row (Settings,
 New Post, Archive, Delete) and an article row (Edit, Copy Path, Move to,
 Delete), sheets for New Site (slug follows the title, validated live),
 Site Settings (name, about, template, author, links, Plausible, robots,
-the template's own typed settings) and Import. The status line reports the
+the template's own typed settings), Custom Code (below) and Import. The status line reports the
 last build and the article counts and polls while the window is shown.
 Editing hands the post's `index.md` to the Writer through the desk
 (`{exe:"open-app", app:"Writer", path}`); the desk forwards every
 Workspace change (`workspace-changed`) so the list follows edits made in
 the Writer, by an agent or on a peer. A phone shows one column at a time
 with a Back button.
+
+**Custom Code** (2026-10-16; Livid: "original Mac Planet has a settings to
+let user insert code in head, body start, body end, do exe-planet have
+similar feature? if not, build this"). Half of it was there: the layout
+named `head.html`, `body-start.html` and `body-end.html`, the importer
+wrote them, and the builder rendered Planet's three fields, but nothing
+read the files into the model, so they did nothing. Now `FromSite` reads
+them (`site.ReadCustomCode`), each on while it has text and site.json's
+`code_off` does not name it (`head`, `body_start`, `body_end`), which is
+Planet's Enable box: switched off, the code is kept. As in Planet each is
+a Stencil template rendered against the page (`{{ planet.name }}` reads)
+and lands on every page the model renders: the index, posts, pages, the
+archive and tags. `GET`/`PUT /v1/sites/{site}/code` reads and writes the
+three (`{head: {code, enabled}, body_start, body_end}`, a part left out
+is left alone, an empty one takes its file away, 64 KB a part at most);
+the watcher sees the folder change and builds. The app's site menu has
+**Custom Code…** under Site Settings…, Planet's sheet in Platinum: a
+wider sheet, the three under Planet's own labels ("Enable custom code
+inside <head></head>", "after the start of <body>", "before </body>"),
+each field in Monaco with its long lines wrapped as Planet's editor
+wraps them; a part with no code has its box ticked, so code typed into
+it is on. The app's preview runs the code too, as Planet's does; a
+counter that checks the page's host, as exe-stats does, does not count
+the preview's `about:srcdoc`. Tests: `TestCustomCode` (both templates);
+a sheet walk on the live desk against a scratch daemon over a copy of
+the blog (22 checks, DPR 1, 1.5, 2).
 
 ## Publishing
 

@@ -84,6 +84,22 @@ func FromSite(st *site.Site, posts []*site.Post) (*planet.MyPlanet, []*planet.My
 	for k, v := range st.Tags {
 		p.Tags[k] = v
 	}
+	// the site's own code, each part on only while it has text and is not
+	// switched off (site.CustomCode), as Planet's Enable boxes are
+	code := site.ReadCustomCode(st.Dir, st.CodeOff)
+	for _, c := range []struct {
+		part    site.CodePart
+		enabled **bool
+		code    **string
+	}{
+		{code.Head, &p.CustomCodeHeadEnabled, &p.CustomCodeHead},
+		{code.BodyStart, &p.CustomCodeBodyStartEnabled, &p.CustomCodeBodyStart},
+		{code.BodyEnd, &p.CustomCodeBodyEndEnabled, &p.CustomCodeBodyEnd},
+	} {
+		if c.part.Enabled {
+			*c.enabled, *c.code = ptr(true), ptr(c.part.Code)
+		}
+	}
 
 	var articles []*planet.MyArticle
 	updated := st.Created
