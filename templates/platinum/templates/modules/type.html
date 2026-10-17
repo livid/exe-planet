@@ -42,8 +42,10 @@
         else if (v === "bigger") b.disabled = i === SIZES.length - 1;
         else b.setAttribute("aria-pressed", String(v === t.face));
       }
-      for (const a of document.querySelectorAll(".langs a")) a.href = view(a.getAttribute("href")).href;
+      // (inside the app that writes the site, a frame with no address of
+      // its own, there is no address to write and none to resolve against)
       if (location.protocol !== "about:") try {
+        for (const a of document.querySelectorAll(".langs a")) a.href = view(a.getAttribute("href")).href;
         const u = view(location.href);
         if (u.href !== location.href) history.replaceState(history.state, "", u);
       } catch (e) {}
