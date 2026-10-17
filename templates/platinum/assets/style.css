@@ -40,10 +40,11 @@
 /* a post's type, the reader's to choose at the strip's far end (the head
    script is modules/type.html): − + step the text's size and Sans Serif |
    Serif its face, joined push buttons as the exe Notes app has them, one
-   seam one line, the chosen face pressed in. The strip keeps its 28px:
-   the buttons' 20px take 4px above and below in place of the text's 6px.
-   Where the words will not fit (a phone) each face shows as "Aa" in
-   itself. Without script the controls keep their place, unseen. */
+   seam one line, the chosen face pressed in, and each face in Notes'
+   compact form: a sample "Aa" in itself, its name the button's label
+   and tooltip. The strip keeps its 28px: the buttons' 20px take 4px
+   above and below in place of the text's 6px. Without script the
+   controls keep their place, unseen. */
 .strip.tools.typed { padding-top: 4px; padding-bottom: 4px; }
 .type { display: flex; gap: 8px; flex: none; margin-left: auto; }
 html:not(.type-on) .type { visibility: hidden; }
@@ -56,9 +57,8 @@ html:not(.type-on) .type { visibility: hidden; }
 html:not(.serif) .type [data-type=sans], html.serif .type [data-type=serif] { background: #888; color: #fff;
   box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #aaa, inset 2px 2px 0 #777, inset -2px -2px 0 #999; }
 .type .btn:disabled, html.ts-min .type [data-type=smaller], html.ts-max .type [data-type=bigger] { color: #777; border-color: #888; background: var(--g300); box-shadow: none; }
-.type .s { display: none; font-weight: normal; font-size: 14px; line-height: 14px; }
+.type .s { font-weight: normal; font-size: 14px; line-height: 14px; }
 .type [data-type=serif] .s { font-family: var(--serif); }
-@media (max-width: 480px) { .type .w { display: none; } .type .s { display: inline; } }
 
 /* the page's body: the site's name and a line about it, then the posts */
 .body { padding: 16px 16px 12px; }

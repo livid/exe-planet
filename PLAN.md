@@ -322,8 +322,10 @@ for breadcrumb, add these to far right: font size + -, sans serif / serif
 segmented control. use localstorage to remember preference."). A post's
 crumb strip ends in − + and a Sans Serif | Serif segment, the exe Notes
 app's controls copied (joined push buttons, one seam one line, the chosen
-face pressed in, the end of the size range dimmed); on a phone the faces
-show as "Aa" each in itself. The sizes are Notes': 10, 11, 12, 14, 16, 18,
+face pressed in, the end of the size range dimmed), the faces in Notes'
+compact form at every width: "Aa" each in itself, the face's name its
+label and tooltip (Livid: "Notes has a compact version of sans serif /
+serif switcher, use that"). The sizes are Notes': 10, 11, 12, 14, 16, 18,
 20 and 24px, 12 the default. They set `--ts` on `<html>`, and the post's
 title, text, headings, code (a pixel under) and tables follow it; at 12px
 every size is what it was. Serif is Notes' Charter stack, then Songti or a
@@ -336,7 +338,8 @@ of a post's page only, reads the choice from `localStorage`
 the reader; the controls' looks follow `<html>`'s classes. The strip keeps
 its height: the buttons' 20px take 4px above and below in place of the
 text's 6px. Without script the controls keep their place, unseen.
-buildNumber 15, **not pushed** to SiteTemplatePlatinum, like 13 and 14.
+buildNumber 16 (15 had the words), **not pushed** to SiteTemplatePlatinum,
+like 13 and 14.
 
 **Paper** (`templates/paper`, 2026-09-28, Livid asked for a super
 minimal template on a grey noise ground in Google's Noto Serif, for
@@ -1333,7 +1336,7 @@ in 0.2 s and builds in 0.2 s.
    2026-10-13 (0.7.0). The two templates' changes are in the vendored
    copies here and **not pushed** to SiteTemplatePaper and
    SiteTemplatePlatinum (which also still lacks buildNumber 13, the Mac
-   bold, and 15, the reader's type): that waits for Livid's word, one repo commit a buildNumber,
+   bold, and 15 and 16, the reader's type): that waits for Livid's word, one repo commit a buildNumber,
    then the PlanetSiteTemplates bump.
 
 ## Later
