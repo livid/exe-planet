@@ -43,7 +43,12 @@
       if (q || L.here === L.orig) for (const want of asked) if ((to = cands(want, have)[0] || "")) break;
       if (to && to !== L.here) {
         doc.style.visibility = "hidden";
-        location.replace((L.files[to] || "./") + (q ? "?lang=" + encodeURIComponent(q) : "") + location.hash);
+        // whatever else the address asks (a post's size= and font=, so a
+        // shared link keeps its view) goes along
+        const rest = new URLSearchParams(location.search);
+        rest.delete("lang");
+        const keep = [q ? "lang=" + encodeURIComponent(q) : "", rest.toString()].filter(Boolean).join("&");
+        location.replace((L.files[to] || "./") + (keep ? "?" + keep : "") + location.hash);
         return;
       }
       if (!ride && L.here !== L.orig) ride = L.here;

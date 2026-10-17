@@ -338,8 +338,19 @@ of a post's page only, reads the choice from `localStorage`
 the reader; the controls' looks follow `<html>`'s classes. The strip keeps
 its height: the buttons' 20px take 4px above and below in place of the
 text's 6px. Without script the controls keep their place, unseen.
-buildNumber 16 (15 had the words), **not pushed** to SiteTemplatePlatinum,
-like 13 and 14.
+The view is the address's too (Livid: "when i click +/- and font
+switcher, can they become query string so when i share that url it
+carries the exact view"): a press writes `?size=16&font=serif` with
+`history.replaceState` (no history entry), each left out at its default,
+so a clean address is the default view. A page asked for with either
+shows that view, the missing one at its default, and keeps nothing; a
+page asked for with neither takes the kept choice and writes it into
+the address, so whatever the reader sees is what a copied link shows. A
+value off the list is the default and leaves the address. The line of
+languages carries the view to the other languages' pages, and the
+written page's redirect keeps it (below). buildNumber 17 (15 had the
+words, 16 the compact faces), **not pushed** to SiteTemplatePlatinum,
+like 13 and 14; Paper's 10 is the same redirect.
 
 **Paper** (`templates/paper`, 2026-09-28, Livid asked for a super
 minimal template on a grey noise ground in Google's Noto Serif, for
@@ -1189,7 +1200,9 @@ before its regional forms; `langCands` in the builder is the same rule
 - The written page (`<slug>/`) sends the reader on to their language's
   page with `location.replace`, and hides itself first, so it is never
   seen on the way: one more request, and only for a reader who arrives
-  at a post's bare address in another language.
+  at a post's bare address in another language. Whatever else the
+  address asks (Platinum's `size=` and `font=`) goes along with the
+  hash (2026-10-16), so a shared link keeps its view in any language.
 - A page in a language of its own stays where it is. Only `?lang=` moves
   it, and the line of languages links the written page as
   `./?lang=<its language>`, or the reader's browser would send them
@@ -1336,7 +1349,7 @@ in 0.2 s and builds in 0.2 s.
    2026-10-13 (0.7.0). The two templates' changes are in the vendored
    copies here and **not pushed** to SiteTemplatePaper and
    SiteTemplatePlatinum (which also still lacks buildNumber 13, the Mac
-   bold, and 15 and 16, the reader's type): that waits for Livid's word, one repo commit a buildNumber,
+   bold, and 15 to 17, the reader's type; Paper 10): that waits for Livid's word, one repo commit a buildNumber,
    then the PlanetSiteTemplates bump.
 
 ## Later
