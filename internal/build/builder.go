@@ -493,6 +493,9 @@ func (b *builder) pages() error {
 	if langs := b.siteLanguages(); langs != nil {
 		common["site_languages"] = langs
 	}
+	if feeds := b.siteFeeds(); feeds != nil {
+		common["site_feeds"] = feeds
+	}
 
 	// Index pages.
 	per := b.tpl.ItemsPerPage()
@@ -617,12 +620,18 @@ func (b *builder) pages() error {
 		}
 	}
 
-	// Feeds: every article, pages included.
-	if err := b.rss(false); err != nil {
+	// Feeds: every article, pages included; and one more in each other
+	// language the site's posts can be read in.
+	if err := b.rss(false, ""); err != nil {
 		return err
 	}
+	for _, lang := range b.feedLangs() {
+		if err := b.rss(false, lang); err != nil {
+			return err
+		}
+	}
 	if b.hasPodcast(b.pubs) {
-		if err := b.rss(true); err != nil {
+		if err := b.rss(true, ""); err != nil {
 			return err
 		}
 	}
@@ -710,13 +719,19 @@ func (b *builder) renderPage(file, title, kind string, over map[string]any) (str
 }
 
 // rss is renderRSS: Planet's RSS.xml over every article, or over the
-// audio ones for podcast.xml.
-func (b *builder) rss(podcast bool) error {
+// audio ones for podcast.xml. Given a language (a feed of siteFeeds),
+// it is that language's feed, rss.<key>.xml: every article still, each
+// in that language when it can be read in it (its title, its text and
+// its page) and as it was written when not.
+func (b *builder) rss(podcast bool, lang string) error {
 	p := b.in.Planet
 	var items []map[string]any
 	for _, pub := range b.pubs {
 		if podcast && pub["audioFilename"] == nil {
 			continue
+		}
+		if lang != "" {
+			pub = b.feedItem(pub, lang)
 		}
 		items = append(items, pub)
 	}
@@ -738,6 +753,13 @@ func (b *builder) rss(podcast bool) error {
 		"podcast_author_name":   author,
 		"has_podcast_cover_art": false,
 	}
+	name := "rss.xml"
+	if podcast {
+		name = "podcast.xml"
+	} else if lang != "" {
+		name = feedFile(lang)
+		ctx["feed_name"], ctx["feed_lang"] = strings.TrimSuffix(name, ".xml"), lang
+	}
 	xml, err := b.rssEnv.RenderString(rssTemplate, ctx)
 	if err != nil {
 		return err
@@ -748,10 +770,6 @@ func (b *builder) rss(podcast bool) error {
 		if head, rest, ok := strings.Cut(xml, "\n"); ok && strings.HasPrefix(head, "<?xml") {
 			xml = head + "\n" + `<?xml-stylesheet type="text/xsl" href="assets/rss.xsl"?>` + "\n" + rest
 		}
-	}
-	name := "rss.xml"
-	if podcast {
-		name = "podcast.xml"
 	}
 	return b.write(name, []byte(xml))
 }

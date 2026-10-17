@@ -11,7 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,100..900;1,100..900&amp;family=Noto+Serif+{% if user_settings['language'] == 'zh-Hant' %}TC{% else %}{% if user_settings['language'] == 'ja' %}JP{% else %}SC{% endif %}{% endif %}:wght@200..900&amp;display=swap">
     <link rel="stylesheet" href="{{ assets_prefix }}assets/style.css?sha256={{ style_css_sha256 }}">
-    <link rel="alternate" type="application/rss+xml" title="{{ planet.name|escape }}" href="{{ assets_prefix }}rss.xml">
+    <link rel="alternate" type="application/rss+xml" title="{{ planet.name|escape }}" href="{{ assets_prefix }}rss.xml">{% for f in site_feeds %}
+    <link rel="alternate" type="application/rss+xml" title="{{ planet.name|escape }} ({{ f.name }})" data-feed="{{ f.key }}" href="{{ assets_prefix }}{{ f.file }}">{% endfor %}
     <link rel="preload" href="{{ assets_prefix }}planet.json" as="fetch" type="application/json" crossorigin="anonymous">
     <title>{% block title %}{{ page_title|escape }}{% endblock %}</title>
     <script>

@@ -15,9 +15,10 @@ import (
 // <id>/index.<language>.html, the same template given that language's
 // title and text. A page of the site — the home page, the archive, a
 // tag — stays one page and is handed every title in each language. None
-// of it reaches article.json, planet.json or the feed, which keep the
-// article as it was written, and an article in one language builds as
-// it always did.
+// of it reaches article.json, planet.json or rss.xml, which keep the
+// article as it was written; each other language has a feed of its own
+// beside it, rss.<language>.xml. An article in one language, on a site
+// whose articles are all in one, builds as it always did.
 
 // Version is an article in a language other than the one it was written
 // in.
@@ -131,6 +132,9 @@ func (b *builder) langContext(ctx map[string]any, a *planet.MyArticle, v *Versio
 	ctx["page_lang"] = lang
 	if len(al.vers) > 0 {
 		ctx["languages"] = b.langItems(a, al, lang)
+		if feeds := b.siteFeeds(); feeds != nil {
+			ctx["site_feeds"] = feeds
+		}
 	}
 	if set, ok := b.tpl.Settings["language"]; ok && len(set.Options) > 0 {
 		if opt := pickLang(lang, set.Options); opt != "" && opt != b.settings["language"] {
@@ -184,6 +188,89 @@ func (b *builder) siteLanguages() []any {
 		out[i] = k
 	}
 	return out
+}
+
+// feedLangs are the languages the site's feed is also written in: every
+// language a post of the site can be read in but the site's own, whose
+// feed is rss.xml. Each is a tag in its usual letter case, in the order
+// of their keys.
+func (b *builder) feedLangs() []string {
+	site := langKey(b.siteLang())
+	tags := map[string]string{}
+	for _, a := range b.in.Articles {
+		al := b.langsOf(a)
+		if len(al.vers) == 0 {
+			continue
+		}
+		for _, t := range append([]string{al.orig}, langTags(al.vers)...) {
+			if k := langKey(t); k != site && tags[k] == "" {
+				tags[k] = t
+			}
+		}
+	}
+	keys := make([]string, 0, len(tags))
+	for k := range tags {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]string, len(keys))
+	for i, k := range keys {
+		out[i] = tags[k]
+	}
+	return out
+}
+
+func langTags(vers []Version) []string {
+	out := make([]string, len(vers))
+	for i, v := range vers {
+		out[i] = v.Lang
+	}
+	return out
+}
+
+// feedFile is the feed in a language other than the site's own.
+func feedFile(tag string) string { return "rss." + langKey(tag) + ".xml" }
+
+// siteFeeds is feedLangs as a template reads them, each {lang, key,
+// name, file}, for the head of a page to name beside rss.xml and the
+// page script to send a reader's RSS link to; nil when there are none.
+func (b *builder) siteFeeds() []any {
+	var out []any
+	for _, t := range b.feedLangs() {
+		out = append(out, map[string]any{"lang": t, "key": langKey(t), "name": langName(t), "file": feedFile(t)})
+	}
+	return out
+}
+
+// feedItem is an article's entry in the feed in lang: as it was written
+// unless it can be read in lang (by langCands, as a reader would be sent
+// there), and then with that language's title and text, and langFile,
+// the page that link and guid name after the article's folder.
+func (b *builder) feedItem(pub map[string]any, lang string) map[string]any {
+	id, _ := pub["id"].(string)
+	var a *planet.MyArticle
+	for _, x := range b.in.Articles {
+		if x.ID == id {
+			a = x
+			break
+		}
+	}
+	if a == nil {
+		return pub
+	}
+	al := b.langsOf(a)
+	pick := pickLang(lang, append([]string{al.orig}, langTags(al.vers)...))
+	if pick == "" || langKey(pick) == langKey(al.orig) {
+		return pub
+	}
+	for _, v := range al.vers {
+		if langKey(v.Lang) == langKey(pick) {
+			item := clone(pub)
+			item["title"], item["content"], item["langFile"] = v.Title, v.Content, langFile(v.Lang)
+			return item
+		}
+	}
+	return pub
 }
 
 // versionPages writes an article's pages in its other languages into its

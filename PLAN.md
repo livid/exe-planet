@@ -1248,14 +1248,42 @@ of `index.md`.
 pages (Archive, Tags, the dates, the site's name and about) stay in the
 site's language, so a Japanese reader of a Chinese site reads Japanese
 titles under Chinese navigation, and a page's title in the navigation is
-the written one; tag names are not translated; the feed is the written
-posts only; one thread on the hub serves every language of a post, and
+the written one; tag names are not translated; one thread on the hub
+serves every language of a post, and
 the announcement is of the post as written; nothing translates a post
 (the hub's translator takes minutes a post, and a story wants a reader's
 check) and nothing says that a language's file is older than the post it
 follows; there is no New Translation… in the window yet, a language is
 made as a file; templates that are Planet's own build the pages but have
 no line of languages and no script.
+
+**A feed in each language** (2026-10-16; Livid: "blog.v2core.com and its
+template almost all pages can do multilang, how about its rss link").
+`rss.xml` stays the site's own language, byte for byte what it was, and
+each other language a post of the site can be read in gets
+`rss.<key>.xml` beside it (`feedLangs`: `site_languages` but the site's
+own). It holds every article, as `rss.xml` does, each in that language
+when it can be read in it (by `langCands`, as a reader is sent there:
+its title, its text, and `<id>/index.<key>.html` as link and guid) and
+as written when not, so a reader of the Japanese feed misses no post; its
+channel says `<language>` and names itself as `self`. Planet's RSS.xml
+took three additions that render nothing in its own two feeds
+(`feed_name`, `feed_lang`, an item's `langFile`). A template is given
+`site_feeds`, each `{lang, key, name, file}`, on the site's pages and on
+a post in more than one language (a post in one keeps its bytes), and
+both templates name each in the head beside `rss.xml` as
+`<link rel="alternate" type="application/rss+xml" title="exe (日本語)"
+data-feed="ja">`, so a feed reader finds them. `data-feed`, not
+`hreflang`: that attribute tells a crawler a page's own versions, and a
+feed is not one. The shared page script points every link to `rss.xml`
+at the feed of the language being read (a post's page: its own; a page
+of the site: the reader's first), when there is one; without script, or
+on a page with no languages, it stays `rss.xml`. Platinum's `rss.xsl`
+draws any of them, its address the feed's own. Platinum buildNumber 18,
+Paper 11, not pushed. Tests: `TestPostLanguages` (both feeds' items,
+links, fallbacks and heads; `rss.xml` and a one-language site
+untouched), the lang test's RSS link, and a scratch build of the live
+site whose `rss.xml` is the live one's but for the domain.
 
 Tests: `TestLangTag`, `TestLangFile`, `TestPostVersions` (the store),
 `TestLangCands`, `TestLangName` (the builder), `TestPostLanguages` (both
@@ -1349,7 +1377,8 @@ in 0.2 s and builds in 0.2 s.
    2026-10-13 (0.7.0). The two templates' changes are in the vendored
    copies here and **not pushed** to SiteTemplatePaper and
    SiteTemplatePlatinum (which also still lacks buildNumber 13, the Mac
-   bold, and 15 to 17, the reader's type; Paper 10): that waits for Livid's word, one repo commit a buildNumber,
+   bold, 15 to 17, the reader's type, and 18, a feed a language; Paper 10
+   and 11): that waits for Livid's word, one repo commit a buildNumber,
    then the PlanetSiteTemplates bump.
 
 ## Later
@@ -1357,8 +1386,7 @@ in 0.2 s and builds in 0.2 s.
 - The Finder opening `index.md` under `Planet/` in this editor.
 - For a post in more than one language: New Translation… in the Planet
   window, a mark on a language's file that is older than its post, the
-  site's own words following the reader on the site's pages, a feed a
-  language.
+  site's own words following the reader on the site's pages.
 - Import of a `.planet` backup including its key (an imported site
   announces on the hub only with its own key).
 - **Tips** to the site's Solana address, the third role of its key: the

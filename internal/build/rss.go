@@ -1,6 +1,8 @@
 package build
 
-// rssTemplate is Planet/Templates/RSS.xml, verbatim.
+// rssTemplate is Planet/Templates/RSS.xml, verbatim but for what a feed
+// in a language of its own needs (feed_name, feed_lang, an item's
+// langFile), which renders nothing in rss.xml or podcast.xml.
 const rssTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"
     xmlns:content="http://purl.org/rss/1.0/modules/content/"
@@ -13,8 +15,9 @@ const rssTemplate = `<?xml version="1.0" encoding="UTF-8"?>
     >
 <channel>
     <title>{{ planet.name|escape }}</title>
-    <atom:link href="{{ root_prefix }}/{% if podcast %}podcast{% else %}rss{% endif %}.xml" rel="self" type="application/rss+xml" />
-    <link>{{ root_prefix }}/</link>
+    <atom:link href="{{ root_prefix }}/{% if podcast %}podcast{% else %}{% if feed_name %}{{ feed_name }}{% else %}rss{% endif %}{% endif %}.xml" rel="self" type="application/rss+xml" />
+    <link>{{ root_prefix }}/</link>{% if feed_lang %}
+    <language>{{ feed_lang|escape }}</language>{% endif %}
     <description><![CDATA[
     {{ planet.about|md2html }}
     ]]></description>
@@ -32,8 +35,8 @@ const rssTemplate = `<?xml version="1.0" encoding="UTF-8"?>
     {% for article in planet.articles %}
     <item>
         <title>{{ article.title|escape }}</title>
-        <link>{{ root_prefix }}/{{ article.id }}/</link>
-        <guid>{{ root_prefix }}/{{ article.id }}/</guid>
+        <link>{{ root_prefix }}/{{ article.id }}/{% if article.langFile %}{{ article.langFile }}{% endif %}</link>
+        <guid>{{ root_prefix }}/{{ article.id }}/{% if article.langFile %}{{ article.langFile }}{% endif %}</guid>
         <pubDate>{{ article.created|rfc822 }}</pubDate>
         {% if article.heroImage %}
         <itunes:image href="{{ article.heroImage }}" />

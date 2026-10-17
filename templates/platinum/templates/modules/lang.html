@@ -76,6 +76,14 @@
         if (!o || !t || t === o) continue;
         for (const a of row.querySelectorAll("a[href]:not([data-l])")) if (a.getAttribute("href") === o.getAttribute("href")) a.setAttribute("href", t.getAttribute("href"));
       }
+      // the feed: the RSS links go to the feed in the language being read,
+      // when the site has one, as the head names them (data-feed, not
+      // hreflang, which says a page's own versions to a crawler); the
+      // site's own language is rss.xml
+      const feeds = {};
+      for (const l of document.querySelectorAll('link[rel="alternate"][type="application/rss+xml"][data-feed]')) feeds[l.dataset.feed] = l.getAttribute("href");
+      const reading = L.files ? L.here : first[0];
+      if (reading && feeds[reading]) for (const a of document.querySelectorAll('a[href$="rss.xml"]')) a.setAttribute("href", feeds[reading]);
       // and the language rides on the links to the site's pages: not to a
       // file, another site, a place in this page, or a page already in a
       // language of its own

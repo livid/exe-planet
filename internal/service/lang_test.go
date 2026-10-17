@@ -268,6 +268,29 @@ func TestPostLanguages(t *testing.T) {
 	}
 	has("assets/style.css", read("assets/style.css"), `html:not(.lang-on) [data-l]:not([data-o]) { display: none; }`, `.langs { display: flex;`)
 
+	// a feed in each other language: every article, in that language when
+	// it can be read in it, as written when not; rss.xml as it always was
+	jaFeed := read("rss.ja.xml")
+	has("rss.ja.xml", jaFeed, `/rss.ja.xml" rel="self"`, "<language>ja</language>", "<title>exe "+e("の紹介")+"</title>",
+		"個人用クラウド。", "/index.ja.html</link>", "/index.ja.html</guid>", "<title>Install</title>", "One line.",
+		"<title>About</title>", `<?xml-stylesheet type="text/xsl" href="assets/rss.xsl"?>`)
+	lacks("rss.ja.xml", jaFeed, "A personal cloud.", "index.zh-hans.html")
+	zhFeed := read("rss.zh-hans.xml")
+	has("rss.zh-hans.xml", zhFeed, `/rss.zh-hans.xml" rel="self"`, "<language>zh-Hans</language>", "一朵个人云。",
+		"关于这个站点。", "/index.zh-hans.html</link>", "One line.")
+	enFeed := read("rss.xml")
+	has("rss.xml", enFeed, `/rss.xml" rel="self"`, "A personal cloud.", "About this site.")
+	lacks("rss.xml", enFeed, "<language>", "index.ja.html", "langFile", "個人用")
+	if _, err := os.Stat(filepath.Join(pub, "rss.en.xml")); err == nil {
+		t.Error("the site's own language has a second feed")
+	}
+	// named in the head of the site's pages and of a post in more than one
+	// language, beside rss.xml; a post in one language names none
+	for _, rel := range []string{"index.html", "archive.html", "meet/index.html", "meet/index.ja.html"} {
+		has(rel, read(rel), `data-feed="ja" href="`, `rss.ja.xml">`, `data-feed="zh-hans" href="`, `rss.zh-hans.xml">`, `title="exe (日本語)"`)
+	}
+	lacks("install/index.html", install, "rss.ja.xml")
+
 	// a site whose posts are each in one language has none of it: no
 	// script, no marks on its lists
 	if _, err := store.CreateSite("plain", "Plain", "", "paper"); err != nil {
@@ -281,5 +304,10 @@ func TestPostLanguages(t *testing.T) {
 	pub = svc.PublicDir(st.ID)
 	for _, rel := range []string{"index.html", "archive.html", "tags.html", "hello/index.html"} {
 		lacks(rel, read(rel), "const L =", "planet-lang", "data-l", "data-langs", `class="langs"`, "hreflang")
+	}
+	for _, f := range []string{"rss.en.xml", "rss.zh-hans.xml", "rss.ja.xml"} {
+		if _, err := os.Stat(filepath.Join(pub, f)); err == nil {
+			t.Errorf("a site in one language has %s", f)
+		}
 	}
 }
