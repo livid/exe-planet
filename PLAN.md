@@ -434,6 +434,22 @@ an English site and the reply's account went out that way the same day
 (SiteTemplatePaper ffd5515 and a03c34a, buildNumber 4 and 5;
 PlanetSiteTemplates 86d6d22, tag 0.10.2).
 
+**Pictures of an untitled post on the index** (2026-10-24, Livid, on
+focus.v2ex.pro, a Planet site in Paper): Paper's and Platinum's index
+show an untitled post whole, one folder above the post, so a picture
+written `src="shot.png"` was asked for at the site's root and failed.
+The body now goes through Planet's own `absoluteImageURL:".",article.id`,
+the feed's filter, which puts `./<id>/` in front of every source that is
+not http(s): every index page and tag page sits at the root, and the id
+folder holds a slugged post's attachments too. The filter rewrites `img`
+only, so a relative video, audio or link in an untitled post still
+points at the root. Paper's archive keeps the bare sources on purpose:
+its one-line snippet hides pictures, and a rewritten source would
+download each hidden picture in full, where now each is one 404.
+Planet's filter in real Stencil and SwiftSoup 2.8.7 (a Swift 6.1
+container) gives `./<id>/name.png` on Paper's index. Paper buildNumber
+12, Platinum 20, not pushed.
+
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,
 port its core functionality to paper and platinum"). Sepia's is two

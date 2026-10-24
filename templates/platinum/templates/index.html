@@ -25,7 +25,7 @@
         {% if article.title.count > 0 %}<a class="item-title" href=".{{ article.link }}"{% if article.languages %}{% for l in article.languages %}{% if l.original %} data-l="{{ l.key }}" lang="{{ l.lang }}" data-o{% endif %}{% endfor %}{% endif %}>{{ article.title|escape }}</a>{% if article.languages %}{% for l in article.languages %}{% if not l.original %}<a class="item-title" href=".{{ article.link }}{{ l.file }}" data-l="{{ l.key }}" lang="{{ l.lang }}">{{ l.title|escape }}</a>{% endif %}{% endfor %}{% endif %}{% else %}<a class="item-title" href=".{{ article.link }}">{{ article.created|ymd }}</a>{% endif %}
         <span class="item-date">{{ article.created|ymd }}</span>
       </div>
-      {% if article.title.count == 0 and article.contentRendered.count > 0 %}<div class="item-body content">{{ article.contentRendered }}</div>{% endif %}
+      {% if article.title.count == 0 and article.contentRendered.count > 0 %}<div class="item-body content">{{ article.contentRendered|absoluteImageURL:".",article.id }}</div>{% endif %}
     </div>
     {% endfor %}
   </div>

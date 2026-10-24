@@ -38,7 +38,12 @@ func TestPaperTemplate(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	store.CreatePost("wen", site.KindPost, "quiet", site.Meta{Created: day.AddDate(0, 0, 20)}, "秋夜，一个念头。\n")
+	quiet, err := store.CreatePost("wen", site.KindPost, "quiet", site.Meta{Created: day.AddDate(0, 0, 20)},
+		"秋夜，一个念头。\n\n![月](moon.png)\n\n<img width=\"640\" src=\"moon.png\">\n\n![远](https://example.com/far.png)\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.AddAttachment("wen", "quiet", "", "moon.png", strings.NewReader("png"))
 	store.CreatePost("wen", site.KindPage, "about", site.Meta{Title: "关于", Created: day}, "关于这里。\n")
 	if _, err := svc.Build("wen"); err != nil {
 		t.Fatal(err)
@@ -94,6 +99,10 @@ func TestPaperTemplate(t *testing.T) {
 		`<a class="older" href="./page2.html" rel="next">下一页 →</a>`, `<span class="at">1 / 2</span>`,
 		`<a href="./rss.xml">RSS</a>`, `由 <a href="https://exe.v2core.com/"`, `data-f`, `Intl.DateTimeFormat(lang`)
 	lacks("index.html", index, `id="compose"`, `class="replies"`, `aria-current`)
+	// an untitled post is shown whole on the index, which is a folder above
+	// the post's own: its pictures are found in the post's folder
+	has("index.html", index, `<img src="./`+quiet.ID+`/moon.png" alt="月" />`, `<img width="640" src="./`+quiet.ID+`/moon.png" />`,
+		`<img src="https://example.com/far.png" alt="远" />`)
 	has("page2.html", read("page2.html"), `<a class="newer" href="./page1.html" rel="prev">← 上一页</a>`, `2 / 2`, `href="./pa/">`+e("第A篇")+`</a>`)
 
 	post := read("pm/index.html")

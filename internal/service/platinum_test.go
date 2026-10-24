@@ -37,7 +37,11 @@ func TestPlatinumTemplate(t *testing.T) {
 		}
 	}
 	store.AddAttachment("exe", "post-l", "", "shot.png", strings.NewReader("png"))
-	store.CreatePost("exe", site.KindPost, "quiet", site.Meta{Created: day.AddDate(0, 0, 20)}, "Just a thought.\n")
+	quiet, err := store.CreatePost("exe", site.KindPost, "quiet", site.Meta{Created: day.AddDate(0, 0, 20)}, "Just a thought.\n\n![moon](moon.png)\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.AddAttachment("exe", "quiet", "", "moon.png", strings.NewReader("png"))
 	store.CreatePost("exe", site.KindPage, "about", site.Meta{Title: "About", Created: day}, "About this site.\n")
 	store.CreatePost("exe", site.KindPage, "badge", site.Meta{Title: "Badge", Created: day}, "The badge.\n")
 	if _, err := svc.Build("exe"); err != nil {
@@ -65,6 +69,7 @@ func TestPlatinumTemplate(t *testing.T) {
 		`<img src="./avatar.png" alt="" width="32" height="32" class="avatar">`,
 		`<h1>exe<small><p>A personal VM cloud with a Mac OS 9 face.</p>`,
 		`class="item-title" href="./quiet/">Sep 21, 2026</a>`, `<div class="item-body content"><p>Just a thought.</p>`,
+		`<img src="./`+quiet.ID+`/moon.png" alt="moon" />`,
 		`href="./post-l/">Post L</a>`, `<span class="item-date">Sep 13, 2026</span>`,
 		`10 posts · page 1 of 2</span>`, `<a href="./page2.html">Older</a>`,
 		`<a class="btn" href="./">Home</a>`,
