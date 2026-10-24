@@ -311,11 +311,9 @@ documentation, /stats) got the same two rules in its `site.css` the
 same day (exe 3773b30, Livid: "documentation needs this h2 fix too").
 The exe desk and the hub use the same stack and still show the faint
 bold on a Mac: the same two rules would fix them, in the desk and in
-exe-stats' `chrome.css`. buildNumber 13, **not pushed** to SiteTemplatePlatinum: until
-Livid says push, the change lives in the vendored copy here (a fresh
-clone rsynced over `templates/platinum` before then would undo it:
-rsync this copy into the clone first), and PlanetSiteTemplates has no
-bump for it yet.
+exe-stats' `chrome.css`. buildNumber 13, pushed on Livid's word
+2026-10-24 with 14 to 20 (SiteTemplatePlatinum 6c217bf; PlanetSiteTemplates
+0.10.6).
 
 **The reader's type** (2026-10-16; Livid: "in post page, on the toolbar
 for breadcrumb, add these to far right: font size + -, sans serif / serif
@@ -349,8 +347,8 @@ the address, so whatever the reader sees is what a copied link shows. A
 value off the list is the default and leaves the address. The line of
 languages carries the view to the other languages' pages, and the
 written page's redirect keeps it (below). buildNumber 17 (15 had the
-words, 16 the compact faces), **not pushed** to SiteTemplatePlatinum,
-like 13 and 14; Paper's 10 is the same redirect.
+words, 16 the compact faces), pushed 2026-10-24 with 13 to 20; Paper's
+10 is the same redirect.
 
 **Paper** (`templates/paper`, 2026-09-28, Livid asked for a super
 minimal template on a grey noise ground in Google's Noto Serif, for
@@ -448,7 +446,9 @@ its one-line snippet hides pictures, and a rewritten source would
 download each hidden picture in full, where now each is one 404.
 Planet's filter in real Stencil and SwiftSoup 2.8.7 (a Swift 6.1
 container) gives `./<id>/name.png` on Paper's index. Paper buildNumber
-12, Platinum 20, not pushed.
+12, Platinum 20, pushed on Livid's word the same day (SiteTemplatePaper
+4869b74, SiteTemplatePlatinum afb62c3, PlanetSiteTemplates 8bb8dba, tag
+0.10.6; a fresh clone of the tag == `templates/` here).
 
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,
@@ -1322,7 +1322,7 @@ at the feed of the language being read (a post's page: its own; a page
 of the site: the reader's first), when there is one; without script, or
 on a page with no languages, it stays `rss.xml`. Platinum's `rss.xsl`
 draws any of them, its address the feed's own. Platinum buildNumber 18,
-Paper 11, not pushed. Tests: `TestPostLanguages` (both feeds' items,
+Paper 11, pushed 2026-10-24. Tests: `TestPostLanguages` (both feeds' items,
 links, fallbacks and heads; `rss.xml` and a one-language site
 untouched), the lang test's RSS link, and a scratch build of the live
 site whose `rss.xml` is the live one's but for the domain.
@@ -1416,12 +1416,11 @@ in 0.2 s and builds in 0.2 s.
 7. Replies from the hub, as that section says. Done 2026-09-26 (0.6.0);
    the live site switched on at Livid's say.
 8. A post in more than one language, as that section says. Done
-   2026-10-13 (0.7.0). The two templates' changes are in the vendored
-   copies here and **not pushed** to SiteTemplatePaper and
-   SiteTemplatePlatinum (which also still lacks buildNumber 13, the Mac
-   bold, 15 to 17, the reader's type, and 18, a feed a language; Paper 10
-   and 11): that waits for Livid's word, one repo commit a buildNumber,
-   then the PlanetSiteTemplates bump.
+   2026-10-13 (0.7.0). The two templates' changes, with everything
+   after them up to Paper 12 and Platinum 20, were pushed on Livid's
+   word 2026-10-24, one repo commit a buildNumber: SiteTemplatePaper
+   1621b7c..4869b74, SiteTemplatePlatinum 6c217bf..afb62c3,
+   PlanetSiteTemplates 8bb8dba, tag 0.10.6.
 
 ## Later
 
