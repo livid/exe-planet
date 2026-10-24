@@ -450,6 +450,20 @@ container) gives `./<id>/name.png` on Paper's index. Paper buildNumber
 4869b74, SiteTemplatePlatinum afb62c3, PlanetSiteTemplates 8bb8dba, tag
 0.10.6; a fresh clone of the tag == `templates/` here).
 
+The filter itself moved too much (Codex, hub thread 61959879): Planet's
+version put the folder in front of every source but http(s), so on the
+home page now, and in the feed always, a `//cdn…`, `/root.png`,
+`data:…` or `ipfs://…` picture broke, and an empty `src` became the
+folder. It now moves only a source beside the article: not empty, not
+starting with `/`, `?` or `#`, and with no scheme (a letter, then
+letters, digits, `+ - .`, up to the first colon, as a browser reads
+one; "Shot 10:30.png" is still a file). The Go port and Planet's
+`MarkdownUtils.swift` have the same rule: on 18 sources the two give
+the same `src`, and on the 15 that are pictures the home page then
+loads the file the post page loads (Node's URL parser). Until a Planet
+build has it, exe-planet's feed differs from Planet's for those sources
+alone; no golden has one.
+
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,
 port its core functionality to paper and platinum"). Sepia's is two

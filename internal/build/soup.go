@@ -56,7 +56,7 @@ type writer struct {
 func rewriteImages(n *html.Node, prefix string) {
 	if n.Type == html.ElementNode && n.DataAtom == atom.Img {
 		for i, a := range n.Attr {
-			if a.Key == "src" && !strings.HasPrefix(a.Val, "https://") && !strings.HasPrefix(a.Val, "http://") {
+			if a.Key == "src" && articleRelative(a.Val) {
 				n.Attr[i].Val = prefix + a.Val
 			}
 		}
@@ -64,6 +64,31 @@ func rewriteImages(n *html.Node, prefix string) {
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		rewriteImages(c, prefix)
 	}
+}
+
+// articleRelative reports whether an image source names a file beside the
+// article, the only kind the filter moves: not empty, not from the root or
+// another host (/ or //), not a query or fragment alone, and with no
+// scheme (https:, data:, ipfs:). A scheme is what a browser reads as one,
+// a letter then letters, digits, + - or . up to the first colon, so
+// "Shot 10:30.png" is still a file. Planet's absoluteImageURL has the same
+// rule.
+func articleRelative(src string) bool {
+	if src == "" || strings.IndexByte("/?#", src[0]) >= 0 {
+		return false
+	}
+	colon := strings.IndexByte(src, ':')
+	if colon <= 0 {
+		return true
+	}
+	for i := 0; i < colon; i++ {
+		c := src[i]
+		letter := 'a' <= c|0x20 && c|0x20 <= 'z'
+		if !letter && (i == 0 || !('0' <= c && c <= '9' || c == '+' || c == '-' || c == '.')) {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *writer) serialize(n *html.Node) {

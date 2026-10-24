@@ -71,3 +71,30 @@ func TestSoupImageURLs(t *testing.T) {
 		t.Fatalf("\n got %q\nwant %q", got, want)
 	}
 }
+
+// Only a source that names a file beside the article gets the article's
+// folder in front: one with a scheme, one from the root or another host,
+// a query or fragment alone, and an empty one already say where they are.
+func TestSoupImageURLsKeepsPlacedSources(t *testing.T) {
+	for src, want := range map[string]string{
+		"shot.png":                      "./ID/shot.png",
+		"./shot.png":                    "./ID/./shot.png",
+		"../up.png":                     "./ID/../up.png",
+		"Shot 10:30.png":                "./ID/Shot 10:30.png",
+		"https://x.example/a.png":       "https://x.example/a.png",
+		"HTTP://x.example/a.png":        "HTTP://x.example/a.png",
+		"//cdn.example/shot.png":        "//cdn.example/shot.png",
+		"/root.png":                     "/root.png",
+		"data:image/png;base64,iVBORw0": "data:image/png;base64,iVBORw0",
+		"ipfs://bafy/a.png":             "ipfs://bafy/a.png",
+		"blob:https://x.example/1":      "blob:https://x.example/1",
+		"?v=2":                          "?v=2",
+		"#top":                          "#top",
+		"":                              "",
+	} {
+		in := `<img src="` + src + `">`
+		if got, w := soupImageURLs(in, "./ID/"), `<img src="`+want+`" />`; got != w {
+			t.Errorf("%q: got %s, want %s", src, got, w)
+		}
+	}
+}
