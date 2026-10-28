@@ -497,7 +497,16 @@ the date, the author's avatar and the title, and leave pages out. Only
 Planet's filters, so dates are `ymd` (Jan 2, 2022) where the Zola site
 wrote 2022-01-02, and there is no reading time. No languages, no hub
 replies and no to-do script yet. `TestCloudTemplate` builds every page
-kind. Not published as a SiteTemplate repo; that waits for Livid's word.
+kind. Published the same day on Livid's word ("publish Cloud like
+Paper") as
+[Planetable/SiteTemplateCloud](https://github.com/Planetable/SiteTemplateCloud)
+(dba8456, buildNumber 1, the vendored folder here without `.git`) and
+bundled as the `cloud` submodule of PlanetSiteTemplates (fad4523, tag
+0.11.0: a new template is a minor bump); a fresh clone of the tag ==
+`templates/cloud`. PlanetSiteTemplates' real-Stencil test did not run:
+SwiftPM fetches its packages from GitHub, which this machine's agent
+may not run without Livid's leave. The Planet app picks Cloud up when
+its pin moves past 0.10.6.
 
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,
