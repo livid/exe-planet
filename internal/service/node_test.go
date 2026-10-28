@@ -182,9 +182,26 @@ func TestExpose(t *testing.T) {
 	if svc.HostDir("notes.example.test") != "" || svc.HostDir("blog.example.test") == "" {
 		t.Fatal("hosts did not move")
 	}
-	bad := "Not Valid"
-	if _, err := svc.SetNode(ctx, "notes", NodeUpdate{Subdomain: &bad}); err == nil {
-		t.Fatal("a bad subdomain was taken")
+	// a whole hostname, in a zone other than exe's, is used as it is
+	whole := "Notes.Other-Zone.test."
+	n, err = svc.SetNode(ctx, "notes", NodeUpdate{Subdomain: &whole})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Hostname != "notes.other-zone.test" || n.Subdomain != "notes.other-zone.test" || fe.routes["blog.example.test"] != "" || fe.routes["notes.other-zone.test"] == "" {
+		t.Fatalf("whole hostname: %+v %v", n, fe.routes)
+	}
+	if svc.HostDir("notes.other-zone.test") == "" || svc.HostDir("blog.example.test") != "" {
+		t.Fatal("hosts did not move to the whole hostname")
+	}
+	n, err = svc.SetNode(ctx, "notes", NodeUpdate{Subdomain: &sub})
+	if err != nil || n.Hostname != "blog.example.test" {
+		t.Fatalf("back to a subdomain: %+v %v", n, err)
+	}
+	for _, bad := range []string{"Not Valid", "a..b", "-a.example.test", "a.example.test-", "a/b"} {
+		if _, err := svc.SetNode(ctx, "notes", NodeUpdate{Subdomain: &bad}); err == nil {
+			t.Fatalf("a bad address %q was taken", bad)
+		}
 	}
 	// off removes the route, and the feed goes back to the gateway form
 	off := false

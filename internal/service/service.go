@@ -262,6 +262,8 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 	// text. One with no title of its own takes the post's.
 	langs := map[string]string{}
 	versions := map[string][]build.Version{}
+	// a post may name its own author (PLAN.md, Front matter)
+	authors := map[string]*build.Author{}
 	for _, post := range posts {
 		if tag, ok := site.LangTag(post.Extra["lang"]); ok {
 			langs[post.ID] = tag
@@ -277,6 +279,9 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 			versions[post.ID] = append(versions[post.ID], build.Version{Lang: v.Lang, Title: title, Content: v.Body, Summary: Summary(markdown.Render(v.Body))})
 		}
 		dirs[post.ID] = post.Dir
+		if name := post.Extra["author"]; name != "" {
+			authors[post.ID] = &build.Author{Name: name, Link: post.Extra["author_link"], Avatar: post.Extra["author_avatar"]}
+		}
 		hub := post.Hub
 		if hub == "" && post.Kind == "post" {
 			hub = lost[post.ID]
@@ -299,6 +304,9 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 		Languages: func(a *planet.MyArticle) (string, []build.Version) {
 			return langs[a.ID], versions[a.ID]
 		},
+		Author: func(a *planet.MyArticle) *build.Author {
+			return authors[a.ID]
+		},
 		Now:      time.Now(),
 		Location: s.Location,
 	}
@@ -307,6 +315,9 @@ func (s *Service) input(st *site.Site, posts []*site.Post) (build.Input, error) 
 	}
 	if _, err := os.Stat(filepath.Join(st.Dir, "favicon.ico")); err == nil {
 		in.FaviconPath = filepath.Join(st.Dir, "favicon.ico")
+	}
+	if fi, err := os.Stat(filepath.Join(st.Dir, "static")); err == nil && fi.IsDir() {
+		in.StaticDir = filepath.Join(st.Dir, "static")
 	}
 	return in, nil
 }

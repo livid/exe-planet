@@ -885,7 +885,7 @@ async function publishSheet() {
     <p class="hint">Where this site is served from this node, and where it is heard. All three are off until you turn them on.</p>
     <div class="group"><h3>Web</h3>
       <div class="row h"><input type="checkbox" id="d-expose" ${canExpose ? "" : "disabled"} ${node.expose ? "checked" : ""}><label for="d-expose" class="${canExpose ? "" : "dis"}">Expose through exe, with its DNS record and tunnel</label></div>
-      <div class="row f"><label for="d-sub">Address</label><input type="text" id="d-sub" value="${esc(node.subdomain || "")}" placeholder="${esc(slug)}" ${canExpose ? "" : "disabled"}><span class="suffix">.${esc(caps.domain || "…")}</span></div>
+      <div class="row f"><label for="d-sub">Address</label><input type="text" id="d-sub" value="${esc(node.subdomain || "")}" placeholder="${esc(slug)}" ${canExpose ? "" : "disabled"}><span class="suffix" id="d-suffix">.${esc(caps.domain || "…")}</span></div>
       <div class="row f"><label>Now</label><span class="val" id="d-url"></span></div>
     </div>
     <div class="group"><h3>IPFS</h3>
@@ -952,7 +952,15 @@ async function publishSheet() {
     catch (e) { $("#d-err").textContent = e.message; $("#d-pubnow").disabled = false; }
   });
   $("#d-export").addEventListener("click", () => { window.open(withToken(API + "/sites/" + encodeURIComponent(slug) + "/export"), "_blank"); });
-  $("#d-sub").addEventListener("input", () => { const v = $("#d-sub").value.trim(); $("#d-err").textContent = v && !SLUG.test(v) ? "An address is lowercase letters, digits and hyphens." : ""; });
+  // a name in exe's zone, or a whole hostname in another zone exe's token
+  // holds; the zone's suffix stays in its place, hidden, so nothing moves
+  const address = () => {
+    const v = $("#d-sub").value.trim().toLowerCase().replace(/\.$/, "");
+    $("#d-suffix").style.visibility = v.includes(".") ? "hidden" : "";
+    $("#d-err").textContent = v && !v.split(".").every(l => SLUG.test(l)) ? "An address is a name of lowercase letters, digits and hyphens, or a whole hostname." : "";
+  };
+  address();
+  $("#d-sub").addEventListener("input", address);
 }
 
 // ---- import ----

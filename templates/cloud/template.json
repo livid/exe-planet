@@ -1,0 +1,12 @@
+{
+  "name": "Cloud",
+  "description": "A white page and a sidebar over Mia's painted sky: the template of the CodeLauncher website, for a product with a blog",
+  "author": "Planetable Team",
+  "authorWebsite": "https://planetable.xyz",
+  "version": "1.0",
+  "idealItemsPerPage": 10,
+  "generateIndexPagination": true,
+  "generateTagPages": true,
+  "generateArchive": true,
+  "buildNumber": 1
+}

@@ -245,9 +245,9 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 	n := s.loadNode(st.ID)
 	n.Slug = slug
 	if u.Subdomain != nil {
-		sub := strings.ToLower(strings.TrimSpace(*u.Subdomain))
-		if sub != "" && site.ValidSiteSlug(sub) != nil {
-			return NodeInfo{}, fmt.Errorf("%w: a subdomain is lowercase letters, digits and hyphens", site.ErrInvalid)
+		sub := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(*u.Subdomain)), ".")
+		if sub != "" && validAddress(sub) != nil {
+			return NodeInfo{}, fmt.Errorf("%w: an address is a name of lowercase letters, digits and hyphens, or a whole hostname", site.ErrInvalid)
 		}
 		n.Subdomain = sub
 	}
@@ -261,14 +261,19 @@ func (s *Service) SetNode(ctx context.Context, slug string, u NodeUpdate) (NodeI
 		if s.Exe == nil {
 			return NodeInfo{}, fmt.Errorf("%w: exe is not configured on this node", site.ErrInvalid)
 		}
-		if s.Exe.Domain == "" {
-			return NodeInfo{}, fmt.Errorf("%w: exe has no cloudflare.domain, so there is no zone to expose in", site.ErrInvalid)
-		}
 		sub := n.Subdomain
 		if sub == "" {
 			sub = slug
 		}
-		want = sub + "." + s.Exe.Domain
+		// a whole hostname is used as it is: exe puts it in whichever of
+		// its token's zones holds it, and refuses one in none
+		want = sub
+		if !strings.Contains(sub, ".") {
+			if s.Exe.Domain == "" {
+				return NodeInfo{}, fmt.Errorf("%w: exe has no cloudflare.domain, so there is no zone to expose in", site.ErrInvalid)
+			}
+			want = sub + "." + s.Exe.Domain
+		}
 	}
 	if want != n.Hostname {
 		var warnings []string
@@ -738,4 +743,18 @@ func inputHash(siteDir, templateDir, salt string) (string, error) {
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// validAddress is what an exposed site's address may be: a name in exe's
+// zone, which is a DNS label, or a whole hostname, each of whose labels is.
+func validAddress(addr string) error {
+	if len(addr) > 253 {
+		return site.ErrInvalid
+	}
+	for _, label := range strings.Split(addr, ".") {
+		if err := site.ValidSlug(label); err != nil {
+			return err
+		}
+	}
+	return nil
 }

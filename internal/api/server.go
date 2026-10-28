@@ -9,13 +9,16 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/livid/exe-planet/internal/importer"
+	"github.com/livid/exe-planet/internal/redirects"
 	"github.com/livid/exe-planet/internal/service"
 	"github.com/livid/exe-planet/internal/site"
 )
@@ -110,7 +113,7 @@ func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.Builder != nil && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
 			if dir := s.Builder.HostDir(r.Host); dir != "" {
-				http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
+				serveBuild(w, r, dir, "")
 				return
 			}
 		}
@@ -706,8 +709,81 @@ func (s *Server) serveSite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, errors.New("site is not built yet"))
 		return
 	}
-	prefix := "/sites/" + r.PathValue("site") + "/"
-	http.StripPrefix(prefix, http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
+	serveBuild(w, r, dir, "/sites/"+r.PathValue("site"))
+}
+
+// serveBuild serves a built site whose root is at prefix ("" at an
+// exposed hostname). A path the site has no file for goes through its
+// _redirects file, as an IPFS gateway would send it (PLAN.md, A site's
+// own files).
+func serveBuild(w http.ResponseWriter, r *http.Request, dir, prefix string) {
+	files := http.StripPrefix(prefix, http.FileServer(http.Dir(dir)))
+	p := path.Clean("/" + strings.TrimPrefix(r.URL.Path, prefix))
+	if hasFile(dir, p) {
+		files.ServeHTTP(w, r)
+		return
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "_redirects"))
+	if err != nil {
+		files.ServeHTTP(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/") && p != "/" {
+		p += "/"
+	}
+	to, status, ok := redirects.Match(redirects.Parse(data), p)
+	switch {
+	case !ok:
+		files.ServeHTTP(w, r)
+	case redirects.Redirect(status):
+		if strings.HasPrefix(to, "/") {
+			to = prefix + to
+		}
+		if r.URL.RawQuery != "" && !strings.Contains(to, "?") {
+			to += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, to, status)
+	default:
+		// 200 answers with another file; 404, 410 and 451 with a page
+		target := path.Clean(to)
+		if fi, err := os.Stat(filepath.Join(dir, filepath.FromSlash(target))); err == nil && fi.IsDir() {
+			target = path.Join(target, "index.html")
+		}
+		f, err := os.Open(filepath.Join(dir, filepath.FromSlash(target)))
+		if err != nil || !hasFile(dir, target) {
+			if f != nil {
+				f.Close()
+			}
+			files.ServeHTTP(w, r)
+			return
+		}
+		defer f.Close()
+		if status == http.StatusOK {
+			fi, _ := f.Stat()
+			http.ServeContent(w, r, target, fi.ModTime(), f)
+			return
+		}
+		ctype := mime.TypeByExtension(path.Ext(target))
+		if ctype == "" {
+			ctype = "text/html; charset=utf-8"
+		}
+		w.Header().Set("Content-Type", ctype)
+		w.WriteHeader(status)
+		if r.Method != http.MethodHead {
+			io.Copy(w, f)
+		}
+	}
+}
+
+// hasFile says whether a built site holds a file at p, or a folder with
+// an index.html, which is what its file server would answer with.
+func hasFile(dir, p string) bool {
+	f := filepath.Join(dir, filepath.FromSlash(path.Clean("/"+p)))
+	fi, err := os.Stat(f)
+	if err == nil && fi.IsDir() {
+		fi, err = os.Stat(filepath.Join(f, "index.html"))
+	}
+	return err == nil && !fi.IsDir()
 }
 
 // listImport lists the planets in a Planet library folder on this

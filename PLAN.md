@@ -51,7 +51,7 @@ files over 10 MB neither accepted by the file API nor synced):
 ```
 ~/.exe/workspace/Planet/
   Templates/                  shared by every site; reserved name
-    plain/  sepia/  grid/  gamedb/  memories/  sparkle/  platinum/  paper/
+    plain/  sepia/  grid/  gamedb/  memories/  sparkle/  platinum/  paper/  cloud/
   Archived/                   reserved; the builder ignores it
     old-notes/…
   charts/                     one site; folder = slug
@@ -60,6 +60,8 @@ files over 10 MB neither accepted by the file API nor synced):
     head.html                 optional custom code, injected verbatim
     body-start.html
     body-end.html
+    static/                   optional: files served at the site's root as they are
+      _redirects              optional: old addresses, as IPFS gateways read them
     posts/
       hello-world/            one post; folder = post slug
         index.md              front matter, then Markdown
@@ -148,11 +150,24 @@ link: https://example.com/original     optional external link
 type: page                             only under pages/; default post
 hub: https://hub.example.com/p/<64 hex>   the post's thread, written by the announcing node
 lang: en                               only when it is not the site's language
+author: Xin Liu                        only when the post names its own author
+author_link: https://twitter.com/livid
+author_avatar: livid.png               a picture in the post's folder, or a URL
 ---
 ```
 
 `id` is issued when the post is created and never changes, so a rename of
 the folder is an edit for followers, not a delete plus an add.
+
+`author`, `author_link` and `author_avatar` (2026-10-28, for the
+CodeLauncher site, whose posts were written by two people) name who wrote
+one post. Planet has no such field: they reach the pages as
+`article.author` = `{name, link, avatar}` and nothing else, so
+`article.json`, `planet.json` and the feed are Planet's. `avatar` is the
+address of the picture from the page being built: the file's name on the
+post's own page, `<id>/<file>` on the site's lists, a URL as it is. A
+template that does not read `article.author` is unchanged; Cloud shows it
+beside the date and on its lists.
 
 A post made by hand — a folder and an `index.md` written into the
 Workspace by a person, an agent or a synced peer, with no front matter
@@ -245,8 +260,9 @@ social and Plausible), `article`, `articles`, `article_summary`,
 `custom_code_body_end`, `template_settings`, `user_settings`,
 `current_item_type`, `has_avatar`, `has_podcast`, `planet_ipns`. Ours, and
 absent when they do not apply: `hub_thread` (Replies from the hub),
-`replies_js_sha256`, and `page_lang`, `languages`, `article.languages`
-and `site_languages` (A post in more than one language).
+`replies_js_sha256`, `page_lang`, `languages`, `article.languages`
+and `site_languages` (A post in more than one language), and
+`article.author` (Front matter).
 
 `user_settings` also carries `<key>Filter` for every setting ending in
 `Color`, a CSS filter chain that tints a black glyph to that colour. Sepia
@@ -463,6 +479,25 @@ the same `src`, and on the 15 that are pictures the home page then
 loads the file the post page loads (Node's URL parser). Until a Planet
 build has it, exe-planet's feed differs from Planet's for those sources
 alone; no golden has one.
+
+**Cloud** (`templates/cloud`, 2026-10-28; Livid: "for cl.v2ex.pro can you
+convert it as a exe-planet site? and its current template can be named
+`Cloud`") is the CodeLauncher website's Zola theme of 2022 as a Planet
+template, the ninth: a white page with a frosted sidebar on Mia's painted
+sky (`assets/clouds.png`, her "clouds" drawn for that site, 2400×2100),
+the CSS the site compiled from its Sass with the CodeLauncher-only parts
+left with the site (the Download band, the cookie banner). The sidebar is
+the site's name, its pages in the navigation, Blog (`archive.html`, a flat
+list) and Tags when there are any. The home page is the site's About,
+whole and in Markdown, under the avatar at 48px and the site's name, then
+the posts under "Blog"; the second page on is the list alone, headed Blog.
+A post has the old breadcrumb (site › Blog ›), its title, its author when
+it names one (Front matter) and its date; a page has neither. Lists show
+the date, the author's avatar and the title, and leave pages out. Only
+Planet's filters, so dates are `ymd` (Jan 2, 2022) where the Zola site
+wrote 2022-01-02, and there is no reading time. No languages, no hub
+replies and no to-do script yet. `TestCloudTemplate` builds every page
+kind. Not published as a SiteTemplate repo; that waits for Livid's word.
 
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,
@@ -804,6 +839,11 @@ does not. Built 2026-09-25 (0.5.0).
   public Host). Off, a new sub, a delete or an archive send
   `DELETE /v1/routes/{host}`. The route lives in exe, so it survives
   either daemon's restart; the daemon rereads its node files at start.
+  The address may also be a whole hostname (2026-10-28, for
+  cl.v2ex.pro): one with a dot is sent to exe as it is, and exe puts its
+  record in whichever zone its Cloudflare token holds it in, or refuses
+  it. Each label is a slug. The sheet hides the zone's suffix while the
+  field holds a dot, keeping its place so the row does not move.
 - **IPFS** (`ipfs`) on the first turn-on makes an ed25519 key (the
   site's one key, made by whichever switch needs it first, IPFS or
   Announce; see Replies from the hub), keeps it
@@ -842,6 +882,32 @@ does not. Built 2026-09-25 (0.5.0).
   URL, the IPNS name, the last CID with its time, Publish Now and Export…;
   a switch is dead, with the reason beside it, on a node without exe, a
   zone or Kubo.
+
+## A site's own files (2026-10-28)
+
+Built to move the CodeLauncher website (Zola, on Vercel) here without
+breaking its addresses: its pictures lived at `/img/` and
+`/screenshots/`, its posts at `/blog/<date>/`, which Planet writes at
+`/<slug>/`.
+
+- **`static/`** in a site's folder is copied to the root of each build
+  as it is, last, so a file the build writes itself keeps its name and
+  the site's file of that name is left out with a build warning. Hidden
+  files and links are skipped. It is part of the site's input, so a
+  change rebuilds and republishes. It is what the About points at (a
+  screenshot on the home page) and where a site keeps a favicon set, a
+  web app manifest or files an old site served.
+- **`static/_redirects`** is the format IPFS gateways and Netlify share:
+  `from to [status]` a line, `:name` and a closing `*` in from, `:name`
+  and `:splat` in to, 301 unless given; 301, 302, 303, 307 and 308
+  redirect (to may then be a URL), 200 answers with to's file, 404, 410
+  and 451 answer with to's file under that status. A rule applies only to
+  a path the site has no file for, the first that matches wins, a splat
+  keeps the request's trailing slash and a redirect keeps its query. A
+  line that cannot be read is skipped. A DNSLink or subdomain gateway
+  reads the same file from the CID, and the daemon reads it from
+  `public/` for an exposed hostname and under `/sites/<slug>/`
+  (`internal/redirects`).
 
 ## Replies from the hub (built 2026-09-26)
 

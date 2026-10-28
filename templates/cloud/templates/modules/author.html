@@ -1,0 +1,9 @@
+{% if article.author %}
+<div class="author">
+  {% if article.author.avatar %}{% if article.author.link %}<a href="{{ article.author.link }}" target="_blank">{% endif %}<img src="{{ article.author.avatar }}" alt="" class="avatar" width="24" height="24">{% if article.author.link %}</a>{% endif %}{% endif %}
+  <div class="author-name">{% if article.author.link %}<a href="{{ article.author.link }}" target="_blank">{{ article.author.name|escape }}</a>{% else %}{{ article.author.name|escape }}{% endif %}</div>
+  {% if article_type == 0 %}<div class="page-info">{{ article.created|ymd }}</div>{% endif %}
+</div>
+{% else %}
+{% if article_type == 0 %}<div class="page-info">{{ article.created|ymd }}</div>{% endif %}
+{% endif %}

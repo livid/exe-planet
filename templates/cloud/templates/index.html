@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% if previous_page %}<link rel="prev" href="./{{ previous_page }}">{% endif %}
+{% if next_page %}<link rel="next" href="./{{ next_page }}">{% endif %}
+{% endblock %}
+{% block title %}{% if tag_key %}{{ tag_value|escape }} · {{ planet.name|escape }}{% else %}{{ planet.name|escape }}{% endif %}{% endblock %}
+{% block main %}
+{% if tag_key %}
+<div id="breadcrumb"><a href="./">{{ planet.name|escape }}</a><span class="chevron"></span><a href="./tags.html">Tags</a><span class="chevron"></span></div>
+<h1>{{ tag_value|escape }}</h1>
+{% else %}
+{% if current_page == 1 %}
+<div class="h-stack">
+  {% if has_avatar %}<img src="./avatar.png" alt="" class="app-icon" width="48" height="48">{% endif %}
+  <h1>{{ planet.name|escape }}</h1>
+</div>
+{% if page_description_html.count > 0 %}<div class="content about">{{ page_description_html }}</div>
+{% if articles.count > 0 %}<h2>Blog</h2>{% endif %}{% endif %}
+{% else %}
+<h1>Blog</h1>
+{% endif %}
+{% endif %}
+{% include 'modules/list.html' %}
+{% if total_pages > 1 %}
+<div class="pager"><span>{% if previous_page %}<a href="./{{ previous_page }}">Newer</a>{% endif %}</span><span>{% if next_page %}<a href="./{{ next_page }}">Older</a>{% endif %}</span></div>
+{% endif %}
+{% endblock %}

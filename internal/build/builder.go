@@ -43,6 +43,13 @@ type Input struct {
 	// pages and nothing else: article.json, planet.json and the feed keep
 	// the article as it was written.
 	Languages func(a *planet.MyArticle) (string, []Version)
+	// Author is who wrote an article, for a site whose posts name their
+	// own authors (PLAN.md, Front matter), or nil. It reaches the pages as
+	// article.author and nothing else: Planet has no such field.
+	Author func(a *planet.MyArticle) *Author
+	// StaticDir is the site's static/ folder, served at the site's root as
+	// it is (PLAN.md, A site's own files), or "".
+	StaticDir string
 	// AssetsDir replaces the template's assets/ folder, for a golden test
 	// whose site was built with an older copy of the template.
 	AssetsDir string
@@ -120,8 +127,52 @@ func Build(in Input) (*Result, error) {
 	if err := b.pages(); err != nil {
 		return nil, err
 	}
+	if err := b.siteFiles(); err != nil {
+		return nil, err
+	}
 	sort.Strings(b.res.Files)
 	return b.res, nil
+}
+
+// siteFiles copies the site's static/ folder to the root of the build as
+// it is, last, so a file the build wrote itself keeps its name and the
+// site's file of that name is left out with a warning. Hidden files and
+// links are skipped.
+func (b *builder) siteFiles() error {
+	src := b.in.StaticDir
+	if src == "" {
+		return nil
+	}
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, path)
+		if rel == "." {
+			return nil
+		}
+		if strings.HasPrefix(d.Name(), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		name := filepath.ToSlash(rel)
+		target := filepath.Join(b.in.Out, rel)
+		if _, err := os.Lstat(target); err == nil {
+			b.warn("static/%s is left out: the build writes its own %s", name, name)
+			return nil
+		}
+		if err := copyFile(path, target); err != nil {
+			b.warn("static/%s is left out: %v", name, err)
+			return nil
+		}
+		b.res.Files = append(b.res.Files, name)
+		return nil
+	})
 }
 
 // domainWithGateway is Planet's: an .eth name through eth.limo, .sol
@@ -404,7 +455,7 @@ func (b *builder) renderArticleIn(file string, written *planet.MyArticle, dir st
 		"template_settings":     b.tsettings,
 		"user_settings":         b.user,
 		"article_id":            a.ID,
-		"article":               planet.ForTemplate(pub),
+		"article":               b.articleCtx(a, pub),
 		"article_type":          a.Type(),
 		"article_title":         a.Title,
 		"article_summary":       summary,
@@ -426,6 +477,16 @@ func (b *builder) renderArticleIn(file string, written *planet.MyArticle, dir st
 		ctx[k] = v
 	}
 	return b.env.Render(file, ctx)
+}
+
+// articleCtx is an article as its own page reads it: Planet's projection,
+// and its author when the site names one.
+func (b *builder) articleCtx(a *planet.MyArticle, pub map[string]any) map[string]any {
+	m := planet.ForTemplate(pub)
+	if au := b.authorOf(a, ""); au != nil {
+		m["author"] = au
+	}
+	return m
 }
 
 // Preview renders one article's page to a string without writing
@@ -481,6 +542,7 @@ func (b *builder) pages() error {
 		byID[a.ID] = a
 	}
 	b.listLanguages(byID, blogCtx, all)
+	b.listAuthors(byID, blogCtx, all)
 	common := map[string]any{
 		"planet":                planetCtx,
 		"planet_ipns":           p.IPNS,

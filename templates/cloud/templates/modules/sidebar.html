@@ -1,0 +1,10 @@
+<div class="sidebar">
+  <div class="sidebar-inner">
+    <a href="{{ assets_prefix }}" class="sidebar-item{% if current_item_type == 'index' %}{% if current_page == 1 %} active{% endif %}{% endif %}">{{ planet.name|escape }}</a>
+    {% for item in site_navigation %}
+    <a href="{% if item.externalLink %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{{ item.slug }}/{% endif %}" class="sidebar-item{% if item.id == article.id %} active{% endif %}">{{ item.title|escape }}</a>
+    {% endfor %}
+    <a href="{{ assets_prefix }}archive.html" class="sidebar-item{% if current_item_type == 'archive' %} active{% endif %}{% if current_item_type == 'blog' %}{% if article_type == 0 %} active{% endif %}{% endif %}{% if current_item_type == 'index' %}{% if current_page > 1 %} active{% endif %}{% endif %}">Blog</a>
+    {% if planet.tags.count > 0 %}<a href="{{ assets_prefix }}tags.html" class="sidebar-item{% if current_item_type == 'tags' %} active{% endif %}">Tags</a>{% endif %}
+  </div>
+</div>
