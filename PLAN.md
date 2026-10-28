@@ -529,8 +529,14 @@ builds every page kind and the Hide setting. The live site `planetable`
 wears it with Hide: its guides are posts dated by their first commit,
 and its Guides page (weight 1) is the old section's list, in the old
 order, with each guide's description; `/guides/<name>/` and each moved
-picture's old `/assets/…` address are in its `_redirects`. Not
-published as a SiteTemplate repo; that waits for Livid's word.
+picture's old `/assets/…` address are in its `_redirects`. Published
+the same day on Livid's word ("publish Ivory like Cloud") as
+[Planetable/SiteTemplateIvory](https://github.com/Planetable/SiteTemplateIvory)
+(9feedb7, buildNumber 1) and bundled as the `ivory` submodule of
+PlanetSiteTemplates (df1b153, tag 0.12.0); a fresh clone of the tag ==
+`templates/ivory`, and PlanetSiteTemplates' tests pass at 0.12.0 on
+Livid's Mac with all ten templates. The Planet app picks Cloud and
+Ivory up when its pin moves past 0.10.6.
 
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,
