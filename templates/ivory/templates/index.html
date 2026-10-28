@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% if previous_page %}<link rel="prev" href="./{{ previous_page }}">{% endif %}
+{% if next_page %}<link rel="next" href="./{{ next_page }}">{% endif %}
+{% endblock %}
+{% block title %}{% if tag_key %}{{ tag_value|escape }} · {{ planet.name|escape }}{% else %}{{ planet.name|escape }}{% endif %}{% endblock %}
+{% block main %}
+<div class="markdown-content">
+{% if tag_key %}
+<h1>{{ tag_value|escape }}</h1>
+{% include 'modules/list.html' %}
+{% else %}
+{% if current_page == 1 %}
+{% if page_description_html.count > 0 %}<div class="about">{{ page_description_html }}</div>{% endif %}
+{% if user_settings['homePosts'] != 'Hide' %}{% if articles.count > 0 %}
+{% if page_description_html.count > 0 %}<h2>Posts</h2>{% endif %}
+{% include 'modules/list.html' %}
+{% if next_page %}<div class="pager"><span></span><a href="./{{ next_page }}">Older</a></div>{% endif %}
+{% endif %}{% endif %}
+{% else %}
+<h1>Posts</h1>
+{% include 'modules/list.html' %}
+<div class="pager"><span>{% if previous_page %}<a href="./{{ previous_page }}">Newer</a>{% endif %}</span><span>{% if next_page %}<a href="./{{ next_page }}">Older</a>{% endif %}</span></div>
+{% endif %}
+{% endif %}
+</div>
+{% endblock %}

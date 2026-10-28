@@ -51,7 +51,7 @@ files over 10 MB neither accepted by the file API nor synced):
 ```
 ~/.exe/workspace/Planet/
   Templates/                  shared by every site; reserved name
-    plain/  sepia/  grid/  gamedb/  memories/  sparkle/  platinum/  paper/  cloud/
+    plain/  sepia/  grid/  gamedb/  memories/  sparkle/  platinum/  paper/  cloud/  ivory/
   Archived/                   reserved; the builder ignores it
     old-notes/…
   charts/                     one site; folder = slug
@@ -508,6 +508,29 @@ and every template file rendered by real Stencil with a preview
 context) pass at 0.11.0 on Livid's Mac (Swift 6.4, macOS 27.0.1, a
 fresh clone in /tmp). The Planet app picks Cloud up when its pin moves
 past 0.10.6.
+
+**Ivory** (`templates/ivory`, 2026-10-28; Livid: "can you also turn
+www.planetable.xyz into a exe-planet site", the name his pick of mine)
+is the Planet app's own website of 2022 (Zola, on Vercel until that
+day) as a Planet template, the tenth: an ivory page (#fffff0) beside a
+panel that holds the avatar, large, and the site's name, the old CSS
+with the site's own parts (the Download button, the Showcase grid, the
+name drawn as the Planet wordmark) left with the site's Custom Code. A
+row of links at the top: Home and the pages in the navigation; a
+footer line links the archive, the tags and the feed, which the old
+site did not need. The home page is the About in full, then the posts,
+unless the one setting, Posts on the Home Page (`homePosts`, Show or
+Hide), is Hide. A post has its title, date and text, a page its title
+and text; a small script makes a table of contents from a text's
+headings when it has two or more that are not only a link, as Zola's
+`page.toc` did, and shows a button back to the top (no jQuery). Code
+blocks are dark, as Zola's highlighter drew them. `TestIvoryTemplate`
+builds every page kind and the Hide setting. The live site `planetable`
+wears it with Hide: its guides are posts dated by their first commit,
+and its Guides page (weight 1) is the old section's list, in the old
+order, with each guide's description; `/guides/<name>/` and each moved
+picture's old `/assets/…` address are in its `_redirects`. Not
+published as a SiteTemplate repo; that waits for Livid's word.
 
 **To-do lists** in Platinum and Paper (2026-10-06; Livid: "sepia template
 has a sophisticated impl for displaying and interact markdown todo list,

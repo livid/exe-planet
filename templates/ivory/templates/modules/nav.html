@@ -1,0 +1,8 @@
+<div id="nav">
+  <div class="nav-inner">
+    <a href="{{ assets_prefix }}" class="nav-item{% if current_item_type == 'index' %}{% if current_page == 1 %} active{% endif %}{% endif %}">Home</a>
+    {% for item in site_navigation %}
+    <a href="{% if item.externalLink %}{{ item.externalLink }}{% else %}{{ assets_prefix }}{{ item.slug }}/{% endif %}" class="nav-item{% if item.id == article.id %} active{% endif %}">{{ item.title|escape }}</a>
+    {% endfor %}
+  </div>
+</div>

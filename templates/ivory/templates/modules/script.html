@@ -1,0 +1,38 @@
+<button class="scroll-top" type="button" aria-label="Back to top"><span>❯</span></button>
+<script>
+  (() => {
+    // a text with two headings or more gets a table of contents above it; a heading
+    // that is only a link names another page, not a part of this one
+    const content = document.querySelector('.content');
+    const heads = content ? [...content.querySelectorAll('h2, h3')].filter(h => !(h.children.length === 1 && h.firstElementChild.tagName === 'A' && h.textContent.trim() === h.firstElementChild.textContent.trim())) : [];
+    if (heads.length > 1) {
+      const toc = document.createElement('ul');
+      toc.className = 'toc';
+      let top = null, sub = null;
+      heads.forEach((h, i) => {
+        if (!h.id) h.id = (h.textContent.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'section') + (document.getElementById(h.id) ? '-' + i : '');
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        li.append(a);
+        if (h.tagName === 'H2' || !top) {
+          toc.append(li);
+          top = li;
+          sub = null;
+        } else {
+          if (!sub) top.append(sub = document.createElement('ul'));
+          sub.append(li);
+        }
+      });
+      const label = document.createElement('p');
+      label.textContent = 'Table of Contents';
+      content.before(label, toc);
+    }
+    const up = document.querySelector('.scroll-top');
+    const show = () => { up.classList.toggle('shown', window.scrollY > 200); };
+    window.addEventListener('scroll', show, { passive: true });
+    up.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    show();
+  })();
+</script>

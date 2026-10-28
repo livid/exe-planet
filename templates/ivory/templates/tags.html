@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/planet_seo.html' %}
+{% endblock %}
+{% block title %}Tags · {{ planet.name|escape }}{% endblock %}
+{% block main %}
+<div class="markdown-content">
+<h1>Tags</h1>
+<ul class="posts">
+  {% for tag in tags %}
+  <li><a href="./{{ tag }}.html">{{ tags[tag]|escape }}</a> <span class="date">{{ tag_articles[tag].count }}</span></li>
+  {% endfor %}
+</ul>
+</div>
+{% endblock %}

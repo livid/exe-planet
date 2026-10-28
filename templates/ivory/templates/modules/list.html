@@ -1,0 +1,5 @@
+<ul class="posts">
+{% for article in articles %}{% if article.articleType != 1 %}
+  <li><a href=".{{ article.link }}">{% if article.title.count > 0 %}{{ article.title|escape }}{% else %}Untitled{% endif %}</a> <span class="date">{{ article.created|ymd }}</span></li>
+{% endif %}{% endfor %}
+</ul>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="theme-color" content="#fffff0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}{% if page_title.count > 0 %}{{ page_title|escape }}{% else %}{{ planet.name|escape }}{% endif %}{% endblock %}</title>
+  {% if has_avatar %}
+  <link rel="icon" type="image/png" href="{{ assets_prefix }}avatar.png">
+  <link rel="apple-touch-icon" href="{{ assets_prefix }}avatar.png">
+  {% endif %}
+  <link rel="stylesheet" href="{{ assets_prefix }}assets/style.css?sha256={{ style_css_sha256 }}">
+  <link rel="alternate" type="application/rss+xml" title="{{ planet.name|escape }}" href="{{ assets_prefix }}rss.xml">
+  <script>
+    window.PLANET = {
+      visitedFromPlanetClient: !!navigator.userAgent.match(/Planet\/\S*/),
+      assetsPrefix: '{{ assets_prefix }}',
+    };
+  </script>
+  {% block head %}{% endblock %}
+  {% if planet.plausibleEnabled %}
+  <script defer data-domain="{{ planet.plausibleDomain }}" src="https://{{ planet.plausibleAPIServer }}/js/plausible.local.js"></script>
+  {% endif %}
+  {% if custom_code_head.count > 0 %}{{ custom_code_head }}{% endif %}
+</head>
+<body>
+{% if custom_code_body_start.count > 0 %}{{ custom_code_body_start }}{% endif %}
+<div class="wrapper">
+  <div id="app">
+    <div id="sidebar">
+      <div class="sidebar-inner">
+        <a class="logo" href="{{ assets_prefix }}">{% if has_avatar %}<img src="{{ assets_prefix }}avatar.png" alt="">{% endif %}</a>
+        <a class="site-name" href="{{ assets_prefix }}">{{ planet.name|escape }}</a>
+      </div>
+    </div>
+    <div id="main">
+      {% include 'modules/nav.html' %}
+      <div class="main-inner">
+        {% block main %}{% endblock %}
+      </div>
+      {% include 'modules/footer.html' %}
+    </div>
+  </div>
+</div>
+{% block bottom %}{% endblock %}
+{% if custom_code_body_end.count > 0 %}{{ custom_code_body_end }}{% endif %}
+</body>
+</html>

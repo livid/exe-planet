@@ -1,0 +1,21 @@
+{
+  "name": "Ivory",
+  "description": "An ivory page beside a panel that holds the site's avatar and name: the template of the Planet app's website, for a product with guides",
+  "author": "Planetable Team",
+  "authorWebsite": "https://planetable.xyz",
+  "version": "1.0",
+  "idealItemsPerPage": 10,
+  "generateIndexPagination": true,
+  "generateTagPages": true,
+  "generateArchive": true,
+  "buildNumber": 1,
+  "settings": {
+    "homePosts": {
+      "name": "Posts on the Home Page",
+      "type": "string",
+      "defaultValue": "Show",
+      "options": ["Show", "Hide"],
+      "description": "Show lists the posts under the About on the home page. Hide shows the About alone, for a site whose pages lead to its posts."
+    }
+  }
+}

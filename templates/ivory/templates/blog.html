@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block head %}
+{% include 'modules/article_seo.html' %}
+{% if article.externalLink.count > 0 %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!window.PLANET.visitedFromPlanetClient) { window.location.href = "{{ article.externalLink|escapejs }}"; }
+  });
+</script>
+{% endif %}
+{% endblock %}
+{% block main %}
+<div class="markdown-content">
+  {% if article.title.count > 0 %}<h1>{{ article.title|escape }}</h1>{% endif %}
+  {% if article_type == 0 %}<p class="page-info">{{ article.created|ymd }}</p>{% endif %}
+  <div class="content">
+    {% if article.hasVideo %}<video class="video" controls playsinline preload="auto" poster="_videoThumbnail.png"><source src="{{ article.videoFilename }}"></video>{% endif %}
+    {% if article.hasAudio %}<audio class="audio" controls><source src="{{ article.audioFilename }}"></audio>{% endif %}
+    {{ content_html }}
+  </div>
+  {% if article.tags.count > 0 %}
+  <p class="tags">{% for tag in article.tags %}<a href="../{{ tag }}.html">{{ article.tags[tag]|escape }}</a> {% endfor %}</p>
+  {% endif %}
+</div>
+{% endblock %}
+{% block bottom %}{% include 'modules/script.html' %}{% endblock %}
